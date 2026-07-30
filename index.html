@@ -762,6 +762,26 @@ body.base-light .leaflet-control-scale-line{background:rgba(255,255,255,.8)!impo
 }
 
 /* ============ ADAPTATION PAR TAILLE D'ÉCRAN ============ */
+/* ---------- CHOIX DE LA LANGUE ---------- */
+.langwrap{position:relative;flex:0 0 auto}
+#langbtn{width:auto;padding:0 7px;gap:5px;display:inline-flex;align-items:center}
+#langbtn .lgcode{font:600 10px/1 var(--mono);letter-spacing:.06em;color:var(--t2)}
+#langbtn.busy{opacity:.55;pointer-events:none}
+#langmenu{position:absolute;top:calc(100% + 6px);right:0;z-index:1320;display:none;
+  min-width:168px;padding:5px;background:var(--sf1);border:1px solid var(--bd2);
+  border-radius:9px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#langmenu.open{display:block}
+#langmenu button{display:flex;align-items:center;gap:9px;width:100%;min-height:34px;
+  padding:0 9px;background:transparent;border:none;border-radius:6px;
+  color:var(--t2);font:500 12.5px/1 system-ui,sans-serif;cursor:pointer;text-align:left}
+#langmenu button:hover{background:var(--sf3);color:var(--t1)}
+#langmenu button.on{color:var(--acc);background:var(--sf2)}
+#langmenu .lgc{font:600 9.5px/1 var(--mono);letter-spacing:.06em;opacity:.7;
+  min-width:20px;flex:0 0 auto}
+@media (hover:none) and (pointer:coarse),(max-width:899px),(max-height:500px){
+  #langmenu button{min-height:42px}
+}
+
 /* ==================== VUE PLANÈTE (3D) ====================
    Superposition plein écran, masquée tant qu'on ne l'ouvre pas. Le moteur 3D et
    la moindre tuile ne sont demandés qu'à la première ouverture : fermée, cette
@@ -1082,6 +1102,13 @@ body.base-light .leaflet-control-scale-line{background:rgba(255,255,255,.8)!impo
   <span class="livepill" title="Heure du dernier cycle de rafraîchissement">
     <i class="pulse" aria-hidden="true"></i><span class="num" id="ch-maj">–</span></span>
 
+  <div class="langwrap">
+    <button class="hbtn" id="langbtn" type="button" aria-haspopup="menu" aria-expanded="false"
+            aria-label="Changer la langue de l'interface" title="Langue">
+      <svg class="ic x18" aria-hidden="true"><use href="#i-globe"/></svg>
+      <span class="lgcode">FR</span></button>
+    <div id="langmenu" role="menu" aria-label="Langues"></div>
+  </div>
   <button class="hbtn" id="globebtn" type="button" aria-label="Vue planète en trois dimensions" title="Vue planète (3D)">
     <svg class="ic x18" aria-hidden="true"><use href="#i-globe"/></svg></button>
   <button class="hbtn" id="sharebtn" type="button" aria-label="Copier le lien de cette vue" title="Partager la vue">
@@ -8025,6 +8052,189 @@ majReference();
 setTimeout(hideLoader,9000);
 
 
+/* ==================== TRADUCTION DE L'INTERFACE ====================
+   Six langues, et le français d'origine.
+
+   POURQUOI UN FICHIER PAR LANGUE, CHARGÉ À LA DEMANDE.
+   L'interface compte 1 630 chaînes, soit 75 000 caractères. Embarquer six
+   traductions dans la page ajouterait plus de 600 ko à un fichier qui en pèse
+   500 : chaque visiteur paierait cinq langues qu'il ne lit pas. Chaque langue
+   vit donc dans son propre fichier, récupéré seulement si on le demande. Un
+   lecteur francophone ne télécharge rien du tout.
+
+   POURQUOI LA CLÉ EST LA PHRASE FRANÇAISE ELLE-MÊME, et non un identifiant.
+   Un dictionnaire à identifiants aurait exigé de réécrire les 1 630 endroits du
+   programme qui portent du texte. En prenant la phrase d'origine pour clé, on
+   traduit en PARCOURANT le document : rien à réécrire, et tout ce qui apparaît
+   plus tard — fiches, panneaux, messages — est traduit au même titre.
+   Contrepartie assumée : une phrase absente du dictionnaire reste en français,
+   visiblement. C'est préférable à une traduction inventée.
+
+   LE TEXTE D'ORIGINE EST CONSERVÉ sur chaque nœud, sinon changer deux fois de
+   langue traduirait une traduction. */
+const LANGUES = {
+  fr: "Français", en: "English", es: "Español",
+  de: "Deutsch", it: "Italiano", pt: "Português", zh: "中文"
+};
+let LANG = "fr", DICO = null;
+const dicoCache = new Map();
+
+async function chargeDico(lg){
+  if(lg === "fr") return null;
+  if(dicoCache.has(lg)) return dicoCache.get(lg);
+  try{
+        /* Pas de « force-cache » : le navigateur revaliderait mal un dictionnaire
+       mis a jour, et l'on servirait une version perimee sans le savoir. Le
+       cache HTTP normal suffit — ces fichiers sont statiques. */
+    const r = await fetch("data/i18n/" + lg + ".json");
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const d = await r.json();
+    dicoCache.set(lg, d);
+    return d;
+  }catch(e){
+    if(window.__diagPush) window.__diagPush("RÉSEAU", "Dictionnaire « " + lg + " » indisponible : " + e.message);
+    return null;
+  }
+}
+
+/* L'ORIGINAL EST MÉMORISÉ SUR LE NŒUD DE TEXTE LUI-MÊME.
+   Première version : je le rangeais sur l'élément parent, et seulement quand cet
+   élément n'avait qu'un seul enfant. Or beaucoup de libellés sont composés —
+   « Zones brûlées » suivi d'un <em> pour la source. Pour ceux-là l'original
+   n'était jamais retenu : impossible de revenir au français, et un second
+   changement de langue traduisait une traduction, que le dictionnaire ne
+   reconnaissait plus. C'est ce qui laissait des libellés figés en anglais.
+   Une table nœud → texte d'origine règle le cas, quelle que soit la structure. */
+let ORIG = new Map();
+
+/* La recherche tolère trois écarts de forme qui, autrement, faisaient échouer
+   des dizaines de correspondances pourtant présentes au dictionnaire :
+     . le point médian qui préfixe les sous-titres dans la colonne de gauche —
+       « · détectés du ciel… » alors que la clé est « détectés du ciel… » ;
+     . l'apostrophe, droite dans le code et typographique dans le dictionnaire,
+       ou l'inverse ;
+     . les espaces insécables, invisibles mais différents d'une espace normale.
+   On ne devine rien pour autant : c'est la MÊME phrase, écrite autrement. */
+function normalise(t){
+  return t.replace(/^[·•]\s*/, "")
+          .replace(/[’ʼ]/g, "'")
+          .replace(/[  ]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+}
+let DICO_N = null;
+function cherche(brut){
+  if(!DICO) return null;
+  if(DICO[brut]) return DICO[brut];
+  if(!DICO_N){
+    DICO_N = Object.create(null);
+    for(const k in DICO) DICO_N[normalise(k)] = DICO[k];
+  }
+  const n = normalise(brut);
+  const tr = DICO_N[n];
+  if(!tr) return null;
+  /* Si l'original portait le point médian, on le rend à la traduction : c'est
+     un signe de mise en page, pas du texte. */
+  return /^[·•]\s/.test(brut) ? brut.slice(0, 2) + tr : tr;
+}
+
+function traduisDOM(racine){
+  if(!DICO) return;
+  const r = racine || document.body;
+  const it = document.createTreeWalker(r, NodeFilter.SHOW_TEXT, {
+    acceptNode(n){
+      const p = n.parentElement;
+      if(!p) return NodeFilter.FILTER_REJECT;
+      const t = p.tagName;
+      /* Le sprite d'icônes, les scripts et les styles n'ont rien à traduire, et
+         y toucher casserait le rendu. */
+      if(t === "SCRIPT" || t === "STYLE" || p.closest("svg")) return NodeFilter.FILTER_REJECT;
+      return n.nodeValue.trim().length > 1 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+  const lot = [];
+  let n; while((n = it.nextNode())) lot.push(n);
+  for(const nd of lot){
+    if(!ORIG.has(nd)) ORIG.set(nd, nd.nodeValue);
+    const src = ORIG.get(nd);
+    const brut = src.trim();
+    const tr = cherche(brut);
+    if(tr) nd.nodeValue = src.replace(brut, tr);
+  }
+  for(const el of r.querySelectorAll("[title],[aria-label],[placeholder]")){
+    for(const a of ["title","aria-label","placeholder"]){
+      const v = el.getAttribute(a); if(!v) continue;
+      const cle = "fr" + a.replace(/-/g,"");
+      if(el.dataset[cle] === undefined) el.dataset[cle] = v;
+      const tr = cherche(el.dataset[cle].trim());
+      if(tr) el.setAttribute(a, tr);
+    }
+  }
+}
+
+/* Remet tout le document dans sa langue d'origine à partir de la table, puis
+   la vide : la traduction suivante repartira du français. */
+function remetFrancais(){
+  for(const [nd, txt] of ORIG) if(nd.isConnected) nd.nodeValue = txt;
+  ORIG = new Map();
+  for(const el of document.querySelectorAll("[data-frtitle],[data-frarialabel],[data-frplaceholder]")){
+    if(el.dataset.frtitle !== undefined) el.setAttribute("title", el.dataset.frtitle);
+    if(el.dataset.frarialabel !== undefined) el.setAttribute("aria-label", el.dataset.frarialabel);
+    if(el.dataset.frplaceholder !== undefined) el.setAttribute("placeholder", el.dataset.frplaceholder);
+  }
+}
+
+async function changeLangue(lg){
+  if(!LANGUES[lg]) return;
+  /* On ENREGISTRE le choix meme s'il ne change rien a l'affichage. Sans cela,
+     quelqu'un dont le navigateur est en anglais et qui demande explicitement le
+     francais n'etait jamais entendu : la fonction sortait avant d'ecrire, et la
+     detection automatique le remettait en anglais a la visite suivante. Un choix
+     explicite doit toujours l'emporter sur une deduction. */
+  try{ localStorage.setItem("pedLang", lg); }catch(e){}
+  if(lg === LANG){ majMenuLangue(); return; }
+  const btn = $("#langbtn");
+  if(btn) btn.classList.add("busy");
+  const d = await chargeDico(lg);
+  if(lg !== "fr" && !d){
+    if(btn) btn.classList.remove("busy");
+    toast(`<span class="tmsg">${ic("warning","x16")}Le dictionnaire n’a pas pu être chargé. L’interface reste en français.</span>`, 6000);
+    return;
+  }
+  /* On repasse TOUJOURS par le français avant de traduire : sans cela, on
+     traduirait une traduction et le dictionnaire ne reconnaîtrait plus rien. */
+  remetFrancais();
+  LANG = lg; DICO = d; DICO_N = null;
+  document.documentElement.lang = lg;
+  if(d) traduisDOM();
+  try{ localStorage.setItem("pedLang", lg); }catch(e){}
+  if(btn){ btn.classList.remove("busy"); btn.querySelector(".lgcode").textContent = lg.toUpperCase(); }
+  majMenuLangue();
+  toast(`<span class="tmsg">${ic("globe","x16")}${LANGUES[lg]}</span>`, 2200);
+}
+
+function majMenuLangue(){
+  const m = $("#langmenu"); if(!m) return;
+  m.innerHTML = Object.entries(LANGUES).map(([c,n]) =>
+    `<button type="button" role="menuitemradio" aria-checked="${c===LANG}" data-lg="${c}"${c===LANG?' class="on"':''}>`
+    + `<span class="lgc">${c.toUpperCase()}</span>${esc(n)}</button>`).join("");
+}
+
+/* Le document se remplit en continu : fiches, tiroirs, panneaux. On retraduit
+   ce qui apparaît, sans reparcourir toute la page à chaque fois. */
+function observeTraduction(){
+  const cibles = ["#cardbody", "#drawer", "#lay", "#toast", "#dglog", "#dgsrc"]
+    .map(s => $(s)).filter(Boolean);
+  const obs = new MutationObserver(muts => {
+    if(!DICO) return;
+    for(const m of muts)
+      for(const n of m.addedNodes)
+        if(n.nodeType === 1) traduisDOM(n);
+        else if(n.nodeType === 3 && m.target) traduisDOM(m.target);
+  });
+  for(const c of cibles) obs.observe(c, {childList:true, subtree:true});
+}
+
 /* ==================== VUE PLANÈTE (3D) ====================
    Une VRAIE sphère, pas un fond d'écran : projection globe de MapLibre, imagerie
    satellite Esri jusqu'au bâtiment (vérifié : tuiles réelles au niveau 19 sur
@@ -8511,6 +8721,38 @@ $("#gl-info").addEventListener("click", e=>{
 
 /* Le globe suit les données de la carte, sans jamais rien redemander lui-même. */
 setInterval(()=>{ if(glOuvert) glMaj(); }, 60000);
+
+/* ---------- Mise en service de la traduction ---------- */
+majMenuLangue();
+observeTraduction();
+$("#langbtn").onclick = e => {
+  e.stopPropagation();
+  const m = $("#langmenu"), o = !m.classList.contains("open");
+  m.classList.toggle("open", o);
+  $("#langbtn").setAttribute("aria-expanded", String(o));
+};
+$("#langmenu").onclick = e => {
+  const b = e.target.closest("[data-lg]"); if(!b) return;
+  $("#langmenu").classList.remove("open");
+  $("#langbtn").setAttribute("aria-expanded","false");
+  changeLangue(b.dataset.lg);
+};
+document.addEventListener("click", e => {
+  if(!e.target.closest(".langwrap")) $("#langmenu").classList.remove("open");
+});
+/* On respecte le choix precedent, sinon la langue du navigateur si elle est
+   couverte. Le francais reste la langue d'origine du document. */
+(function langueInitiale(){
+  let lg = null;
+  try{ lg = localStorage.getItem("pedLang"); }catch(e){}
+  if(!lg){
+    const n = (navigator.language||"fr").slice(0,2).toLowerCase();
+    if(LANGUES[n] && n !== "fr") lg = n;
+  }
+  if(lg && lg !== "fr") setTimeout(()=>changeLangue(lg), 400);
+})();
+
+
 </script>
 </body>
 </html>
