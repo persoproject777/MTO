@@ -128,6 +128,19 @@ header{display:flex;align-items:center;gap:8px;padding:0 10px;height:46px;
   transform:translateY(-100%);transition:transform .24s ease;
   box-shadow:0 8px 30px rgba(0,0,0,.5)}
 #panel.open{transform:none}
+/* Poignée d'ouverture, masquée par défaut : elle n'a de sens que sur
+   grand écran, où le panneau se range sur le côté. */
+#pgrab{display:none;position:absolute;left:0;top:50%;transform:translateY(-50%);
+  z-index:1199;width:22px;height:78px;place-items:center;cursor:pointer;
+  background:rgba(12,19,34,.92);border:1px solid var(--bd2);border-left:none;
+  border-radius:0 8px 8px 0;color:var(--t2);
+  transition:background .12s linear,color .12s linear}
+#pgrab .ic{transform:rotate(-90deg)}
+#pgrab:hover{background:var(--sf3);color:var(--t1)}
+#pgrab:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+/* Le bouton precede le panneau dans le document : on le masque donc
+   depuis une classe posee sur <body>, pas par un selecteur de fratrie. */
+body.pan-open #pgrab{opacity:0;pointer-events:none}
 .ptop{display:flex!important;align-items:center;gap:10px;height:44px;
   padding:0 10px 0 14px;border-bottom:1px solid var(--bd);flex:0 0 auto}
 .ptop b{flex:1;font:600 10.5px/1 system-ui,sans-serif;letter-spacing:.14em;
@@ -423,6 +436,18 @@ body.base-light #map{background:#cfd8e3}
 /* Petite flèche des liens sortants : dessinée, jamais un caractère de police */
 .ic.xl{width:11px;height:11px;stroke-width:2.1;opacity:.7;margin-left:1px}
 .pp-coords{font-family:var(--mono);font-size:11px;color:var(--mut);margin-bottom:8px}
+/* ÉTIQUETTES DE PAYS. Halo sombre plutôt que fond plein : sur l'imagerie
+   satellite un cartouche opaque masque le terrain, un contour ne masque rien.
+   Les capitales, elles, restent portées par la couche des villes. */
+.pnom{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;
+  font:600 11px/1 system-ui,sans-serif;letter-spacing:.06em;color:#e6eefc;
+  text-transform:uppercase;pointer-events:none;
+  text-shadow:0 0 3px rgba(4,8,16,.95),0 0 6px rgba(4,8,16,.85),0 1px 2px rgba(4,8,16,.9)}
+.pnom.pt{font-size:9.5px;letter-spacing:.09em;opacity:.86}
+body.base-light .pnom{color:#2b3b55;
+  text-shadow:0 0 3px rgba(255,255,255,.95),0 0 6px rgba(255,255,255,.85)}
+@media (max-width:899px),(max-height:500px){ .pnom{font-size:11px} .pnom.pt{font-size:10px} }
+
 .pp-warn{margin-top:8px;font-size:11.5px;color:#ffd9a0;background:#1c1526;border-radius:8px;padding:7px 9px;line-height:1.45}
 /* Bloc « précision ». Il répond à une question et une seule : ce que le repère
    désigne exactement, et ce qu'il ne désigne pas. Volontairement froid et
@@ -878,13 +903,25 @@ body.base-light .leaflet-control-scale-line{background:rgba(255,255,255,.8)!impo
   .livepill{display:none}
 }
 @media (min-width:900px){
-  #wrap{display:flex}
-  #map{position:relative;inset:auto;flex:1;order:2;height:100%}
-  #panel{position:relative;inset:auto;order:1;flex:0 0 344px;width:344px;height:100%;
-    transform:none!important;border-radius:0;border:none;border-right:1px solid var(--bd);
-    box-shadow:none;background:var(--sf1)}
-  #panel.hidden{display:none}
-  .ptop{display:none!important}
+  /* LE PANNEAU RECOUVRE LA CARTE, IL NE LA POUSSE PLUS.
+     En colonne fixe, il retirait 344 px de carte en permanence — sur un écran
+     de 1 280, un quart de la surface utile, et la refermer faisait se recomposer
+     toute la carte (invalidateSize, recadrage, recalcul des particules de vent).
+     En superposition, la carte occupe TOUJOURS la largeur entière : la refermer
+     ne déplace plus rien, elle dégage simplement la vue. */
+  #wrap{display:block}
+  #map{position:absolute;inset:0;flex:none;height:auto}
+  #panel{position:absolute;left:0;top:0;bottom:0;right:auto;
+    width:344px;height:auto;order:0;
+    transform:translateX(-100%);transition:transform .22s ease;
+    border-radius:0;border:none;border-right:1px solid var(--bd);
+    box-shadow:8px 0 28px rgba(0,0,0,.42);background:var(--sf1)}
+  #panel.open{transform:none}
+  #panel.hidden{transform:translateX(-100%)}
+  .ptop{display:flex!important}
+  /* Poignée toujours visible quand le panneau est rangé : sans elle, rien ne
+     dit qu'il existe encore et on ne sait pas comment le rappeler. */
+  #pgrab{display:grid}
   #drawer{left:auto;right:0;width:452px;border-left:1px solid var(--bd2);border-radius:0 0 0 8px}
   .tiles{grid-template-columns:repeat(3,1fr)}
   #toast{bottom:26px;font-size:12.5px}
@@ -1079,6 +1116,8 @@ body.base-light .leaflet-control-scale-line{background:rgba(255,255,255,.8)!impo
   <div id="drawer" aria-live="polite"></div>
   <div id="map" role="application" aria-label="Carte mondiale interactive"></div>
 
+  <button id="pgrab" type="button" aria-label="Ouvrir le panneau des couches" title="Couches et réglages">
+    <svg class="ic x16" aria-hidden="true"><use href="#i-chevron"/></svg></button>
   <aside id="panel">
     <div class="ptop"><b>Réglages &amp; explications</b><button class="pclose" id="pclose" type="button" aria-label="Fermer le panneau"><svg class="ic x16" aria-hidden="true"><use href="#i-cross"/></svg></button></div>
     <div class="pbody">
@@ -2444,54 +2483,103 @@ const BASES = {
      updateWhenIdle:true, keepBuffer:2})
 };
 
-/* ---------- FRONTIÈRES ET NOMS DE LIEUX ----------
-   L'imagerie satellite ne porte AUCUNE étiquette : sur ce fond, on ne savait
-   tout simplement pas où l'on se trouvait. Les fonds clair et sombre portent des
-   noms, mais leurs frontières sont si discrètes qu'on ne distingue pas un pays
-   d'un autre.
+/* ---------- FRONTIÈRES ET NOMS DE PAYS, EN FRANÇAIS ----------
+   Les couches de référence toutes prêtes écrivaient les pays EN ANGLAIS :
+   « UNITED KINGDOM », « SPAIN », « GERMANY ». Sur une carte française c'est
+   incohérent, et cela faisait doublon avec nos propres étiquettes de villes,
+   elles en français. Vérifié tuile par tuile : aucune des deux couches Esri
+   n'est un tracé pur — celle qui porte le moins d'étiquettes est la plus LOURDE
+   au centre de la France (12,6 ko contre 4,1), signe qu'elle transporte routes
+   et toponymes. Impossible d'obtenir des frontières sans anglais par ce chemin.
 
-   La réponse tient en une couche de référence transparente, prévue exactement
-   pour cela, et elle règle le détail progressif toute seule : au niveau du monde
-   elle n'écrit que les pays, en approchant les capitales, puis les grandes
-   villes, puis les communes. C'est la tuile qui décide, pas nous — donc aucun
-   calcul, aucun tri, aucune donnée à charger de notre côté.
+   On trace donc les frontières nous-mêmes, en vectoriel, avec les noms résolus
+   par le robot via la table officielle d'`Intl.DisplayNames`. 177 pays, aucun
+   sans nom français.
 
-   Deux variantes, parce qu'elles ne servent pas la même chose :
-     · sur le satellite, il faut les frontières ET les noms (aucun n'est présent) ;
-     · sur les fonds clair et sombre, les noms sont déjà imprimés dans la tuile —
-       on n'ajoute donc que les frontières, sinon les étiquettes se dédoublent.
-   Poids mesuré : 4 à 25 ko par tuile pour la version complète, 0,9 à 15 ko pour
-   les frontières seules — et rien du tout quand la couche est éteinte. */
-/* Plan dédié, intercalé ENTRE le fond (200) et les tracés de données (400).
-   Sans lui, la couche de référence irait dans le plan des ombres (500) et
-   passerait par-dessus les incendies et les alertes — des étiquettes qui
-   masquent les catastrophes, exactement l'inverse de ce qu'on veut. */
+   DÉTAIL PROGRESSIF, comme partout ailleurs sur cette carte : au niveau du monde
+   seuls les grands pays sont nommés ; en approchant, tous le sont ; au-delà du
+   niveau régional les noms de pays s'effacent — c'est alors la couche des villes
+   qui prend le relais, elle aussi en français. Les frontières, elles, restent.
+
+   Le fichier est STATIQUE : chargé une seule fois, puis servi par le cache du
+   navigateur. Il ne coûte rien aux cycles de rafraîchissement. */
 map.createPane("refPane");
 map.getPane("refPane").style.zIndex = 250;
 map.getPane("refPane").style.pointerEvents = "none";
 
-const REF_LAYERS = {
-  /* Frontières + toponymes, conçue pour se poser sur l'imagerie. */
-  full: L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-    {attribution:"© Esri", maxNativeZoom:19, maxZoom:19, opacity:.95,
-     updateWhenIdle:true, keepBuffer:1, pane:"refPane"}),
-  /* Frontières seules, pour les fonds qui portent déjà leurs noms. */
-  bords: L.tileLayer("https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Reference_Overlay/MapServer/tile/{z}/{y}/{x}",
-    {attribution:"© Esri", maxNativeZoom:13, maxZoom:19, opacity:.62,
-     updateWhenIdle:true, keepBuffer:1, pane:"refPane"})
-};
-let refCur=null;
-/* Choisit la variante qui convient au fond en cours, et ne refait rien si c'est
-   déjà la bonne — changer de fond ne doit pas redemander toutes les tuiles. */
-function majReference(){
-  const veut = $("#tg-ref") && $("#tg-ref").checked
-    ? (baseCur==="sat" ? "full" : "bords")
-    : null;
-  if(veut===refCur) return;
-  if(refCur) map.removeLayer(REF_LAYERS[refCur]);
-  refCur=veut;
-  if(refCur) REF_LAYERS[refCur].addTo(map);
+let PAYS = null, paysT = 0;
+const layerBords = L.layerGroup();
+const layerNoms  = L.layerGroup();
+
+async function chargePays(){
+  if(PAYS) return PAYS;
+  if(Date.now()-paysT < 60000) return null;      /* pas de martèlement en cas d'échec */
+  paysT = Date.now();
+  try{
+    const p = await preload("pays", 30*24*3600e3);   /* des frontières ne périment pas */
+    if(p && p.f && p.f.length){ PAYS = p.f; return PAYS; }
+  }catch(e){}
+  return null;
 }
+
+/* Épaisseur et opacité suivent le zoom : un trait qui convient au monde entier
+   écrase le détail dès qu'on approche d'une ville. */
+function styleBord(z){
+  return { renderer: cnv, color: baseCur==="light" ? "#7d8ba6" : "#93a6c4",
+           weight: z<4 ? 0.7 : z<7 ? 1 : 1.3,
+           opacity: baseCur==="sat" ? 0.75 : 0.5,
+           fill:false, interactive:false };
+}
+
+async function dessineReference(){
+  const on = $("#tg-ref") && $("#tg-ref").checked;
+  if(!on){
+    map.removeLayer(layerBords); map.removeLayer(layerNoms);
+    layerBords.clearLayers(); layerNoms.clearLayers();
+    return;
+  }
+  const f = await chargePays();
+  if(!f) return;
+  if(!map.hasLayer(layerBords)) layerBords.addTo(map);
+  if(!map.hasLayer(layerNoms))  layerNoms.addTo(map);
+
+  const z = map.getZoom();
+  layerBords.clearLayers();
+  layerNoms.clearLayers();
+
+  const b = map.getBounds().pad(0.25);
+  const st = styleBord(z);
+  for(const p of f){
+    /* Hors du champ de vision, on ne dessine rien — même règle que le reste. */
+    if(p.c[0] < b.getSouth()-40 || p.c[0] > b.getNorth()+40) continue;
+    L.geoJSON(p.g, { style: st, pane: "refPane" }).addTo(layerBords);
+  }
+
+  /* Les NOMS s'effacent au-delà du niveau régional : au zoom 8 on cherche une
+     rue, pas à savoir dans quel pays on se trouve. */
+  if(z > 8) return;
+  /* Seuil de rang : au monde, seuls les pays les plus peuplés sont nommés,
+     sinon l'Europe devient une bouillie de mots superposés. */
+  const seuil = z < 3 ? 7.5 : z < 4.5 ? 7 : z < 6 ? 6 : 0;
+  let n = 0;
+  for(const p of f){
+    if(p.r < seuil) continue;
+    if(p.c[0] < b.getSouth() || p.c[0] > b.getNorth()
+    || p.c[1] < b.getWest()  || p.c[1] > b.getEast()) continue;
+    if(++n > 90) break;              /* garde-fou : jamais plus de 90 étiquettes */
+    L.marker(p.c, { pane:"refPane", interactive:false, keyboard:false,
+      icon: L.divIcon({ className:"", iconSize:[0,0],
+        html:`<div class="pnom${z<4?" pt":""}">${esc(p.n)}</div>` }) }).addTo(layerNoms);
+  }
+}
+let refT=0;
+function majReference(){
+  clearTimeout(refT);
+  refT = setTimeout(dessineReference, 90);
+}
+map.on("zoomend", majReference);
+map.on("moveend", majReference);
+
 let baseCur = "light";
 /* Une tuile qui échoue (réseau mobile instable) est redemandée une fois */
 Object.values(BASES).forEach(t=>{
@@ -7109,15 +7197,32 @@ function autoOffVides(){
 
 /* ============ Panneau latéral ============ */
 const panel=$("#panel");
+/* Une SEULE classe pilote l'ouverture, sur mobile comme sur ordinateur.
+   Avant, le grand écran passait par une classe « hidden » qui retirait le
+   panneau du flux : la carte se recomposait à chaque ouverture ou fermeture —
+   invalidateSize, recadrage, réensemencement des particules de vent. En
+   superposition, la carte ne bouge plus du tout : il n'y a plus rien à
+   recalculer, et le geste est instantané.
+   Le choix est mémorisé : quelqu'un qui range le panneau ne veut pas le
+   retrouver ouvert à chaque visite. */
 function openPanel(v){
   panel.classList.toggle("open", v);
+  panel.classList.remove("hidden");
+  document.body.classList.toggle("pan-open", v);
   if(v) closeGroup();
-  if(!mqMobile.matches){ panel.classList.toggle("hidden", !v); setTimeout(()=>{ map.invalidateSize(); wResize(); wReposition(); },60); }
+  try{ localStorage.setItem("pedPanel", v?"1":"0"); }catch(e){}
 }
-$("#menu").onclick=()=>{
-  if(mqMobile.matches) openPanel(!panel.classList.contains("open"));
-  else{ panel.classList.toggle("hidden"); setTimeout(()=>{ map.invalidateSize(); wResize(); wReposition(); },60); }
-};
+$("#menu").onclick=()=>openPanel(!panel.classList.contains("open"));
+$("#pgrab").onclick=()=>openPanel(true);
+/* Sur grand écran le panneau est ouvert par défaut la première fois — il porte
+   les commandes principales — puis on respecte le dernier choix. Sur petit
+   écran il reste fermé : la carte y est déjà à l'étroit. */
+(function panneauInitial(){
+  let v=null;
+  try{ const m=localStorage.getItem("pedPanel"); if(m!==null) v=(m==="1"); }catch(e){}
+  if(v===null) v = !mqMobile.matches;
+  openPanel(v);
+})();
 $("#pclose").onclick=()=>openPanel(false);
 $("#geoloc").onclick=goToMe;
 $("#safebtn").onclick=()=>{ if(SAFE.on) stopSafety(); else startSafety(); };

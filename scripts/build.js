@@ -190,6 +190,69 @@ async function gdacs() {
     f.length + " alertes (" + rouge + " rouges, " + orange + " orange, " + (f.length - rouge - orange) + " vertes)");
 }
 
+/* ---------- FRONTIÈRES ET NOMS DE PAYS, EN FRANÇAIS ----------
+   Les couches de référence toutes prêtes (Esri, CARTO) écrivent les pays EN
+   ANGLAIS : « UNITED KINGDOM », « SPAIN », « GERMANY ». Sur une carte française
+   c'est incohérent, et cela faisait doublon avec nos propres étiquettes de
+   villes, elles en français. Vérifié tuile par tuile : aucune des deux couches
+   Esri n'est un tracé pur — celle qui porte le moins d'étiquettes est la plus
+   LOURDE au centre de la France (12,6 ko contre 4,1), signe qu'elle transporte
+   routes et toponymes.
+
+   On trace donc les frontières nous-mêmes, et on écrit les noms en français.
+   Le nom vient d'`Intl.DisplayNames`, qui existe aussi côté Node : la table
+   officielle, à jour, sans rien à maintenir. Mesuré : 177 pays, 171 avec un
+   ISO_A2 valide, et les six manquants (dont la France) sont rattrapés par
+   ISO_A2_EH. Zéro pays sans nom français.
+
+   Le point d'étiquette est le centre de la plus GRANDE enveloppe, pas la
+   moyenne de toutes : sinon « France » s'écrirait au milieu de l'Atlantique,
+   entre la métropole et les Antilles. */
+const NE110 = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/"
+            + "master/geojson/ne_110m_admin_0_countries.geojson";
+function aireAnneau(a) {
+  let s = 0;
+  for (let i = 0; i < a.length - 1; i++) s += a[i][0] * a[i + 1][1] - a[i + 1][0] * a[i][1];
+  return Math.abs(s / 2);
+}
+function pointEtiquette(g) {
+  const polys = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
+  let best = null, ba = -1;
+  for (const p of polys) {
+    const a = aireAnneau(p[0]);
+    if (a > ba) { ba = a; best = p[0]; }
+  }
+  if (!best) return null;
+  let x = 0, y = 0;
+  for (const c of best) { x += c[0]; y += c[1]; }
+  return [p3(y / best.length), p3(x / best.length)];
+}
+async function pays() {
+  const d = await get(NE110, 60000);
+  let fr = null;
+  try { fr = new Intl.DisplayNames(["fr"], { type: "region" }); } catch (e) {}
+  const f = (d.features || []).map(x => {
+    const p = x.properties || {};
+    const cc = (p.ISO_A2_EH && p.ISO_A2_EH !== "-99") ? p.ISO_A2_EH
+             : (p.ISO_A2 && p.ISO_A2 !== "-99") ? p.ISO_A2 : "";
+    let nom = "";
+    if (cc && fr) { try { const v = fr.of(cc); if (v && v !== cc) nom = v; } catch (e) {} }
+    if (!nom) nom = p.ADMIN || p.NAME || cc || "";
+    const pt = pointEtiquette(x.geometry);
+    if (!pt) return null;
+    return {
+      cc, n: nom,
+      /* Rang d'affichage : les grands pays s'écrivent plus tôt en dézoomant. */
+      r: Math.round(Math.log10(Math.max(1, +p.POP_EST || 1))),
+      c: pt,
+      g: { type: x.geometry.type, coordinates: simpGeo(x.geometry.coordinates) }
+    };
+  }).filter(Boolean).sort(byKey(x => x.cc + "|" + x.n));
+  const t = JSON.stringify({ t: now, f });
+  write("pays.json", { t: now, f },
+    f.length + " pays, noms français (" + Math.round(t.length / 1024) + " ko)");
+}
+
 /* ---------- CONTOURS RÉELS DES ALERTES GDACS ----------
    RECTIFICATION IMPORTANTE. Le flux RSS ne porte aucune géométrie utile : son
    champ `gdacs:bbox` vaut toujours « centre ±4° », soit un carré fixe de 888 km
@@ -663,7 +726,10 @@ async function effis() {
     ? [["effis", effis]]
     /* `gdacsGeom` vient APRÈS `gdacs` : il relit gdacs.json pour savoir quelles
        alertes méritent qu'on aille chercher leur contour. L'ordre compte. */
-    : [["quakes", quakes], ["eonet", eonet], ["gdacs", gdacs], ["gdacsgeo", gdacsGeom],
+    /* `pays` est un fond STATIQUE : les frontieres ne bougent pas toutes les
+       quinze minutes. Il n'est reconstruit que s'il manque — le comparateur
+       d'ecriture s'en charge, la tache ne coute donc rien les autres fois. */
+    : [["pays", pays], ["quakes", quakes], ["eonet", eonet], ["gdacs", gdacs], ["gdacsgeo", gdacsGeom],
        ["nws", nws], ["storms", storms], ["sigmet", sigmet], ["meteoalarm", meteoalarm],
        ["hotspots", hotspots]];
 
