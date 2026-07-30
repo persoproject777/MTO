@@ -685,7 +685,7 @@ async function air() {
       if (aqi == null) return;
       out.push([pt[0], pt[1], Math.round(aqi), Math.round((pm || 0) * 10) / 10]);
     }, "air");
-  if (!grilleComplete(cells, "air", 100, 300, 0.7, pts.length)) return false;
+  if (!grilleComplete(cells, "air", pts, 0.9)) return false;
   cells.sort(byKey(c => String(c[0]).padStart(5, "0") + "|" + String(c[1]).padStart(5, "0")));
   write("air.json", { t: now, step: STEP, cells }, cells.length + " points de qualité de l'air");
   return true;
@@ -749,14 +749,34 @@ async function air() {
    bloc suivant. C'est plus lent — quelques minutes par heure — mais complet,
    ce qui vaut infiniment mieux qu'un quart de planète servi tout de suite. */
 const OM_PAR_MIN = 550;
-let omSeau = [];
-async function omAttends(n) {
+/* UN SEAU PAR HÔTE. La qualité de l'air vient d'un serveur distinct
+   (air-quality-api) qui a son propre plafond : lui faire partager le seau du
+   vent le ralentissait sans rien protéger. La clé est déduite de l'adresse
+   appelée, il n'y a donc rien à déclarer nulle part. */
+const omSeaux = new Map();
+async function omAttends(n, hote) {
+  const cle = hote || "?";
   for (let garde = 0; garde < 400; garde++) {
     const t = Date.now();
-    omSeau = omSeau.filter(x => t - x.t < 61000);
-    const pris = omSeau.reduce((a2, x) => a2 + x.n, 0);
-    if (pris + n <= OM_PAR_MIN || !omSeau.length) { omSeau.push({ t, n }); return; }
-    await new Promise(r => setTimeout(r, Math.max(600, 61000 - (t - omSeau[0].t))));
+    const seau = (omSeaux.get(cle) || []).filter(x => t - x.t < 61000);
+    omSeaux.set(cle, seau);
+    const pris = seau.reduce((a2, x) => a2 + x.n, 0);
+    if (pris + n <= OM_PAR_MIN || !seau.length) { seau.push({ t, n }); return; }
+    await new Promise(r => setTimeout(r, Math.max(600, 61000 - (t - seau[0].t))));
+  }
+}
+/* Attendre que le seau se VIDE, sans rien y réserver. Après un 429 j'appelais
+   omAttends(550), ce qui attendait bien — mais inscrivait aussi 550 unités
+   jamais dépensées, si bien que la minute suivante était consommée d'avance et
+   que la collecte traînait deux fois plus longtemps que nécessaire. */
+async function omDraine(hote) {
+  const cle = hote || "?";
+  for (let garde = 0; garde < 400; garde++) {
+    const t = Date.now();
+    const seau = (omSeaux.get(cle) || []).filter(x => t - x.t < 61000);
+    omSeaux.set(cle, seau);
+    if (!seau.length) return;
+    await new Promise(r => setTimeout(r, Math.max(600, 61000 - (t - seau[0].t))));
   }
 }
 
@@ -764,44 +784,60 @@ async function omAttends(n) {
    autorisée, et réessaie deux fois quand Open-Meteo répond « attendez ». */
 async function omBlocs(pts, url, lit, etiq) {
   const out = [];
+  let hote = "?";
+  try { hote = new URL(url(pts.slice(0, 1))).host; } catch (e) {}
   for (let i = 0; i < pts.length; i += 100) {
     const chunk = pts.slice(i, i + 100);
-    await omAttends(chunk.length);
-    for (let essai = 0; essai < 3; essai++) {
+    await omAttends(chunk.length, hote);
+    for (let essai = 0; essai < 4; essai++) {
       try {
         const d = await get(url(chunk), 45000);
         (Array.isArray(d) ? d : [d]).forEach((o, j) => { if (chunk[j]) lit(o, chunk[j], out); });
         break;
       } catch (err) {
-        /* 429 n'est pas une panne, c'est un « pas si vite ». On laisse le seau
-           se vider entièrement plutôt que d'abandonner : un bloc perdu troue la
-           grille, et une grille trouée ment sur ce qu'elle montre. */
-        if (/429/.test(err.message) && essai < 2) { await omAttends(OM_PAR_MIN); continue; }
-        console.log("     " + etiq + " bloc " + (i / 100 + 1) + " : " + err.message);
-        break;
+        if (essai >= 3) { console.log("     " + etiq + " bloc " + (i / 100 + 1) + " : " + err.message); break; }
+        /* UN BLOC PERDU TROUE LA GRILLE, et une grille trouée ment sur ce
+           qu'elle montre : on réessaie donc TOUTE erreur, pas seulement les 429.
+           Je n'insistais que sur le 429 ; un délai dépassé, un 500 ou une
+           coupure emportaient cent points d'un coup, sans un mot. */
+        if (/429/.test(err.message)) await omDraine(hote);
+        else await new Promise(r => setTimeout(r, 3000 * (essai + 1)));
+        await omAttends(chunk.length, hote);
       }
     }
   }
   return out;
 }
 
-/* Contrôle de RÉPARTITION : une grille doit couvrir ce qu'elle prétend couvrir.
-   On vérifie l'étendue réelle en latitude et en longitude, pas seulement le
-   compte — c'est précisément ce qui manquait. */
-function grilleComplete(cells, etiq, minLat, minLon, minTaux, attendu) {
-  if (!cells.length) { console.log("  !  " + etiq + " : aucun point"); return false; }
-  let laMin = 90, laMax = -90, loMin = 180, loMax = -180;
-  for (const c of cells) {
-    if (c[0] < laMin) laMin = c[0];
-    if (c[0] > laMax) laMax = c[0];
-    if (c[1] < loMin) loMin = c[1];
-    if (c[1] > loMax) loMax = c[1];
+/* Contrôle de RÉPARTITION, rangée par rangée.
+   Ma première version ne regardait que la boîte englobante et le compte total.
+   Deux défauts, tous deux démontrés :
+     — les points sont demandés du sud vers le nord, donc une panne en fin de
+       parcours ampute le NORD ; en perdant tout au-dessus de 60°N l'étendue
+       valait encore 140° et le taux 87 %, et la grille passait ;
+     — chaque bloc survivant contenant au moins une rangée entière, l'étendue
+       en longitude valait TOUJOURS 355° : ce critère ne pouvait rien rejeter.
+   On compare donc à la grille RÉELLEMENT demandée : chaque latitude attendue
+   doit être présente avec au moins la moitié de ses colonnes, et le total doit
+   atteindre le taux exigé. Un trou intérieur est alors vu, une troncature aussi,
+   quel que soit le bout par lequel elle arrive. */
+function grilleComplete(cells, etiq, pts, minTaux) {
+  if (!cells.length) { console.log("  !  " + etiq + " : aucun point — fichier précédent conservé"); return false; }
+  const veut = new Map(), a = new Map();
+  for (const q of pts) veut.set(q[0], (veut.get(q[0]) || 0) + 1);
+  for (const c of cells) a.set(c[0], (a.get(c[0]) || 0) + 1);
+  const creuses = [];
+  for (const [la, combien] of veut) if ((a.get(la) || 0) < combien * 0.5) creuses.push(la);
+  const taux = cells.length / pts.length;
+  const ok = !creuses.length && taux >= minTaux;
+  if (!ok) {
+    creuses.sort((x, y) => x - y);
+    console.log("  !  " + etiq + " : couverture insuffisante — " + cells.length + "/" + pts.length
+      + " points (" + Math.round(taux * 100) + " %)"
+      + (creuses.length ? ", " + creuses.length + " rangée(s) trouée(s) de "
+         + creuses[0] + "° à " + creuses[creuses.length - 1] + "°" : "")
+      + " — fichier précédent conservé");
   }
-  const taux = cells.length / attendu;
-  const ok = (laMax - laMin) >= minLat && (loMax - loMin) >= minLon && taux >= minTaux;
-  if (!ok) console.log("  !  " + etiq + " : couverture insuffisante — " + cells.length + "/" + attendu
-    + " points (" + Math.round(taux * 100) + " %), latitudes " + Math.round(laMin) + "° à "
-    + Math.round(laMax) + "° — fichier précédent conservé");
   return ok;
 }
 
@@ -819,28 +855,65 @@ function nomCyclone(phrase) {
 async function ventCyclone() {
   const lire = f => { try { return JSON.parse(fs.readFileSync(path.join(OUT, f), "utf8")); } catch (e) { return null; } };
   const g = lire("gdacs.json"), e = lire("eonet.json");
+  /* « Lu et vide » et « illisible » ne disent pas la même chose. Si aucune des
+     deux sources n'a pu être lue, publier « aucun cyclone en cours » serait une
+     affirmation fausse tirée d'une absence d'information : on garde le fichier
+     précédent et on le dit. */
+  if (!g && !e) { console.log("  !  vent cyclone : sources illisibles — fichier précédent conservé"); return false; }
   const brut = [];
   if (g && Array.isArray(g.f))
     for (const x of g.f)
       if (x.t === "TC" && x.cur && Array.isArray(x.c))
-        brut.push({ la: x.c[0], lo: x.c[1], nm: nomCyclone(x.n), pri: 1, sev: x.a === "Red" ? 3 : x.a === "Orange" ? 2 : 1 });
+        /* La couleur GDACS seule ne départage rien : les cyclones en cours sont
+           presque tous « Green », et les quatre zones d'un relevé réel avaient
+           toutes la même note. On y ajoute la catégorie (x.sc), qui, elle, varie. */
+        brut.push({ la: x.c[0], lo: x.c[1], nm: nomCyclone(x.n), pri: 1, quand: 0,
+          sev: (x.a === "Red" ? 300 : x.a === "Orange" ? 200 : 100) + (Number(x.sc) || 0) });
   if (e && Array.isArray(e.events))
     for (const x of e.events)
       if (x.c === "severeStorms" && Array.isArray(x.g) && x.g.length) {
         const d = x.g[x.g.length - 1];
-        if (Array.isArray(d) && d.length >= 2) brut.push({ la: d[0], lo: d[1], nm: x.t || "Tempête", pri: 2, sev: 1 });
+        /* Le titre EONET dit la force du système là où GDACS ne dit que la
+           couleur d'alerte. Et le troisième terme du point est sa DATE, en
+           minutes : une position vieille de plus de douze heures décrit un
+           cyclone qui n'est peut-être plus là — NASA laisse les tempêtes
+           « open » longtemps après leur dissipation. */
+        if (!Array.isArray(d) || d.length < 2) continue;
+        const quand = d.length >= 3 ? d[2] * 60000 : 0;
+        if (quand && now - quand > 12 * 3600e3) {
+          console.log("     " + String(x.t).slice(0, 24) + " : position vieille de "
+            + Math.round((now - quand) / 3600e3) + " h — écartée");
+          continue;
+        }
+        const ti = String(x.t || "");
+        brut.push({ la: d[0], lo: d[1], nm: x.t || "Tempête", pri: 2, quand,
+          sev: /super\s*typhoon/i.test(ti) ? 305
+             : /typhoon|hurricane|cyclone/i.test(ti) ? 205
+             : /tropical\s*storm/i.test(ti) ? 105 : 5 });
       }
 
   /* Les deux sources décrivent souvent le MÊME cyclone : GDACS et EONET suivent
      l'un et l'autre les avis officiels. On fusionne ce qui est à moins de 3°,
      en gardant le nom le plus parlant — sinon on paierait deux fois la même
      grille, et deux carrés superposés se disputeraient les mêmes particules. */
+  /* Le seuil de fusion doit valoir AU MOINS le rayon des carrés produits :
+     à 3° pour des carrés de ±4°, deux relevés du même cyclone distants de 3,2°
+     restaient séparés et fabriquaient deux carrés superposés — exactement ce
+     que la fusion existe pour éviter. Et lorsqu'on fusionne, on adopte la
+     position la plus RÉCENTE, pas celle rencontrée en premier. */
+  const FUSION = 4;
   const zones = [];
   for (const b of brut) {
-    if (!isFinite(b.la) || !isFinite(b.lo)) continue;
-    const p = zones.find(z => Math.abs(z.la - b.la) < 3 && Math.abs(((z.lo - b.lo + 540) % 360) - 180) < 3);
-    if (p) { if (b.pri > p.pri) { p.nm = b.nm; p.pri = b.pri; } p.sev = Math.max(p.sev, b.sev); continue; }
-    zones.push({ la: b.la, lo: b.lo, nm: b.nm, pri: b.pri, sev: b.sev });
+    if (!isFinite(b.la) || !isFinite(b.lo) || Math.abs(b.la) > 89) continue;
+    const p = zones.find(z => Math.abs(z.la - b.la) < FUSION
+      && Math.abs(((z.lo - b.lo + 540) % 360) - 180) < FUSION);
+    if (p) {
+      if (b.pri > p.pri) { p.nm = b.nm; p.pri = b.pri; }
+      if (b.quand > p.quand) { p.la = b.la; p.lo = b.lo; p.quand = b.quand; }
+      p.sev = Math.max(p.sev, b.sev);
+      continue;
+    }
+    zones.push({ la: b.la, lo: b.lo, nm: b.nm, pri: b.pri, sev: b.sev, quand: b.quand });
   }
   /* Les plus violents d'abord, et pas plus de quatre : au-delà on dépenserait
      le quota d'Open-Meteo sur des tempêtes que personne ne regarde. */
@@ -862,7 +935,13 @@ async function ventCyclone() {
         pts.push([la, Math.round((((z.lo + dlo + 540) % 360) - 180) * 100) / 100]);
       }
     const cells = await omBlocs(pts, VENT_URL, LIT_VENT, z.nm.slice(0, 22));
-    if (cells.length < pts.length * 0.6) { console.log("     " + z.nm.slice(0, 22) + " : " + cells.length + "/" + pts.length + " points — zone écartée"); z.ko = 1; continue; }
+    /* Une grille trouée serait pire que pas de grille : le navigateur
+       alternerait entre deux champs d'une particule à l'autre. Un carré fait
+       trois blocs seulement, si bien qu'en perdre un ampute déjà un tiers de la
+       zone — mon seuil de 0,6 laissait donc passer une bande entière manquante.
+       On exige désormais la même chose que pour les grilles mondiales : chaque
+       rangée de latitude présente, et 95 % du total. */
+    if (!grilleComplete(cells, z.nm.slice(0, 22), pts, 0.95)) { z.ko = 1; continue; }
     z.cells = cells; total += cells.length;
   }
   const gard = zones.filter(z => !z.ko && z.cells && z.cells.length);
@@ -897,9 +976,7 @@ async function wind() {
     for (let lo = -180; lo < 180; lo += STEP) pts.push([la, lo]);
 
   const cells = await omBlocs(pts, VENT_URL, LIT_VENT, "vent");
-  /* Étendue exigée : au moins 140° de latitude et 340° de longitude. Sans cela
-     une grille cantonnée à un hémisphère passerait pour mondiale. */
-  if (!grilleComplete(cells, "vent", 140, 340, 0.8, pts.length)) return false;
+  if (!grilleComplete(cells, "vent", pts, 0.9)) return false;
   cells.sort(byKey(c => String(c[0]).padStart(5, "0") + "|" + String(c[1]).padStart(5, "0")));
   write("wind.json", { t: now, step: STEP, cells }, cells.length + " points de vent (grille " + STEP + "°)");
   return true;

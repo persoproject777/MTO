@@ -53,9 +53,14 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    # Le service tient au plus 5 h 45, sous la limite de 6 h d'un travail
-    # GitHub. Il s'arrête proprement de lui-même avant.
-    timeout-minutes: 350
+    # Le service vise 5 h 30 de collecte, mais la boucle ne sort qu'APRÈS un
+    # tour : elle peut donc déborder d'une durée de tour entière. Depuis que la
+    # grille de vent respecte la cadence d'Open-Meteo, un tour peut prendre huit
+    # minutes. 350 ne laissait qu'une marge de dix-neuf minutes, checkout compris,
+    # et un dépassement tue le travail AVANT l'étape de relance : la chaîne
+    # s'arrête définitivement. On prend une marge franche, toujours très en
+    # dessous de la limite de 6 h.
+    timeout-minutes: 400
     steps:
       - uses: actions/checkout@v4
 
@@ -93,6 +98,7 @@ jobs:
       # redevient un passage unique, comme avant. Sur un dépôt public, les
       # minutes GitHub Actions ne sont pas décomptées.
       - name: Service de collecte
+        id: service
         env:
           # Un déclenchement programmé ouvre le service ; un déclenchement
           # manuel ne fait qu'un passage, pour ne pas bloquer un essai.
@@ -102,7 +108,14 @@ jobs:
           # programmes en vingt heures, puis PLUS AUCUN pendant onze heures. Le
           # service ne peut pas s'ouvrir si rien ne le declenche ; autant que
           # chaque geste manuel couvre les six heures suivantes.
-          DUREE_MIN: ${{ inputs.passage_unique && 0 || (inputs.duree != '' && inputs.duree || 330) }}
+          # NE JAMAIS FABRIQUER UN 0 DANS UNE EXPRESSION GITHUB. L'idiome
+          # `X && A || B` est cassé dès que A vaut 0 : `true && 0` donne 0, qui
+          # est faux, et l'expression bascule sur B. Écrit ainsi,
+          # `inputs.passage_unique && 0 || 330` renvoyait 330 quand on demandait
+          # un passage unique : la case n'a jamais rien fait. On passe donc les
+          # drapeaux bruts et on tranche dans le shell, où 0 reste 0.
+          PASSAGE_UNIQUE: ${{ inputs.passage_unique }}
+          DUREE_DEMANDEE: ${{ inputs.duree }}
           PAS_SEC: 900
         run: |
           set -uo pipefail
@@ -128,29 +141,47 @@ jobs:
             return 1
           }
 
+          if [ "${PASSAGE_UNIQUE:-false}" = "true" ]; then
+            DUREE_MIN=0
+          elif [ -n "${DUREE_DEMANDEE:-}" ]; then
+            DUREE_MIN="$DUREE_DEMANDEE"
+          else
+            DUREE_MIN=330
+          fi
+          echo "Service de $DUREE_MIN min, collecte toutes les $((PAS_SEC/60)) min."
+
           FIN=$(( $(date +%s) + 60 * DUREE_MIN ))
           TOUR=0
           ECHECS=0
+          DUREE_TOUR=0
           while : ; do
             TOUR=$((TOUR+1))
+            DEBUT_TOUR=$(date +%s)
             echo "--- tour $TOUR  ($(date -u '+%H:%M:%S') UTC) ---"
-            if node scripts/build.js fast; then
-              publier || ECHECS=$((ECHECS+1))
+            if node scripts/build.js fast && publier; then
+              # Le compteur ne repart de zéro que sur un tour RÉUSSI. Je le
+              # remettais à zéro à CHAQUE tour (`[ "$ECHECS" -eq 0 ] || ECHECS=0`,
+              # qui vaut « mets-le à zéro quoi qu'il arrive ») : le garde-fou des
+              # trois échecs consécutifs était donc du code mort, et le service
+              # pouvait tourner à vide des heures en donnant l'illusion de
+              # fonctionner.
+              ECHECS=0
             else
-              echo "::warning::Collecte en échec au tour $TOUR."
+              echo "::warning::Tour $TOUR en échec (collecte ou publication)."
               ECHECS=$((ECHECS+1))
             fi
-            # Trois échecs consécutifs de publication : quelque chose ne va pas
-            # durablement, on sort en erreur plutôt que de tourner à vide des
-            # heures en donnant l'illusion que le robot fonctionne.
             if [ "$ECHECS" -ge 3 ]; then
               echo "::error::Trois échecs consécutifs — arrêt du service."
               exit 1
             fi
-            [ "$ECHECS" -eq 0 ] || ECHECS=0
+            DUREE_TOUR=$(( $(date +%s) - DEBUT_TOUR ))
             RESTE=$(( FIN - $(date +%s) ))
-            if [ "$RESTE" -le "$PAS_SEC" ]; then
-              echo "Échéance atteinte après $TOUR tour(s)."
+            # On sort tant qu'il reste moins que l'attente PLUS un tour complet :
+            # sinon la boucle dort, puis lance un tour entier qui deborde
+            # l'echeance et peut faire depasser le timeout du travail — ce qui
+            # tuerait l'etape de relance et arreterait la chaine pour de bon.
+            if [ "$RESTE" -le "$(( PAS_SEC + DUREE_TOUR ))" ]; then
+              echo "Échéance atteinte après $TOUR tour(s) (dernier tour : $((DUREE_TOUR/60)) min)."
               break
             fi
             echo "  prochaine collecte dans $((PAS_SEC/60)) min (reste $((RESTE/60)) min)"
@@ -160,6 +191,16 @@ jobs:
             git pull --rebase --autostash -q origin main || true
           done
 
+      - name: Périmètres brûlés (sur demande)
+        if: github.event_name == 'workflow_dispatch' && inputs.slow
+        run: |
+          set -euo pipefail
+          node scripts/build.js slow
+          git add data/
+          git diff --staged --quiet || {
+            git commit -q -m "Perimetres brules $(date -u '+%Y-%m-%d %H:%M') UTC"
+            git push -q || { git pull --rebase --autostash -q origin main && git push -q; }
+          }
       # ================= RELANCE AUTOMATIQUE =================
       # Le planificateur de GitHub ne tient AUCUNE cadence sur ce depot : mesure
       # sur trois expressions cron differentes, puis onze heures sans le moindre
@@ -189,7 +230,17 @@ jobs:
         # signifie qu'un successeur EXISTE DEJA : il n'y a rien a relancer.
         # `!cancelled()` conserve en revanche la relance apres un echec, qui est
         # le cas ou elle sert vraiment.
-        if: ${{ !cancelled() && !inputs.passage_unique }}
+        #
+        # ET SEULEMENT SI LE SERVICE A REELLEMENT TOURNE. Si `checkout` echoue,
+        # ou si l'image du runner ne fournit pas node, l'etape de collecte est
+        # SAUTEE — mais la relance, elle, se declenchait quand meme et demandait
+        # un successeur qui echouerait au meme endroit : une boucle rapide qui
+        # brule le quota sans jamais collecter la moindre donnee. On exige donc
+        # que l'etape de collecte ait un verdict, reussite ou echec, jamais
+        # « sautee ».
+        if: >-
+          ${{ !cancelled() && !inputs.passage_unique
+              && (steps.service.outcome == 'success' || steps.service.outcome == 'failure') }}
         env:
           JETON: ${{ secrets.RELANCE }}
         run: |
@@ -200,20 +251,13 @@ jobs:
             echo "sous le nom RELANCE."
             exit 0
           fi
-          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST             -H "Authorization: Bearer $JETON"             -H "Accept: application/vnd.github+json"             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/data.yml/dispatches"             -d '{"ref":"main"}')
+          # `|| echo 000` : sans lui, un incident reseau (DNS, TLS, coupure) fait
+          # sortir curl en erreur, et le shell des etapes tourne sous `bash -e` —
+          # l'etape entiere echouerait sur un aleas, au lieu de le signaler.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST             -H "Authorization: Bearer $JETON"             -H "Accept: application/vnd.github+json"             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/data.yml/dispatches"             -d '{"ref":"main"}' || echo 000)
           if [ "$code" = "204" ]; then
             echo "Service suivant demande (HTTP $code)."
           else
             echo "::warning::Relance refusee (HTTP $code) — verifier la portee du jeton RELANCE."
           fi
 
-      - name: Périmètres brûlés (sur demande)
-        if: github.event_name == 'workflow_dispatch' && inputs.slow
-        run: |
-          set -euo pipefail
-          node scripts/build.js slow
-          git add data/
-          git diff --staged --quiet || {
-            git commit -q -m "Perimetres brules $(date -u '+%Y-%m-%d %H:%M') UTC"
-            git push -q || { git pull --rebase --autostash -q origin main && git push -q; }
-          }

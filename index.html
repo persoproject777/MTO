@@ -5937,7 +5937,11 @@ function grosUV(la, lo){
    dernier degré avant le bord, on mélange donc progressivement les deux champs.
    Le carré ne se voit pas ; seule la spirale se voit. */
 const WTC=[];
-let wtcStep=0.5, wtcRay=4, wtcAt=0;
+/* `wtcCharge` distingue « jamais demandé » de « demandé, aucun cyclone ». Sans
+   lui, la garde `!WTC.length` restait vraie en permanence les jours sans
+   cyclone, et le fichier repartait à CHAQUE déplacement de carte au lieu d'une
+   fois par heure. */
+let wtcStep=0.5, wtcRay=4, wtcAt=0, wtcCharge=false;
 async function loadWindTC(){
   try{
     const d=await preload("windtc", 6*3600e3);
@@ -5957,14 +5961,25 @@ async function loadWindTC(){
       }
       WTC.push({nm:z.nm||"Cyclone", la:z.la, lo:z.lo, la0, lo0, m});
     }
-    wtcAt=d.t||0;
+    wtcAt=d.t||0; wtcCharge=true;
     return true;
   }catch(e){ return false; }
 }
-/* Renvoie {u, v, f} où f est le poids à donner au champ fin (1 au cœur, 0 au bord). */
+/* Renvoie {u, v, f} où f est le poids à donner au champ fin (1 au cœur, 0 au bord).
+
+   ON EXAMINE TOUTES LES ZONES, PAS SEULEMENT LA PREMIÈRE. Deux cyclones voisins
+   produisent des carrés qui se recouvrent ; en s'arrêtant à la première zone
+   trouvée, le cœur du second était effacé par le bord du premier — un mur de
+   vent apparaissait en plein océan. On garde désormais la zone dont le poids
+   est le plus fort, c'est-à-dire celle dont on est le plus au centre.
+
+   LE POIDS TIENT AUSSI COMPTE DES TROUS. wt mesure combien des quatre cellules
+   voisines existent réellement : là où la grille fine est incomplète, le champ
+   redescend en douceur vers le socle mondial au lieu d'y sauter d'un coup. */
 function finUV(la, lo){
   if(!WTC.length) return null;
   const st=wtcStep, R=wtcRay;
+  let best=null;
   for(const z of WTC){
     const dla=la-z.la, dlo=(((lo-z.lo+540)%360)-180);
     const bord=Math.max(Math.abs(dla), Math.abs(dlo));
@@ -5976,15 +5991,16 @@ function finUV(la, lo){
     if(!c00&&!c10&&!c01&&!c11) continue;
     const tx=x-ix, ty=y-iy;
     let u=0,v=0,wt=0;
-    const add=(c,f)=>{ if(c){ u+=c.u*f; v+=c.v*f; wt+=f; } };
+    const add=(c,q)=>{ if(c){ u+=c.u*q; v+=c.v*q; wt+=q; } };
     add(c00,(1-tx)*(1-ty)); add(c10,tx*(1-ty)); add(c01,(1-tx)*ty); add(c11,tx*ty);
     if(wt<=0.15) continue;
     /* Fondu sur le dernier degré, adouci pour que la transition ne se devine pas. */
     let f=bord>R-1 ? (R-bord) : 1;
     f=f*f*(3-2*f);
-    return {u:u/wt, v:v/wt, f:Math.max(0, Math.min(1, f))};
+    f=Math.max(0, Math.min(1, Math.min(f, wt)));
+    if(!best || f>best.f) best={u:u/wt, v:v/wt, f};
   }
-  return null;
+  return best;
 }
 /* Le champ de fond que voient les particules : le socle mondial, remplacé par la
    grille fine partout où elle existe. */
@@ -5992,7 +6008,12 @@ function baseUV(la, lo){
   const fin=finUV(la, lo);
   const gros=grosUV(la, lo);
   if(!fin) return gros;
-  if(!gros || fin.f>=1) return [fin.u, fin.v];
+  if(fin.f>=1) return [fin.u, fin.v];
+  /* Sans socle — la grille mondiale peut être absente quand la fine existe,
+     les deux étant produites séparément — il n'y a rien vers quoi fondre. On
+     fait alors décroître l'amplitude vers zéro plutôt que de couper net : sinon
+     un carré de vent de huit degrés apparaît, à bord franc, entouré de vide. */
+  if(!gros) return [fin.u*fin.f, fin.v*fin.f];
   const f=fin.f;
   return [fin.u*f + gros[0]*(1-f), fin.v*f + gros[1]*(1-f)];
 }
@@ -6083,7 +6104,7 @@ async function fetchWind(){
   }
   /* La grille fine des cyclones suit le même rythme. Elle est facultative : si
      elle manque, l'animation tourne sur le socle comme avant. */
-  if(!WTC.length || Date.now()-wtcAt>3600e3) await loadWindTC();
+  if(!wtcCharge || Date.now()-wtcAt>3600e3) await loadWindTC();
   const b=map.getBounds(), z=map.getZoom();
   const st=windStep();
   wind.step=st;
@@ -6146,7 +6167,9 @@ async function fetchWind(){
     if(WBASE.size){
       /* Le socle mondial suffit : on ne parle même pas d'échec à l'utilisateur,
          il y a un champ de vent complet à l'écran. */
-      setC("c-wind", "mondial 10°");
+      /* On annonce le pas RÉEL du socle, pas une valeur écrite en dur : il est
+         passé de 10° à 5° et l'étiquette mentait depuis. */
+      setC("c-wind", "mondial " + wbaseStep + "°");
       updKmPx(); seedParts(false);
       wind.pause=false; startLoop();
     }else if(WCELL.size){
@@ -6169,8 +6192,14 @@ async function fetchWind(){
    et de la batterie dépensés pour rien. Elle s'arrête maintenant d'elle-même
    dès qu'aucune couche animée n'est active, et repart au premier besoin. */
 let RAF=0;
+/* Y A-T-IL UN CHAMP À DESSINER ? Pas seulement des cellules Open-Meteo. Je ne
+   testais que WCELL : quand la requête directe échouait, le repli annonçait
+   « socle mondial », relançait la boucle... qui refusait de démarrer, et l'écran
+   restait vide sous une étiquette affirmant le contraire. Le socle mondial et
+   la grille des cyclones sont des champs à part entière : ils suffisent. */
+function champVent(){ return WCELL.size>0 || WBASE.size>0 || WTC.length>0; }
 function loopNeeded(){
-  return (windOn() && !wind.pause && WCELL.size>0)
+  return (windOn() && !wind.pause && champVent())
       || (airOn() && AIR.list.length>0);
 }
 function frame(){
@@ -6198,7 +6227,7 @@ const W_MAXSEG = 26;
    il ne s'affichait plus du tout. Il est retiré. */
 
 function wFrame(){
-  if(wind.pause || !windOn() || !WCELL.size) return;
+  if(wind.pause || !windOn() || !champVent()) return;
   const s=map.getSize();
   wctx.globalCompositeOperation="destination-out";
   wctx.fillStyle="rgba(0,0,0,0.075)";
