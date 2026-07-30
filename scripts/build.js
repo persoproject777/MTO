@@ -852,6 +852,27 @@ function nomCyclone(phrase) {
   return m[1].replace(/-\d+$/, "").replace(/^(.)(.*)$/, (x, a2, b2) => a2.toUpperCase() + b2.toLowerCase());
 }
 
+/* Part du vent qui tourne AUTOUR du centre, entre 0,5° et 2,5° de rayon.
+   u est la composante vers l'est, v celle vers le nord ; le vecteur tangent
+   antihoraire au point (dla, dlo) vaut (−dla, dlo·cosφ) / r. On moyenne la part
+   tangentielle de chaque mesure : proche de 1 le vent tourne parfaitement,
+   proche de 0 il souffle tout droit. Le cœur est exclu — le vent y est nul, sa
+   direction n'y veut rien dire — et le bord aussi, où domine le flux général. */
+function circulation(cells, cla, clo) {
+  const cl = Math.cos(cla * Math.PI / 180);
+  let som = 0, n = 0;
+  for (const c of cells) {
+    const dla = c[0] - cla, dlo = ((((c[1] - clo + 540) % 360) - 180)) * cl;
+    const r = Math.hypot(dla, dlo);
+    if (r < 0.5 || r > 2.5) continue;
+    const sp = Math.hypot(c[2], c[3]);
+    if (sp < 1) continue;
+    som += (-c[2] * dla + c[3] * dlo) / r / sp;
+    n++;
+  }
+  return n ? som / n : 0;
+}
+
 async function ventCyclone() {
   const lire = f => { try { return JSON.parse(fs.readFileSync(path.join(OUT, f), "utf8")); } catch (e) { return null; } };
   const g = lire("gdacs.json"), e = lire("eonet.json");
@@ -942,13 +963,27 @@ async function ventCyclone() {
        On exige désormais la même chose que pour les grilles mondiales : chaque
        rangée de latitude présente, et 95 % du total. */
     if (!grilleComplete(cells, z.nm.slice(0, 22), pts, 0.95)) { z.ko = 1; continue; }
+    /* LE VENT Y TOURNE-T-IL VRAIMENT ? On ne croit aucune source sur parole :
+       on mesure. Les catalogues laissent un cyclone « en cours » bien après sa
+       dissipation, et sa dernière position connue continue d'être publiée. Sur
+       le relévé du 30 juillet, deux zones tournaient franchement (0,67 et 0,55)
+       et une troisième ne tournait pas du tout (−0,06) : c'étaient de simples
+       alizés, et nous dépensions trois cents mesures pour les décrire. */
+    const circ = circulation(cells, z.la, z.lo);
+    const sens = z.la >= 0 ? 1 : -1;   /* antihoraire au nord, horaire au sud */
+    if (circ * sens < 0.35) {
+      console.log("     " + z.nm.slice(0, 22) + " : circulation " + circ.toFixed(2)
+        + " — le vent n'y tourne pas, zone écartée");
+      z.ko = 1; continue;
+    }
+    z.circ = Math.round(circ * 100) / 100;
     z.cells = cells; total += cells.length;
   }
   const gard = zones.filter(z => !z.ko && z.cells && z.cells.length);
   if (!gard.length) { console.log("  !  vent cyclone : aucune zone exploitable, fichier conservé"); return false; }
   write("windtc.json", {
     t: now, step: STEP, ray: RAY,
-    zones: gard.map(z => ({ nm: z.nm, la: z.la, lo: z.lo, cells: z.cells }))
+    zones: gard.map(z => ({ nm: z.nm, la: z.la, lo: z.lo, circ: z.circ, cells: z.cells }))
   }, gard.length + " cyclone(s), " + total + " points fins (grille " + STEP + "°)");
   return true;
 }
@@ -1140,9 +1175,6 @@ async function effis() {
       /* La qualité de l'air suit le même rythme horaire que le vent : les deux
          viennent d'Open-Meteo, autant grouper leur consommation. */
       try { await air(); } catch (e) { console.log("  x  air échec : " + e.message); }
-      /* La grille fine suit le vent : elle n'a de sens qu'avec un socle frais,
-         et les deux puisent au même quota. */
-      try { await ventCyclone(); } catch (e) { console.log("  x  vent cyclone échec : " + e.message); }
       /* Un échec ne recule l'horloge que de dix minutes : assez pour ne pas
          matraquer Open-Meteo, trop peu pour laisser la carte sans vent. */
       windAt = ok ? now : now - 35 * 60e3;
@@ -1150,8 +1182,29 @@ async function effis() {
     } else {
       if (fs.existsSync(wf)) PRESENT.push("wind");
       if (fs.existsSync(path.join(OUT, "air.json"))) PRESENT.push("air");
-      if (fs.existsSync(path.join(OUT, "windtc.json"))) PRESENT.push("windtc");
     }
+  }
+
+  /* GRILLE FINE DES CYCLONES : sa propre horloge.
+     Je l'avais accrochée à celle du vent mondial, en me disant qu'elle n'avait de
+     sens qu'avec un socle frais. C'était lier deux choses indépendantes : un
+     socle qui échoue empêché alors la grille fine de se construire, et un socle
+     qui vient d'être reconstruit interdisait de rattraper une grille fine
+     manquante avant trois quarts d'heure. Elles partagent le quota, pas le sort. */
+  let tcAt = prev.tcAt || 0;
+  if (only === "fast") {
+    const tf = path.join(OUT, "windtc.json");
+    let tAge = Infinity;
+    if (fs.existsSync(tf)) {
+      try { tAge = now - (JSON.parse(fs.readFileSync(tf, "utf8")).t || 0); } catch (e) {}
+    }
+    const jamaisTc = tAge === Infinity;
+    if ((jamaisTc || tAge > 50 * 60e3) && now - tcAt > (jamaisTc ? 5 * 60e3 : 45 * 60e3)) {
+      console.log("  …  vent cyclone " + (jamaisTc ? "ABSENT" : "vieux de " + Math.round(tAge / 60e3) + " min") + " — reconstruction");
+      let okTc = false;
+      try { okTc = await ventCyclone(); } catch (e) { console.log("  x  vent cyclone échec : " + e.message); }
+      tcAt = okTc ? now : now - 35 * 60e3;
+    } else if (fs.existsSync(tf)) PRESENT.push("windtc");
   }
 
   let effisTried = prev.effisTried || 0;
@@ -1190,10 +1243,11 @@ async function effis() {
      `built: Date.now()`, il différait à chaque exécution et garantissait à lui
      seul un commit par cycle, même quand aucune donnée n'avait bougé. */
   const listChanged = JSON.stringify(prev.files || []) !== JSON.stringify(files);
-  const triedChanged = (prev.effisTried || 0) !== effisTried || (prev.windAt || 0) !== windAt;
+  const triedChanged = (prev.effisTried || 0) !== effisTried || (prev.windAt || 0) !== windAt
+    || (prev.tcAt || 0) !== tcAt;
   if (WROTE.length || listChanged || triedChanged) {
     fs.writeFileSync(path.join(OUT, "meta.json"), JSON.stringify({
-      built: now, builtISO: new Date(now).toISOString(), kind: only, files, effisTried, windAt
+      built: now, builtISO: new Date(now).toISOString(), kind: only, files, effisTried, windAt, tcAt
     }));
     console.log("  +  meta.json      " + files.length + " fichiers : " + files.join(", "));
   } else {
