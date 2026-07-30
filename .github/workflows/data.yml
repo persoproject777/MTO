@@ -180,7 +180,16 @@ jobs:
         # manuels : la chaine ne pouvait donc s'amorcer que sur un passage
         # programme — precisement ce qui ne vient plus. Seul un passage unique
         # demande expressement ne relance rien.
-        if: always() && !inputs.passage_unique
+        #
+        # PAS DE RELANCE QUAND LE RUN A ETE ANNULE. Avec `always()`, un service
+        # annule par son successeur demandait lui aussi un successeur : A est
+        # annule par B, A relance donc C, C annule B, B relance D... une cascade
+        # qui se nourrit d'elle-meme et brule le quota d'Actions pour rien. Deux
+        # declenchements a quinze secondes d'ecart l'ont montre. Une annulation
+        # signifie qu'un successeur EXISTE DEJA : il n'y a rien a relancer.
+        # `!cancelled()` conserve en revanche la relance apres un echec, qui est
+        # le cas ou elle sert vraiment.
+        if: ${{ !cancelled() && !inputs.passage_unique }}
         env:
           JETON: ${{ secrets.RELANCE }}
         run: |
