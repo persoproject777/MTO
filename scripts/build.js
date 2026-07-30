@@ -224,7 +224,11 @@ async function gdacs() {
    milliers d'entrées remontant à plusieurs semaines, et seule l'heure écoulée
    nous intéresse. */
 const GIBS_CAP = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml";
-const GIBS_SATS = ["GOES-West_ABI_GeoColor", "GOES-East_ABI_GeoColor",
+/* Le MEME produit pour les trois : deux rendus differents ne se raccordent pas,
+   et la couture entre couleur naturelle et infrarouge etait visible en travers
+   de la carte. L'infrarouge bande 13 existe pour les trois satellites. */
+const GIBS_SATS = ["GOES-West_ABI_Band13_Clean_Infrared",
+                   "GOES-East_ABI_Band13_Clean_Infrared",
                    "Himawari_AHI_Band13_Clean_Infrared"];
 async function nuages() {
   const ctl = new AbortController();

@@ -2541,10 +2541,28 @@ const BASES = {
 
    RETARD ASSUMÉ : une image géostationnaire est publiée une trentaine de minutes
    après la prise de vue. L'heure affichée est celle de la PRISE DE VUE. */
+/* UN SEUL ET MÊME PRODUIT POUR LES TROIS SATELLITES.
+   Je mélangeais deux rendus : la couleur naturelle reconstituée pour les GOES,
+   l'infrarouge pour Himawari. Deux images qui ne représentent pas la même
+   grandeur physique ne peuvent PAS se raccorder — d'où la couture verticale
+   franche entre du gris-bleu naturel et du vert-rouge infrarouge, et l'aspect
+   « n'importe quoi » en vue large, où l'on voyait la mosaïque des emprises.
+
+   Les trois satellites publient tous l'infrarouge propre de la bande 13. En le
+   prenant partout on obtient :
+     . une palette unique, donc une jonction INVISIBLE entre deux satellites ;
+     . la même grille de tuiles (niveau 6 pour les trois), donc un alignement
+       exact au pixel ;
+     . des tuiles PLUS LÉGÈRES — 77 à 97 ko contre 154 à 161 pour la couleur
+       naturelle, soit près de moitié moins de trafic ;
+     . un rendu qui vaut de jour COMME DE NUIT, alors que la couleur naturelle
+       s'éteint du côté nuit et créait une seconde couture, mouvante celle-là.
+   C'est de surcroît la vue employée par les bulletins cyclone : elle mesure la
+   température du sommet des nuages, ce qui fait ressortir l'œil et les bandes. */
 const SATS = [
-  { id:"GOES-West_ABI_GeoColor",             niv:7, nm:"GOES-West", o:-180, e:-115 },
-  { id:"GOES-East_ABI_GeoColor",             niv:7, nm:"GOES-East", o:-115, e:-15  },
-  { id:"Himawari_AHI_Band13_Clean_Infrared", niv:6, nm:"Himawari",  o:80,   e:180  }
+  { id:"GOES-West_ABI_Band13_Clean_Infrared", niv:6, nm:"GOES-West", o:-180, e:-115 },
+  { id:"GOES-East_ABI_Band13_Clean_Infrared", niv:6, nm:"GOES-East", o:-115, e:-15  },
+  { id:"Himawari_AHI_Band13_Clean_Infrared",  niv:6, nm:"Himawari",  o:80,   e:180  }
 ];
 const GIBS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/";
 const NU_IMAGES = 6;        /* six créneaux = une heure de mouvement */
