@@ -561,6 +561,28 @@ body.base-light .pnom{color:#2b3b55;
   border:1px solid var(--line);background:#101c33;color:var(--txt);font-size:14px;cursor:pointer}
 #card .pp-t{padding-right:34px}
 @media (max-width:899px){#card{display:block}}
+/* LA FICHE EST ANCRÉE, PLUS FLOTTANTE — sur ordinateur aussi.
+   Le popup Leaflet du grand écran ouvrait avec `autoPan` : il DÉPLAÇAIT la carte
+   pour se rendre visible. Ce déplacement déclenchait `moveend`, donc le redessin
+   des couches, donc `clearLayers()` — et le marqueur qui portait le popup était
+   détruit avec le reste. La fiche s'ouvrait puis disparaissait aussitôt.
+   C'est exactement ce qui était constaté : « ça affiche les infos, puis ça les
+   enlève directement ».
+   Une fiche ancrée dans le document n'appartient à aucune couche : plus rien ne
+   peut la détruire. On peut se déplacer, zoomer, changer de couche — elle reste,
+   et c'est le lecteur qui la ferme.
+   Elle se pose à DROITE, à l'opposé du panneau des couches, pour ne jamais
+   recouvrir le centre de la carte. Sa hauteur est bornée et son contenu défile :
+   les fiches longues ne débordent plus de l'écran. */
+@media (min-width:900px){
+  #card{display:block;left:auto;right:0;top:0;bottom:0;width:376px;
+    max-height:none;border-top:none;border-left:1px solid var(--line);
+    border-radius:0;padding:4px 16px 18px;
+    transform:translateX(101%);
+    box-shadow:-8px 0 28px rgba(0,0,0,.42)}
+  #card.open{transform:none}
+  #card .cgrab{display:none}
+}
 #diagbtn{position:relative}
 #diagdot{position:absolute;top:3px;right:3px;min-width:15px;height:15px;border-radius:9px;
   background:var(--alert);color:#fff;font:700 9px/15px var(--mono);display:none;padding:0 3px}
@@ -2684,6 +2706,14 @@ async function majNuages(){
 
    Le fichier est STATIQUE : chargé une seule fois, puis servi par le cache du
    navigateur. Il ne coûte rien aux cycles de rafraîchissement. */
+/* AUCUN POPUP NE DEPLACE PLUS LA CARTE. Leaflet recadre par defaut pour rendre
+   le popup visible ; ce recadrage declenchait `moveend`, donc le redessin des
+   couches, donc la destruction du marqueur qui portait le popup. La fiche
+   s'ouvrait et disparaissait dans la meme seconde. Comme tout passe desormais
+   par la fiche ancree, ce recadrage n'a plus aucune raison d'exister. */
+L.Popup.prototype.options.autoPan = false;
+L.Popup.prototype.options.keepInView = false;
+
 map.createPane("nuagePane");
 map.getPane("nuagePane").style.zIndex = 240;
 map.getPane("nuagePane").style.pointerEvents = "none";
@@ -4337,25 +4367,25 @@ let cardKey="";
 const cardEl=$("#card"), cardBody=$("#cardbody");
 function closeCard(){ cardEl.classList.remove("open"); cardKey=""; layers.analysis.clearLayers(); }
 $("#cclose").onclick=closeCard;
+/* Une seule et même fiche, sur tous les écrans. Plus aucun popup flottant :
+   il déplaçait la carte en s'ouvrant, ce qui provoquait sa propre destruction. */
 function openInfo(latlng, key){
-  if(mqMobile.matches){
-    cardKey=key||String(Date.now());
-    const myKey=cardKey;
-    cardBody.innerHTML="";
-    cardEl.classList.add("open");
-    return {
-      setContent(h){ if(cardKey===myKey) cardBody.innerHTML=h; },
-      key:myKey,
-      onClose(f){ cardEl._cb=f; }
-    };
-  }
-  const p=L.popup({maxWidth:330, autoPanPaddingTopLeft:[12,16], autoPanPaddingBottomRight:[12,120], keepInView:true})
-    .setLatLng(latlng).setContent("").openOn(map);
-  return { setContent(h){ p.setContent(h); }, key:key||"", onClose(f){ p.on("remove",f); } };
+  cardKey=key||String(Date.now());
+  const myKey=cardKey;
+  cardBody.innerHTML="";
+  cardEl.classList.add("open");
+  return {
+    setContent(h){ if(cardKey===myKey) cardBody.innerHTML=h; },
+    key:myKey,
+    onClose(f){ cardEl._cb=f; }
+  };
 }
 /* Les marqueurs à contenu fixe passent aussi par la fiche du bas sur mobile */
+/* Les dix-neuf marqueurs qui portent un contenu fixe passent par la même fiche.
+   Plutôt que de les réécrire un à un, on intercepte l'ouverture du popup, on
+   verse son contenu dans la fiche et on referme le popup aussitôt : il n'a donc
+   jamais le temps de déplacer la carte. */
 map.on("popupopen", e=>{
-  if(!mqMobile.matches) return;
   const c=e.popup.getContent();
   if(typeof c!=="string" || !c) return;
   cardKey="mk"+Date.now();
