@@ -208,8 +208,110 @@ async function gdacs() {
    Le point d'étiquette est le centre de la plus GRANDE enveloppe, pas la
    moyenne de toutes : sinon « France » s'écrirait au milieu de l'Atlantique,
    entre la métropole et les Antilles. */
+/* ---------- CRÉNEAUX D'IMAGES SATELLITE RÉELLEMENT PUBLIÉS ----------
+   Piège coûteux, découvert en production : les images géostationnaires ne sont
+   PAS publiées toutes les dix minutes de façon régulière. Relevé sur GOES-East :
+     15:20, 15:30, [trou], 15:50, 16:00, [trou], 16:30, 16:40
+   En calculant les créneaux moi-même par pas de dix minutes, je demandais des
+   images qui n'existent pas — 86 tuiles en échec d'un coup dans le journal d'un
+   visiteur, et une animation qui saute.
+
+   Le service publie pourtant la liste exacte dans ses capacités, sous forme
+   d'intervalles « début/fin/pas ». Le robot les lit et republie les derniers
+   créneaux VALIDES. Le navigateur ne devine plus rien.
+
+   On ne développe que les DERNIERS intervalles : la liste complète compte des
+   milliers d'entrées remontant à plusieurs semaines, et seule l'heure écoulée
+   nous intéresse. */
+const GIBS_CAP = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml";
+const GIBS_SATS = ["GOES-West_ABI_GeoColor", "GOES-East_ABI_GeoColor",
+                   "Himawari_AHI_Band13_Clean_Infrared"];
+async function nuages() {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 60000);
+  let xml;
+  try {
+    const r = await fetch(GIBS_CAP, { signal: ctl.signal, headers: { "User-Agent": UA } });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    xml = await r.text();
+  } finally { clearTimeout(t); }
+
+  const out = {};
+  for (const nom of GIBS_SATS) {
+    const i = xml.indexOf("<ows:Identifier>" + nom + "</ows:Identifier>");
+    if (i < 0) continue;
+    const deb = xml.lastIndexOf("<Layer>", i), fin = xml.indexOf("</Layer>", i);
+    const bloc = xml.slice(deb, fin);
+    const vals = [...bloc.matchAll(/<Value>([^<]+)<\/Value>/g)].map(m => m[1]);
+    /* On remonte depuis la FIN jusqu'à tenir huit créneaux : c'est l'heure et
+       quart la plus récente, tout ce dont l'animation a besoin. */
+    const creneaux = [];
+    for (let k = vals.length - 1; k >= 0 && creneaux.length < 8; k--) {
+      const [a0, b0, pas] = vals[k].split("/");
+      if (!b0 || !pas) { if (a0) creneaux.unshift(a0); continue; }
+      const min = +(pas.match(/PT(\d+)M/) || [])[1];
+      if (!min) { creneaux.unshift(b0); continue; }
+      const d0 = Date.parse(a0), d1 = Date.parse(b0);
+      if (!isFinite(d0) || !isFinite(d1)) continue;
+      const loc = [];
+      for (let x = d1; x >= d0 && loc.length < 8; x -= min * 60000)
+        loc.unshift(new Date(x).toISOString().replace(".000", ""));
+      creneaux.unshift(...loc);
+    }
+    const garde = creneaux.slice(-8);
+    if (garde.length) out[nom] = garde;
+  }
+  const n = Object.values(out).reduce((a, b) => a + b.length, 0);
+  const dernier = Object.values(out).map(v => v[v.length - 1]).sort().pop();
+  write("nuages.json", { t: now, sats: out },
+    n + " créneaux d'image sur " + Object.keys(out).length + " satellites"
+    + (dernier ? " (dernier " + dernier.slice(11, 16) + " UTC)" : ""));
+}
+
+/* ---------- FRONTIÈRES TERRESTRES ET NOMS DE PAYS ----------
+   ON NE TRACE PLUS LE CONTOUR DES PAYS, seulement les frontières TERRESTRES.
+   Le contour d'un pays contient sa CÔTE, et une côte simplifiée posée sur de
+   l'imagerie satellite précise déborde forcément : le trait passait dans la mer,
+   coupait les golfes, mordait sur les îles. Or la côte, l'image la montre déjà —
+   la redessiner n'apportait rien et gâchait tout.
+   Natural Earth publie un jeu dédié aux seules limites entre pays. Mesuré :
+     frontières terrestres 110m   0,32 Mo    3 k sommets
+     frontières terrestres  50m   0,72 Mo   20 k sommets   <- retenu
+     frontières terrestres  10m   2,18 Mo   77 k sommets
+     contours de pays       50m   2,91 Mo   99 k sommets
+   Le 50m est cinq fois plus fin que ce qu'on affichait, et PLUS LÉGER que les
+   contours qu'il remplace. Aucun trait en mer, aucune côte redessinée.
+
+   Les noms, eux, viennent d'un fichier séparé réduit à l'essentiel : un point et
+   un nom par pays, sans la moindre géométrie — quelques kilo-octets au lieu de
+   cent soixante-dix. */
+const NE_BORNES = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/"
+                + "master/geojson/ne_50m_admin_0_boundary_lines_land.geojson";
 const NE110 = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/"
             + "master/geojson/ne_110m_admin_0_countries.geojson";
+
+async function bornes() {
+  const d = await get(NE_BORNES, 60000);
+  /* Tolérance de 0,008° ≈ 900 m : invisible au niveau régional, où ces traits
+     sont lus, et cela retire l'essentiel des sommets alignés. */
+  const TOL = 0.008;
+  const lignes = [];
+  for (const x of (d.features || [])) {
+    const g = x.geometry; if (!g) continue;
+    const brins = g.type === "LineString" ? [g.coordinates] : g.coordinates;
+    for (const b of brins) {
+      if (!Array.isArray(b) || b.length < 2) continue;
+      const r = dp(b, TOL).map(c => [p3(c[0]), p3(c[1])]);
+      if (r.length >= 2) lignes.push(r);
+    }
+  }
+  lignes.sort(byKey(l => String(Math.round(l[0][0] * 10)).padStart(6, "0") + "|"
+                       + String(Math.round(l[0][1] * 10)).padStart(6, "0")));
+  const som = lignes.reduce((n, l) => n + l.length, 0);
+  write("bornes.json", { t: now, l: lignes },
+    lignes.length + " frontières terrestres, " + som + " sommets");
+}
+
 function aireAnneau(a) {
   let s = 0;
   for (let i = 0; i < a.length - 1; i++) s += a[i][0] * a[i + 1][1] - a[i + 1][0] * a[i][1];
@@ -240,17 +342,10 @@ async function pays() {
     if (!nom) nom = p.ADMIN || p.NAME || cc || "";
     const pt = pointEtiquette(x.geometry);
     if (!pt) return null;
-    return {
-      cc, n: nom,
-      /* Rang d'affichage : les grands pays s'écrivent plus tôt en dézoomant. */
-      r: Math.round(Math.log10(Math.max(1, +p.POP_EST || 1))),
-      c: pt,
-      g: { type: x.geometry.type, coordinates: simpGeo(x.geometry.coordinates) }
-    };
+    /* AUCUNE géométrie republiée : ce fichier ne sert qu'à placer les noms. */
+    return { cc, n: nom, r: Math.round(Math.log10(Math.max(1, +p.POP_EST || 1))), c: pt };
   }).filter(Boolean).sort(byKey(x => x.cc + "|" + x.n));
-  const t = JSON.stringify({ t: now, f });
-  write("pays.json", { t: now, f },
-    f.length + " pays, noms français (" + Math.round(t.length / 1024) + " ko)");
+  write("pays.json", { t: now, f }, f.length + " pays, noms français");
 }
 
 /* ---------- CONTOURS RÉELS DES ALERTES GDACS ----------
@@ -676,6 +771,44 @@ function simp(ring, k) {
   out.push(ring[ring.length - 1]);
   return out;
 }
+
+/* ---------- SIMPLIFICATION QUI RESPECTE LA FORME (Douglas-Peucker) ----------
+   `simp` ci-dessus garde « un point sur N » sans regarder la géométrie. Sur un
+   périmètre de zone brûlée, dont on ne juge que l'ordre de grandeur, cela passe.
+   Sur une FRONTIÈRE, c'est désastreux : les angles sont coupés au hasard, et le
+   trait se met à traverser la mer ou à mordre sur le pays voisin — c'est
+   exactement ce qui donnait l'impression que tout débordait.
+   Douglas-Peucker, lui, conserve les sommets qui portent la forme et supprime
+   ceux qui sont alignés : à nombre de points égal, le tracé reste juste. */
+function dp(pts, tol) {
+  if (pts.length < 3) return pts;
+  const sq = t => t * t;
+  /* Distance d'un point au segment, au carré — pas de racine, inutile ici. */
+  const d2 = (p, a, b) => {
+    let x = a[0], y = a[1], dx = b[0] - x, dy = b[1] - y;
+    if (dx || dy) {
+      const t = ((p[0] - x) * dx + (p[1] - y) * dy) / (dx * dx + dy * dy);
+      if (t > 1) { x = b[0]; y = b[1]; }
+      else if (t > 0) { x += dx * t; y += dy * t; }
+    }
+    return sq(p[0] - x) + sq(p[1] - y);
+  };
+  const t2 = sq(tol), garde = new Array(pts.length).fill(false);
+  garde[0] = garde[pts.length - 1] = true;
+  /* Pile explicite plutôt que récursion : certaines frontières comptent des
+     milliers de sommets et la pile d'appels y passerait. */
+  const pile = [[0, pts.length - 1]];
+  while (pile.length) {
+    const [i, j] = pile.pop();
+    let max = 0, k = -1;
+    for (let m = i + 1; m < j; m++) {
+      const d = d2(pts[m], pts[i], pts[j]);
+      if (d > max) { max = d; k = m; }
+    }
+    if (max > t2 && k > 0) { garde[k] = true; pile.push([i, k], [k, j]); }
+  }
+  return pts.filter((_, i) => garde[i]);
+}
 const simpGeo = c => Array.isArray(c[0]) && Array.isArray(c[0][0]) ? c.map(simpGeo) : simp(c, 48);
 
 async function effis() {
@@ -739,7 +872,7 @@ async function effis() {
     /* `pays` est un fond STATIQUE : les frontieres ne bougent pas toutes les
        quinze minutes. Il n'est reconstruit que s'il manque — le comparateur
        d'ecriture s'en charge, la tache ne coute donc rien les autres fois. */
-    : [["pays", pays], ["quakes", quakes], ["eonet", eonet], ["gdacs", gdacs], ["gdacsgeo", gdacsGeom],
+    : [["bornes", bornes], ["pays", pays], ["nuages", nuages], ["quakes", quakes], ["eonet", eonet], ["gdacs", gdacs], ["gdacsgeo", gdacsGeom],
        ["nws", nws], ["storms", storms], ["sigmet", sigmet], ["meteoalarm", meteoalarm],
        ["hotspots", hotspots]];
 

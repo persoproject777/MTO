@@ -2484,99 +2484,139 @@ const BASES = {
      updateWhenIdle:true, keepBuffer:2})
 };
 
-/* ===== NUAGES VUS PAR SATELLITE GÉOSTATIONNAIRE =====
-   C'est l'image qu'on voit à la télévision quand un typhon approche : la
-   spirale, les bandes, et l'œil au centre. Aucune autre couche ne montre cela —
-   le vent en particules donne le mouvement, les nuages donnent la STRUCTURE.
+/* ===== NUAGES VUS PAR SATELLITE GÉOSTATIONNAIRE, ANIMÉS =====
+   C'est l'image des bulletins télévisés : la spirale, les bandes, l'œil. Le vent
+   en particules donne le MOUVEMENT, les nuages donnent la STRUCTURE — et en les
+   animant, on voit la structure tourner.
 
-   Trois satellites, parce qu'aucun ne voit toute la Terre : un géostationnaire
-   est fixe au-dessus d'un méridien et n'observe qu'un hémisphère. On choisit
-   donc celui qui regarde la région affichée, d'après la longitude du centre de
-   la carte. Vérifié niveau par niveau, avec le poids et le retard réels :
-     GOES-East  GeoColor       niveau 7   154 ko   retard 30 min   Amériques, Atlantique
-     GOES-West  GeoColor       niveau 7   161 ko   retard 40 min   Pacifique
-     Himawari   infrarouge     niveau 6    66 ko   retard 40 min   Asie, Océanie
+   DEUX DÉFAUTS DE MA PREMIÈRE VERSION, corrigés ici.
 
-   CE QUI N'EST PAS COUVERT, et il faut le dire : l'Europe et l'Afrique. Le
-   satellite qui les observe est Meteosat, et il ne figure pas au catalogue de la
-   NASA. Plutôt que d'afficher une image fausse ou vide, la couche l'annonce.
-   Ce n'est pas très gênant en pratique : les cyclones tropicaux se forment
-   précisément dans les zones couvertes.
+   1. UN GRAND OVALE POSÉ SUR LA CARTE. J'affichais le disque complet du
+      satellite. Un géostationnaire voit un hémisphère entier, mais tout ce qui
+      s'éloigne de son méridien est vu de plus en plus obliquement : au bord du
+      disque, un nuage est étalé sur des centaines de kilomètres et ne coïncide
+      plus avec rien. D'où le bord franc en forme d'œuf et l'impression que les
+      nuages « ne correspondent pas à la carte ».
+      Chaque satellite est désormais BORNÉ à la portion qu'il voit correctement,
+      et les trois se relaient sans se recouvrir :
+        GOES-West   -180° à -115°     Pacifique
+        GOES-East   -115° à  -15°     Amériques, Atlantique
+        Himawari      80° à  180°     Asie, Océanie
+      Plus d'ovale, plus de limbe déformé, et le monde est couvert d'un bout à
+      l'autre — sauf entre -15° et 80°.
 
-   POURQUOI L'INFRAROUGE POUR L'ASIE. GeoColor n'existe pas pour Himawari dans ce
-   catalogue. L'infrarouge « propre » de la bande 13 est en réalité la vue
-   classique des bulletins cyclone : il mesure la température du sommet des
-   nuages, ce qui fait ressortir l'œil et les bandes spiralées — et il fonctionne
-   la nuit, contrairement au visible.
+   2. AUCUN MOUVEMENT. Une image fixe ne montre pas qu'un cyclone tourne.
+      Le catalogue publie une image toutes les DIX MINUTES (cadence PT10M,
+      vérifiée dans les capacités du service). On charge donc plusieurs créneaux
+      successifs et on les fait défiler : la rotation devient visible, comme sur
+      une boucle météo.
 
-   RETARD ASSUMÉ. Une image géostationnaire n'est publiée qu'une trentaine de
-   minutes après la prise de vue. On vise donc 40 minutes en arrière, et l'heure
-   affichée est celle de la PRISE DE VUE, pas celle du chargement. */
+   CE QUI RESTE DÉCOUVERT, et la carte le dit : entre -15° et 80° de longitude,
+   c'est-à-dire l'Europe et l'Afrique. Leur satellite est Meteosat, et il ne
+   figure PAS au catalogue de la NASA — vérifié, aucune entrée MSG, SEVIRI ni
+   Meteosat. Plutôt qu'une image fausse, on n'affiche rien et on l'annonce.
+   Peu gênant en pratique : les cyclones tropicaux se forment ailleurs.
+
+   RETARD ASSUMÉ : une image géostationnaire est publiée une trentaine de minutes
+   après la prise de vue. L'heure affichée est celle de la PRISE DE VUE. */
 const SATS = [
-  { id:"GOES-East_ABI_GeoColor",             lon:-75,  niv:7, nm:"GOES-East",
-    d:"couleur naturelle reconstituée", ret:40 },
-  { id:"GOES-West_ABI_GeoColor",             lon:-137, niv:7, nm:"GOES-West",
-    d:"couleur naturelle reconstituée", ret:40 },
-  { id:"Himawari_AHI_Band13_Clean_Infrared", lon:140,  niv:6, nm:"Himawari",
-    d:"infrarouge, température du sommet des nuages", ret:40 }
+  { id:"GOES-West_ABI_GeoColor",             niv:7, nm:"GOES-West", o:-180, e:-115 },
+  { id:"GOES-East_ABI_GeoColor",             niv:7, nm:"GOES-East", o:-115, e:-15  },
+  { id:"Himawari_AHI_Band13_Clean_Infrared", niv:6, nm:"Himawari",  o:80,   e:180  }
 ];
 const GIBS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/";
+const NU_IMAGES = 6;        /* six créneaux = une heure de mouvement */
+const NU_RETARD = 40;       /* minutes : délai de publication constaté */
 
-/* Écart angulaire réel entre deux longitudes, en tenant compte du passage par
-   l'antiméridien : sans cela, une carte centrée sur 179° choisirait GOES-East. */
-const ecartLon = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
-function satPour(lon){
-  let best = SATS[0], bd = 999;
-  for(const s of SATS){ const d = ecartLon(lon, s.lon); if(d < bd){ bd = d; best = s; } }
-  /* Au-delà de 75° du point sous-satellite, l'image est trop rasante pour être
-     honnête : c'est le bord du disque, tout y est déformé. */
-  return bd > 75 ? null : best;
+let nuCouches = [], nuIdx = 0, nuTimer = 0, nuCle = "", NU_TEMPS = null;
+
+/* Les créneaux ne sont PAS calculés ici. Relevé en production : les images ne
+   sont pas publiées toutes les dix minutes de façon régulière — GOES-East donne
+   15:20, 15:30, puis un trou, puis 15:50, 16:00, un trou, 16:30, 16:40. En
+   calculant moi-même par pas fixe, je demandais des images inexistantes : 86
+   tuiles en échec d'un coup dans le journal d'un visiteur, et une animation qui
+   sautait. Le robot lit la liste exacte publiée par le service ; le navigateur
+   ne devine plus rien. */
+async function nuTemps(){
+  if(NU_TEMPS) return NU_TEMPS;
+  try{
+    const p = await preload("nuages", 3*3600e3);
+    if(p && p.sats && Object.keys(p.sats).length){ NU_TEMPS = p.sats; return NU_TEMPS; }
+  }catch(e){}
+  return null;
 }
-/* Créneau de dix minutes, reculé du retard de publication. */
-function instantSat(ret){
-  const d = new Date(Date.now() - ret*60000);
-  d.setUTCMinutes(Math.floor(d.getUTCMinutes()/10)*10, 0, 0);
-  return d;
+
+function nuPurge(){
+  clearInterval(nuTimer); nuTimer = 0;
+  for(const g of nuCouches) for(const l of g.l) map.removeLayer(l);
+  nuCouches = []; nuIdx = 0; nuCle = "";
 }
-let nuageLayer = null, nuageSat = null, nuageT = 0;
-function majNuages(){
+
+/* Nombre d'images selon le zoom. Au niveau du monde, une seule : six créneaux
+   d'un disque entier représentent des centaines de tuiles, et c'est ce qui
+   saturait le réseau. En approchant, l'emprise se réduit et l'animation devient
+   abordable — c'est aussi là qu'elle sert, sur un cyclone. */
+const nuNb = () => map.getZoom() < 3.5 ? 1 : map.getZoom() < 5 ? 4 : 6;
+
+async function nuConstruit(){
+  const T = await nuTemps();
+  if(!T) return;
+  const nb = nuNb();
+  const cle = nb + "|" + Object.values(T).map(v => v[v.length-1]).join(",");
+  if(cle === nuCle && nuCouches.length) return;
+  nuPurge();
+  nuCle = cle;
+  for(const s of SATS){
+    const dispo = T[s.id];
+    if(!dispo || !dispo.length) continue;
+    const inst = dispo.slice(-nb);
+    const bornes = L.latLngBounds([[-62, s.o], [62, s.e]]);
+    const l = inst.map(t => L.tileLayer(
+      GIBS + s.id + "/default/" + t
+        + "/GoogleMapsCompatible_Level" + s.niv + "/{z}/{y}/{x}.png",
+      { attribution:"NASA GIBS / " + s.nm, bounds:bornes,
+        maxNativeZoom:s.niv, maxZoom:19, opacity:0,
+        pane:"nuagePane", updateWhenIdle:true, keepBuffer:0, crossOrigin:true,
+        /* Une image manquante ne doit ni trouer le ciel ni remplir le journal. */
+        errorTileUrl:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" }
+    ).addTo(map));
+    nuCouches.push({ s, l, inst });
+  }
+  if(!nuCouches.length) return;
+  nuIdx = nuCouches[0].l.length - 1;
+  nuAffiche();
+  if(nuCouches[0].l.length > 1) nuTimer = setInterval(nuAvance, 700);
+  nuEtiquette();
+}
+
+const NU_OPACITE = () => map.getZoom() < 4 ? .5 : .64;
+function nuAffiche(){
+  const o = NU_OPACITE();
+  for(const g of nuCouches){
+    const i = Math.min(nuIdx, g.l.length-1);
+    g.l.forEach((l,k) => l.setOpacity(k === i ? o : 0));
+  }
+}
+function nuAvance(){
+  const n = nuCouches.length ? nuCouches[0].l.length : 1;
+  nuIdx = (nuIdx + 1) % n;
+  nuAffiche();
+  nuEtiquette();
+}
+function nuEtiquette(){
+  const lon = map.getCenter().lng;
+  const g = nuCouches.find(x => lon >= x.s.o && lon <= x.s.e);
+  if(!g){ setC("c-nuages","hors couverture"); return; }
+  const t = g.inst[Math.min(nuIdx, g.inst.length-1)];
+  setC("c-nuages", g.s.nm + " · " + fmtShort(Date.parse(t))
+    + (g.l.length>1 ? " · animé" : ""));
+}
+
+async function majNuages(){
   const on = $("#tg-nuages") && $("#tg-nuages").checked;
-  if(!on){
-    if(nuageLayer){ map.removeLayer(nuageLayer); nuageLayer = null; nuageSat = null; }
-    setC("c-nuages","–");
-    return;
-  }
-  const s = satPour(map.getCenter().lng);
-  if(!s){
-    if(nuageLayer){ map.removeLayer(nuageLayer); nuageLayer = null; nuageSat = null; }
-    setC("c-nuages","hors couverture");
-    return;
-  }
-  const d = instantSat(s.ret);
-  const cle = s.id + "|" + d.getTime();
-  if(cle === nuageT && nuageLayer) return;      /* rien de neuf : on ne recharge pas */
-  nuageT = cle; nuageSat = s;
-  const t = d.toISOString().slice(0,11)
-          + String(d.getUTCHours()).padStart(2,"0") + ":"
-          + String(d.getUTCMinutes()).padStart(2,"0") + ":00Z";
-  const url = GIBS + s.id + "/default/" + t
-            + "/GoogleMapsCompatible_Level" + s.niv + "/{z}/{y}/{x}.png";
-  const neuf = L.tileLayer(url, {
-    attribution:"NASA GIBS / " + s.nm,
-    /* Au-delà du niveau natif, la dernière tuile est agrandie plutôt que de
-       laisser un trou : un nuage flou vaut mieux qu'un carré vide. */
-    maxNativeZoom:s.niv, maxZoom:19, opacity:.62,
-    pane:"nuagePane", updateWhenIdle:true, keepBuffer:1, crossOrigin:true
-  });
-  neuf.addTo(map);
-  /* On ne retire l'ancienne couche qu'une fois la nouvelle prête : sans cela,
-     le ciel clignote à chaque rafraîchissement. */
-  const vieux = nuageLayer;
-  nuageLayer = neuf;
-  const oter = ()=>{ if(vieux){ map.removeLayer(vieux); } };
-  neuf.once("load", oter);
-  setTimeout(oter, 4000);
-  setC("c-nuages", s.nm + " · " + fmtShort(d.getTime()));
+  if(!on){ nuPurge(); setC("c-nuages","–"); return; }
+  await nuConstruit();
+  nuAffiche();
 }
 
 /* ---------- FRONTIÈRES ET NOMS DE PAYS, EN FRANÇAIS ----------
@@ -2606,28 +2646,35 @@ map.createPane("refPane");
 map.getPane("refPane").style.zIndex = 250;
 map.getPane("refPane").style.pointerEvents = "none";
 
-let PAYS = null, paysT = 0;
+let PAYS = null, BORNES = null, paysT = 0;
 const layerBords = L.layerGroup();
 const layerNoms  = L.layerGroup();
 
-async function chargePays(){
-  if(PAYS) return PAYS;
-  if(Date.now()-paysT < 60000) return null;      /* pas de martèlement en cas d'échec */
+async function chargeReference(){
+  if(PAYS && BORNES) return true;
+  if(Date.now()-paysT < 60000) return false;
   paysT = Date.now();
   try{
-    const p = await preload("pays", 30*24*3600e3);   /* des frontières ne périment pas */
-    if(p && p.f && p.f.length){ PAYS = p.f; return PAYS; }
+    const [a,b] = await Promise.all([
+      preload("pays",   30*24*3600e3),
+      preload("bornes", 30*24*3600e3)
+    ]);
+    if(a && a.f) PAYS = a.f;
+    if(b && b.l) BORNES = b.l;
   }catch(e){}
-  return null;
+  return !!(PAYS && BORNES);
 }
 
-/* Épaisseur et opacité suivent le zoom : un trait qui convient au monde entier
-   écrase le détail dès qu'on approche d'une ville. */
-function styleBord(z){
-  return { renderer: cnv, color: baseCur==="light" ? "#7d8ba6" : "#93a6c4",
-           weight: z<4 ? 0.7 : z<7 ? 1 : 1.3,
-           opacity: baseCur==="sat" ? 0.75 : 0.5,
-           fill:false, interactive:false };
+/* Le trait porte un LISERÉ SOMBRE en dessous : sur de l'imagerie satellite, un
+   trait clair seul disparaît sur la neige et le désert, et un trait sombre seul
+   disparaît sur la forêt et l'océan. Les deux superposés se lisent partout. */
+function styleBord(z, dessous){
+  const fin = z < 4 ? 0.6 : z < 7 ? 0.9 : 1.2;
+  return { renderer: cnv, interactive:false, fill:false,
+    color: dessous ? "rgba(6,11,22,.55)"
+                   : (baseCur==="light" ? "#5c6b86" : "#c3d2ea"),
+    weight: dessous ? fin+1.6 : fin,
+    opacity: dessous ? .5 : (baseCur==="sat" ? .82 : .55) };
 }
 
 async function dessineReference(){
@@ -2637,8 +2684,7 @@ async function dessineReference(){
     layerBords.clearLayers(); layerNoms.clearLayers();
     return;
   }
-  const f = await chargePays();
-  if(!f) return;
+  if(!await chargeReference()) return;
   if(!map.hasLayer(layerBords)) layerBords.addTo(map);
   if(!map.hasLayer(layerNoms))  layerNoms.addTo(map);
 
@@ -2646,26 +2692,36 @@ async function dessineReference(){
   layerBords.clearLayers();
   layerNoms.clearLayers();
 
-  const b = map.getBounds().pad(0.25);
-  const st = styleBord(z);
-  for(const p of f){
-    /* Hors du champ de vision, on ne dessine rien — même règle que le reste. */
-    if(p.c[0] < b.getSouth()-40 || p.c[0] > b.getNorth()+40) continue;
-    L.geoJSON(p.g, { style: st, pane: "refPane" }).addTo(layerBords);
+  const b = map.getBounds().pad(0.3);
+  const S=b.getSouth(), N=b.getNorth(), O=b.getWest(), E=b.getEast();
+  /* Hors du champ de vision, on ne dessine rien : on teste l'enveloppe de chaque
+     brin plutôt que chacun de ses sommets. */
+  const visible = l => {
+    let s1=90,n1=-90,o1=180,e1=-180;
+    for(const c of l){ if(c[1]<s1)s1=c[1]; if(c[1]>n1)n1=c[1];
+                       if(c[0]<o1)o1=c[0]; if(c[0]>e1)e1=c[0]; }
+    return s1<=N && n1>=S && o1<=E && e1>=O;
+  };
+  const dessous = styleBord(z, true), dessus = styleBord(z, false);
+  let n=0;
+  for(const l of BORNES){
+    if(!visible(l)) continue;
+    /* Les coordonnées arrivent en [longitude, latitude] : Leaflet veut l'inverse. */
+    const pts = l.map(c => [c[1], c[0]]);
+    L.polyline(pts, dessous).addTo(layerBords);
+    L.polyline(pts, dessus).addTo(layerBords);
+    n++;
   }
 
-  /* Les NOMS s'effacent au-delà du niveau régional : au zoom 8 on cherche une
+  /* Les NOMS s'effacent au-delà du niveau régional : au zoom 9 on cherche une
      rue, pas à savoir dans quel pays on se trouve. */
   if(z > 8) return;
-  /* Seuil de rang : au monde, seuls les pays les plus peuplés sont nommés,
-     sinon l'Europe devient une bouillie de mots superposés. */
   const seuil = z < 3 ? 7.5 : z < 4.5 ? 7 : z < 6 ? 6 : 0;
-  let n = 0;
-  for(const p of f){
+  let m = 0;
+  for(const p of PAYS){
     if(p.r < seuil) continue;
-    if(p.c[0] < b.getSouth() || p.c[0] > b.getNorth()
-    || p.c[1] < b.getWest()  || p.c[1] > b.getEast()) continue;
-    if(++n > 90) break;              /* garde-fou : jamais plus de 90 étiquettes */
+    if(p.c[0] < S || p.c[0] > N || p.c[1] < O || p.c[1] > E) continue;
+    if(++m > 90) break;
     L.marker(p.c, { pane:"refPane", interactive:false, keyboard:false,
       icon: L.divIcon({ className:"", iconSize:[0,0],
         html:`<div class="pnom${z<4?" pt":""}">${esc(p.n)}</div>` }) }).addTo(layerNoms);
@@ -6958,8 +7014,17 @@ $("#tg-safe").addEventListener("change",ev=>{
 $("#tg-nuages").addEventListener("change",majNuages);
 /* Le satellite dépend de l'endroit regardé : changer de continent change
    d'image. Et l'heure avance, donc on rafraîchit aussi toutes les 5 min. */
-map.on("moveend", ()=>{ if($("#tg-nuages").checked) majNuages(); });
+/* Le satellite depend de l'endroit regarde : on remet a jour l'etiquette au
+   deplacement, et on reconstruit la boucle quand un nouveau creneau parait. */
+map.on("moveend", ()=>{ if($("#tg-nuages").checked) nuEtiquette(); });
+map.on("zoomend", ()=>{ if($("#tg-nuages").checked) majNuages(); });
 setInterval(()=>{ if($("#tg-nuages").checked) majNuages(); }, 300000);
+/* Onglet en arriere-plan : on suspend la boucle. Une animation que personne
+   ne regarde ne doit ni tourner ni tirer de tuiles. */
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState==="hidden"){ clearInterval(nuTimer); nuTimer=0; }
+  else if($("#tg-nuages").checked && nuCouches.length && !nuTimer) nuTimer=setInterval(nuAvance,700);
+});
 $("#tg-vigi").addEventListener("change",ev=>{
   if(ev.target.checked){ map.addLayer(layers.vigi); vigiT=0; loadVigilance(); }
   else{ map.removeLayer(layers.vigi); layers.vigi.clearLayers(); setC("c-vigi","–"); }
