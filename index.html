@@ -2051,6 +2051,7 @@ const LAYERS = [
   /* ---- Météo ---- */
   {id:"tg-cities",   cat:"meteo", icon:"thermometer", nm:"Températures", full:"Températures sur villes et villages",  c:"#4be3a4", cnt:"c-cities", on:1},
   {id:"tg-wind",     cat:"meteo", icon:"wind",        nm:"Vent",         full:"Vent animé en direct",                 c:"#3ce0ff", cnt:"c-wind",   on:1},
+  {id:"tg-nuages",   cat:"meteo", icon:"smoke",       nm:"Nuages",       full:"Nuages vus par satellite", sub:"géostationnaire — la spirale et l'œil des cyclones", c:"#cfe0ff", cnt:"c-nuages", on:0},
   {id:"tg-radar",    cat:"meteo", icon:"radar",       nm:"Radar",        full:"Radar de pluie animé",                 c:"#22d3ee", cnt:"c-radar",  on:0},
   {id:"tg-aq",       cat:"meteo", icon:"particles",   nm:"Air",          full:"Qualité de l'air et fumées (PM2,5)",   c:"#a78bfa", cnt:"c-aq",     on:0},
   /* ---- Terre ---- */
@@ -2483,6 +2484,101 @@ const BASES = {
      updateWhenIdle:true, keepBuffer:2})
 };
 
+/* ===== NUAGES VUS PAR SATELLITE GÉOSTATIONNAIRE =====
+   C'est l'image qu'on voit à la télévision quand un typhon approche : la
+   spirale, les bandes, et l'œil au centre. Aucune autre couche ne montre cela —
+   le vent en particules donne le mouvement, les nuages donnent la STRUCTURE.
+
+   Trois satellites, parce qu'aucun ne voit toute la Terre : un géostationnaire
+   est fixe au-dessus d'un méridien et n'observe qu'un hémisphère. On choisit
+   donc celui qui regarde la région affichée, d'après la longitude du centre de
+   la carte. Vérifié niveau par niveau, avec le poids et le retard réels :
+     GOES-East  GeoColor       niveau 7   154 ko   retard 30 min   Amériques, Atlantique
+     GOES-West  GeoColor       niveau 7   161 ko   retard 40 min   Pacifique
+     Himawari   infrarouge     niveau 6    66 ko   retard 40 min   Asie, Océanie
+
+   CE QUI N'EST PAS COUVERT, et il faut le dire : l'Europe et l'Afrique. Le
+   satellite qui les observe est Meteosat, et il ne figure pas au catalogue de la
+   NASA. Plutôt que d'afficher une image fausse ou vide, la couche l'annonce.
+   Ce n'est pas très gênant en pratique : les cyclones tropicaux se forment
+   précisément dans les zones couvertes.
+
+   POURQUOI L'INFRAROUGE POUR L'ASIE. GeoColor n'existe pas pour Himawari dans ce
+   catalogue. L'infrarouge « propre » de la bande 13 est en réalité la vue
+   classique des bulletins cyclone : il mesure la température du sommet des
+   nuages, ce qui fait ressortir l'œil et les bandes spiralées — et il fonctionne
+   la nuit, contrairement au visible.
+
+   RETARD ASSUMÉ. Une image géostationnaire n'est publiée qu'une trentaine de
+   minutes après la prise de vue. On vise donc 40 minutes en arrière, et l'heure
+   affichée est celle de la PRISE DE VUE, pas celle du chargement. */
+const SATS = [
+  { id:"GOES-East_ABI_GeoColor",             lon:-75,  niv:7, nm:"GOES-East",
+    d:"couleur naturelle reconstituée", ret:40 },
+  { id:"GOES-West_ABI_GeoColor",             lon:-137, niv:7, nm:"GOES-West",
+    d:"couleur naturelle reconstituée", ret:40 },
+  { id:"Himawari_AHI_Band13_Clean_Infrared", lon:140,  niv:6, nm:"Himawari",
+    d:"infrarouge, température du sommet des nuages", ret:40 }
+];
+const GIBS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/";
+
+/* Écart angulaire réel entre deux longitudes, en tenant compte du passage par
+   l'antiméridien : sans cela, une carte centrée sur 179° choisirait GOES-East. */
+const ecartLon = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
+function satPour(lon){
+  let best = SATS[0], bd = 999;
+  for(const s of SATS){ const d = ecartLon(lon, s.lon); if(d < bd){ bd = d; best = s; } }
+  /* Au-delà de 75° du point sous-satellite, l'image est trop rasante pour être
+     honnête : c'est le bord du disque, tout y est déformé. */
+  return bd > 75 ? null : best;
+}
+/* Créneau de dix minutes, reculé du retard de publication. */
+function instantSat(ret){
+  const d = new Date(Date.now() - ret*60000);
+  d.setUTCMinutes(Math.floor(d.getUTCMinutes()/10)*10, 0, 0);
+  return d;
+}
+let nuageLayer = null, nuageSat = null, nuageT = 0;
+function majNuages(){
+  const on = $("#tg-nuages") && $("#tg-nuages").checked;
+  if(!on){
+    if(nuageLayer){ map.removeLayer(nuageLayer); nuageLayer = null; nuageSat = null; }
+    setC("c-nuages","–");
+    return;
+  }
+  const s = satPour(map.getCenter().lng);
+  if(!s){
+    if(nuageLayer){ map.removeLayer(nuageLayer); nuageLayer = null; nuageSat = null; }
+    setC("c-nuages","hors couverture");
+    return;
+  }
+  const d = instantSat(s.ret);
+  const cle = s.id + "|" + d.getTime();
+  if(cle === nuageT && nuageLayer) return;      /* rien de neuf : on ne recharge pas */
+  nuageT = cle; nuageSat = s;
+  const t = d.toISOString().slice(0,11)
+          + String(d.getUTCHours()).padStart(2,"0") + ":"
+          + String(d.getUTCMinutes()).padStart(2,"0") + ":00Z";
+  const url = GIBS + s.id + "/default/" + t
+            + "/GoogleMapsCompatible_Level" + s.niv + "/{z}/{y}/{x}.png";
+  const neuf = L.tileLayer(url, {
+    attribution:"NASA GIBS / " + s.nm,
+    /* Au-delà du niveau natif, la dernière tuile est agrandie plutôt que de
+       laisser un trou : un nuage flou vaut mieux qu'un carré vide. */
+    maxNativeZoom:s.niv, maxZoom:19, opacity:.62,
+    pane:"nuagePane", updateWhenIdle:true, keepBuffer:1, crossOrigin:true
+  });
+  neuf.addTo(map);
+  /* On ne retire l'ancienne couche qu'une fois la nouvelle prête : sans cela,
+     le ciel clignote à chaque rafraîchissement. */
+  const vieux = nuageLayer;
+  nuageLayer = neuf;
+  const oter = ()=>{ if(vieux){ map.removeLayer(vieux); } };
+  neuf.once("load", oter);
+  setTimeout(oter, 4000);
+  setC("c-nuages", s.nm + " · " + fmtShort(d.getTime()));
+}
+
 /* ---------- FRONTIÈRES ET NOMS DE PAYS, EN FRANÇAIS ----------
    Les couches de référence toutes prêtes écrivaient les pays EN ANGLAIS :
    « UNITED KINGDOM », « SPAIN », « GERMANY ». Sur une carte française c'est
@@ -2503,6 +2599,9 @@ const BASES = {
 
    Le fichier est STATIQUE : chargé une seule fois, puis servi par le cache du
    navigateur. Il ne coûte rien aux cycles de rafraîchissement. */
+map.createPane("nuagePane");
+map.getPane("nuagePane").style.zIndex = 240;
+map.getPane("nuagePane").style.pointerEvents = "none";
 map.createPane("refPane");
 map.getPane("refPane").style.zIndex = 250;
 map.getPane("refPane").style.pointerEvents = "none";
@@ -6856,6 +6955,11 @@ $("#country").addEventListener("change", e=>{
 $("#tg-safe").addEventListener("change",ev=>{
   if(ev.target.checked) startSafety(); else stopSafety();
 });
+$("#tg-nuages").addEventListener("change",majNuages);
+/* Le satellite dépend de l'endroit regardé : changer de continent change
+   d'image. Et l'heure avance, donc on rafraîchit aussi toutes les 5 min. */
+map.on("moveend", ()=>{ if($("#tg-nuages").checked) majNuages(); });
+setInterval(()=>{ if($("#tg-nuages").checked) majNuages(); }, 300000);
 $("#tg-vigi").addEventListener("change",ev=>{
   if(ev.target.checked){ map.addLayer(layers.vigi); vigiT=0; loadVigilance(); }
   else{ map.removeLayer(layers.vigi); layers.vigi.clearLayers(); setC("c-vigi","–"); }
@@ -7341,7 +7445,7 @@ const SHARE_KEYS=["tg-fire","tg-burnt","tg-risk",
   /* Ajoutees A LA FIN : les positions precedentes restent valides, donc les
      liens deja partages continuent d'etre lus correctement et la version du
      format n'a pas a changer. */
-  "tg-vigi","tg-orages"];
+  "tg-vigi","tg-orages","tg-nuages"];
 /* Lien court : les couches sont encodées en bits plutôt qu'en noms, ce qui fait
    passer l'adresse de 205 à une soixantaine de caractères. Un lien à rallonge
    inquiète les destinataires, qui le prennent pour une tentative d'arnaque. */

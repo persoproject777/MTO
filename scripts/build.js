@@ -615,8 +615,18 @@ async function air() {
    Rafraîchi au maximum une fois par heure : à cette résolution, un champ de vent
    ne change pas de façon perceptible en quinze minutes, et cela garde la
    consommation à environ 600 mesures par heure au lieu de 2 400. */
+/* ---------- VENT ----------
+   RÉSOLUTION : le pas est passé de 10° à 5°.
+   À 10°, deux points de grille sont distants d'environ 1 100 km. Or un typhon
+   mesure 300 à 800 km de diamètre : il tenait ENTIÈREMENT ENTRE DEUX POINTS.
+   L'interpolation ne pouvait donc rien en faire d'autre qu'un écoulement lisse
+   et presque uniforme — exactement ce qu'on voyait passer tout droit au large
+   de Hong Kong pendant qu'un cyclone y tournait. Ce n'était pas un défaut de
+   tracé : la donnée ne contenait tout simplement pas la rotation.
+   5° ramène l'écart à 550 km. C'est mieux partout, mais cela ne suffit toujours
+   pas pour un cyclone — d'où la grille fine dédiée, plus bas. */
 async function wind() {
-  const STEP = 10, pts = [];
+  const STEP = 5, pts = [];
   for (let la = -80; la <= 80; la += STEP)
     for (let lo = -180; lo < 180; lo += STEP) pts.push([la, lo]);
 
