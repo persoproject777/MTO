@@ -724,6 +724,125 @@ async function air() {
    tracé : la donnée ne contenait tout simplement pas la rotation.
    5° ramène l'écart à 550 km. C'est mieux partout, mais cela ne suffit toujours
    pas pour un cyclone — d'où la grille fine dédiée, plus bas. */
+/* ---------- VENT FIN AUTOUR DES CYCLONES ----------
+   La grille mondiale est à 5°, soit 555 km entre deux points. Un cyclone entier
+   tient dans deux cellules : impossible d'y voir tourner quoi que ce soit, et
+   l'œil — le trou de vent nul au centre, qui est justement ce qu'on cherche —
+   n'existe tout simplement pas à cette résolution.
+
+   On produit donc une SECONDE grille, dix fois plus serrée (0,5°, ≈ 55 km),
+   mais seulement dans un carré de ±5° autour de chaque cyclone en cours. Le
+   coût reste modeste — quelques centaines de points au lieu de couvrir la
+   planète — et le navigateur, lui, préfère cette grille dès qu'une particule
+   entre dans le carré.
+
+   POURQUOI ±5° ET PAS PLUS. Au-delà, on paie pour de l'air ordinaire déjà
+   décrit par le socle. Le raccord entre les deux grilles est adouci côté
+   navigateur, sur la dernière bande, pour qu'aucune ligne de rupture
+   n'apparaisse à la frontière du carré. */
+/* GDACS ne publie pas le nom du cyclone dans un champ à lui : il est noyé dans
+   la phrase d'annonce (« Green notification for tropical cyclone FAUSTO-26.
+   Population affected… »). On l'en extrait, sinon les zones s'appelleraient
+   toutes « Green notification for… ». Quand EONET décrit le même système, son
+   titre — « Hurricane Fausto » — est plus clair : c'est lui qu'on garde. */
+function nomCyclone(phrase) {
+  const m = /(?:cyclone|storm|typhoon|hurricane|depression)\s+([A-Z][A-Z0-9'À-Ý\-]{2,})/i.exec(String(phrase || ""));
+  if (!m) return "Cyclone";
+  return m[1].replace(/-\d+$/, "").replace(/^(.)(.*)$/, (x, a2, b2) => a2.toUpperCase() + b2.toLowerCase());
+}
+
+async function ventCyclone() {
+  const lire = f => { try { return JSON.parse(fs.readFileSync(path.join(OUT, f), "utf8")); } catch (e) { return null; } };
+  const g = lire("gdacs.json"), e = lire("eonet.json");
+  const brut = [];
+  if (g && Array.isArray(g.f))
+    for (const x of g.f)
+      if (x.t === "TC" && x.cur && Array.isArray(x.c))
+        brut.push({ la: x.c[0], lo: x.c[1], nm: nomCyclone(x.n), pri: 1, sev: x.a === "Red" ? 3 : x.a === "Orange" ? 2 : 1 });
+  if (e && Array.isArray(e.events))
+    for (const x of e.events)
+      if (x.c === "severeStorms" && Array.isArray(x.g) && x.g.length) {
+        const d = x.g[x.g.length - 1];
+        if (Array.isArray(d) && d.length >= 2) brut.push({ la: d[0], lo: d[1], nm: x.t || "Tempête", pri: 2, sev: 1 });
+      }
+
+  /* Les deux sources décrivent souvent le MÊME cyclone : GDACS et EONET suivent
+     l'un et l'autre les avis officiels. On fusionne ce qui est à moins de 3°,
+     en gardant le nom le plus parlant — sinon on paierait deux fois la même
+     grille, et deux carrés superposés se disputeraient les mêmes particules. */
+  const zones = [];
+  for (const b of brut) {
+    if (!isFinite(b.la) || !isFinite(b.lo)) continue;
+    const p = zones.find(z => Math.abs(z.la - b.la) < 3 && Math.abs(((z.lo - b.lo + 540) % 360) - 180) < 3);
+    if (p) { if (b.pri > p.pri) { p.nm = b.nm; p.pri = b.pri; } p.sev = Math.max(p.sev, b.sev); continue; }
+    zones.push({ la: b.la, lo: b.lo, nm: b.nm, pri: b.pri, sev: b.sev });
+  }
+  /* Les plus violents d'abord, et pas plus de quatre : au-delà on dépenserait
+     le quota d'Open-Meteo sur des tempêtes que personne ne regarde. */
+  zones.sort((a, b) => b.sev - a.sev);
+  if (zones.length > 3) { console.log("     " + (zones.length - 3) + " cyclone(s) au-delà des 3 plus sévères : grille fine non produite"); zones.length = 3; }
+  if (!zones.length) { write("windtc.json", { t: now, step: 0.5, zones: [] }, "aucun cyclone en cours"); return true; }
+
+  /* ±4° à 0,5° : 17 points de large, contre 2 avec le socle mondial. Assez pour
+     dessiner la spirale et creuser l'œil, sans faire exploser le quota — la
+     grille mondiale consomme déjà 27 requêtes juste avant celle-ci. */
+  const STEP = 0.5, RAY = 4;
+  let total = 0;
+  for (const z of zones) {
+    const pts = [];
+    for (let dla = -RAY; dla <= RAY + 1e-9; dla += STEP)
+      for (let dlo = -RAY; dlo <= RAY + 1e-9; dlo += STEP) {
+        const la = Math.round((z.la + dla) * 100) / 100;
+        if (la < -89 || la > 89) continue;
+        pts.push([la, Math.round((((z.lo + dlo + 540) % 360) - 180) * 100) / 100]);
+      }
+    const cells = [];
+    for (let i = 0; i < pts.length; i += 100) {
+      const chunk = pts.slice(i, i + 100);
+      const u = "https://api.open-meteo.com/v1/forecast"
+        + "?latitude=" + chunk.map(p => p[0]).join(",")
+        + "&longitude=" + chunk.map(p => p[1]).join(",")
+        + "&current=wind_speed_10m,wind_direction_10m";
+      /* Open-Meteo répond 429 quand le quota de la minute est épuisé. Ce n'est
+         pas une panne : c'est un « attendez ». On attend donc, deux fois, au
+         lieu de renoncer — un bloc perdu troue la grille et fait écarter tout
+         le cyclone. */
+      for (let essai = 0; essai < 3; essai++) {
+        try {
+          const d = await get(u, 45000);
+          const arr = Array.isArray(d) ? d : [d];
+          arr.forEach((o, j) => {
+            if (!o || !o.current || !chunk[j]) return;
+            const sp = o.current.wind_speed_10m, di = o.current.wind_direction_10m;
+            if (sp == null || di == null) return;
+            const r = (di + 180) * Math.PI / 180;
+            cells.push([chunk[j][0], chunk[j][1],
+              Math.round(sp * Math.sin(r) * 100) / 100,
+              Math.round(sp * Math.cos(r) * 100) / 100]);
+          });
+          break;
+        } catch (err) {
+          const attend = /429/.test(err.message) && essai < 2;
+          if (!attend) { console.log("     " + z.nm.slice(0, 22) + " bloc " + (i / 100 + 1) + " : " + err.message); break; }
+          await new Promise(r => setTimeout(r, 20000));
+        }
+      }
+      if (i + 100 < pts.length) await new Promise(r => setTimeout(r, 900));
+    }
+    /* Une grille à moitié trouée serait pire que pas de grille : le navigateur
+       alternerait entre deux champs différents d'une particule à l'autre. */
+    if (cells.length < pts.length * 0.6) { console.log("     " + z.nm.slice(0, 22) + " : " + cells.length + "/" + pts.length + " points — zone écartée"); z.ko = 1; continue; }
+    z.cells = cells; total += cells.length;
+  }
+  const gard = zones.filter(z => !z.ko && z.cells && z.cells.length);
+  if (!gard.length) { console.log("  !  vent cyclone : aucune zone exploitable, fichier conservé"); return false; }
+  write("windtc.json", {
+    t: now, step: STEP, ray: RAY,
+    zones: gard.map(z => ({ nm: z.nm, la: z.la, lo: z.lo, cells: z.cells }))
+  }, gard.length + " cyclone(s), " + total + " points fins (grille " + STEP + "°)");
+  return true;
+}
+
 async function wind() {
   const STEP = 5, pts = [];
   for (let la = -80; la <= 80; la += STEP)
@@ -911,9 +1030,13 @@ async function effis() {
       /* La qualité de l'air suit le même rythme horaire que le vent : les deux
          viennent d'Open-Meteo, autant grouper leur consommation. */
       try { await air(); } catch (e) { console.log("  x  air échec : " + e.message); }
+      /* La grille fine suit le vent : elle n'a de sens qu'avec un socle frais,
+         et les deux puisent au même quota. */
+      try { await ventCyclone(); } catch (e) { console.log("  x  vent cyclone échec : " + e.message); }
     } else {
       if (fs.existsSync(wf)) PRESENT.push("wind");
       if (fs.existsSync(path.join(OUT, "air.json"))) PRESENT.push("air");
+      if (fs.existsSync(path.join(OUT, "windtc.json"))) PRESENT.push("windtc");
     }
   }
 

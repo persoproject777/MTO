@@ -5906,7 +5906,7 @@ async function loadWindBase(){
   }catch(e){ return false; }
 }
 /* Interpolation bilinéaire sur le socle, avec repli sur la cellule la plus proche. */
-function baseUV(la, lo){
+function grosUV(la, lo){
   if(!WBASE.size) return null;
   const st=wbaseStep;
   const la0=Math.floor(la/st)*st;
@@ -5921,6 +5921,80 @@ function baseUV(la, lo){
   if(wt>0.15) return [u/wt, v/wt];
   const c=c00||c10||c01||c11;
   return c?[c.u,c.v]:null;
+}
+
+/* ---------- VENT FIN AUTOUR DES CYCLONES ----------
+   Le socle mondial est à 5°, soit 555 km entre deux points de mesure : un cyclone
+   entier y tient dans deux cellules. À cette échelle il n'y a ni spirale, ni œil —
+   juste un vent moyen qui pousse tout droit. C'est exactement ce qui manquait.
+
+   Le robot produit donc une seconde grille, dix fois plus serrée (0,5°, ≈ 55 km),
+   dans un carré de ±4° autour de chaque cyclone en cours. Dix-sept points de
+   large au lieu de deux : la rotation devient visible, et le creux central aussi.
+
+   RACCORD. Passer brutalement d'une grille à l'autre dessinerait un carré net au
+   milieu de l'océan, là où les particules changeraient de champ d'un coup. Sur le
+   dernier degré avant le bord, on mélange donc progressivement les deux champs.
+   Le carré ne se voit pas ; seule la spirale se voit. */
+const WTC=[];
+let wtcStep=0.5, wtcRay=4, wtcAt=0;
+async function loadWindTC(){
+  try{
+    const d=await preload("windtc", 6*3600e3);
+    if(!d || !Array.isArray(d.zones)) return false;
+    WTC.length=0;
+    wtcStep=d.step||0.5; wtcRay=d.ray||4;
+    for(const z of d.zones){
+      if(!Array.isArray(z.cells) || !z.cells.length) continue;
+      /* Les clés sont des INDICES calculés depuis le coin du carré, jamais des
+         latitudes formatées en texte : deux écritures du même degré (23.8 et
+         23.80) ne se retrouveraient pas, et la grille serait pleine de trous. */
+      const la0=z.la-wtcRay, lo0=z.lo-wtcRay, m=new Map();
+      for(const c of z.cells){
+        const iy=Math.round((c[0]-la0)/wtcStep);
+        const ix=Math.round(((((c[1]-lo0+540)%360)-180))/wtcStep);
+        m.set(iy*4096+ix, {u:c[2], v:c[3]});
+      }
+      WTC.push({nm:z.nm||"Cyclone", la:z.la, lo:z.lo, la0, lo0, m});
+    }
+    wtcAt=d.t||0;
+    return true;
+  }catch(e){ return false; }
+}
+/* Renvoie {u, v, f} où f est le poids à donner au champ fin (1 au cœur, 0 au bord). */
+function finUV(la, lo){
+  if(!WTC.length) return null;
+  const st=wtcStep, R=wtcRay;
+  for(const z of WTC){
+    const dla=la-z.la, dlo=(((lo-z.lo+540)%360)-180);
+    const bord=Math.max(Math.abs(dla), Math.abs(dlo));
+    if(bord>R) continue;
+    const y=(la-z.la0)/st, x=((((lo-z.lo0+540)%360)-180))/st;
+    const iy=Math.floor(y), ix=Math.floor(x);
+    const g=(b2,a2)=>z.m.get(b2*4096+a2);
+    const c00=g(iy,ix), c10=g(iy,ix+1), c01=g(iy+1,ix), c11=g(iy+1,ix+1);
+    if(!c00&&!c10&&!c01&&!c11) continue;
+    const tx=x-ix, ty=y-iy;
+    let u=0,v=0,wt=0;
+    const add=(c,f)=>{ if(c){ u+=c.u*f; v+=c.v*f; wt+=f; } };
+    add(c00,(1-tx)*(1-ty)); add(c10,tx*(1-ty)); add(c01,(1-tx)*ty); add(c11,tx*ty);
+    if(wt<=0.15) continue;
+    /* Fondu sur le dernier degré, adouci pour que la transition ne se devine pas. */
+    let f=bord>R-1 ? (R-bord) : 1;
+    f=f*f*(3-2*f);
+    return {u:u/wt, v:v/wt, f:Math.max(0, Math.min(1, f))};
+  }
+  return null;
+}
+/* Le champ de fond que voient les particules : le socle mondial, remplacé par la
+   grille fine partout où elle existe. */
+function baseUV(la, lo){
+  const fin=finUV(la, lo);
+  const gros=grosUV(la, lo);
+  if(!fin) return gros;
+  if(!gros || fin.f>=1) return [fin.u, fin.v];
+  const f=fin.f;
+  return [fin.u*f + gros[0]*(1-f), fin.v*f + gros[1]*(1-f)];
 }
 
 function sampleUV(la, lo){
@@ -6007,6 +6081,9 @@ async function fetchWind(){
       wind.pause=false; startLoop();
     }
   }
+  /* La grille fine des cyclones suit le même rythme. Elle est facultative : si
+     elle manque, l'animation tourne sur le socle comme avant. */
+  if(!WTC.length || Date.now()-wtcAt>3600e3) await loadWindTC();
   const b=map.getBounds(), z=map.getZoom();
   const st=windStep();
   wind.step=st;
