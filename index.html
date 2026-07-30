@@ -2552,41 +2552,86 @@ function nuPurge(){
   nuCouches = []; nuIdx = 0; nuCle = "";
 }
 
-/* Nombre d'images selon le zoom. Au niveau du monde, une seule : six créneaux
-   d'un disque entier représentent des centaines de tuiles, et c'est ce qui
-   saturait le réseau. En approchant, l'emprise se réduit et l'animation devient
-   abordable — c'est aussi là qu'elle sert, sur un cyclone. */
-const nuNb = () => map.getZoom() < 3.5 ? 1 : map.getZoom() < 5 ? 4 : 6;
+/* CHARGEMENT EN CHAÎNE, ET NON EN RAFALE.
+   Relevé en production : 476 tuiles en échec d'un coup, et de grands rectangles
+   sombres en travers du typhon. La cause n'était pas le service mais moi — je
+   créais six couches d'images SIMULTANÉMENT, donc six demandes pour chaque tuile
+   visible au même instant. Sur une vue de cyclone au zoom 6, cela fait plus de
+   cent requêtes lancées ensemble : le serveur en refuse une bonne partie, et
+   chaque refus laisse un trou par lequel on voit le fond sombre.
+
+   Désormais la PREMIÈRE image, la plus récente, est chargée seule. Les suivantes
+   ne sont créées qu'une fois la précédente entièrement reçue. L'affichage est
+   donc immédiat et complet, puis l'animation s'enrichit d'elle-même sans jamais
+   saturer. Si le réseau ne suit pas, on garde simplement moins d'images — on ne
+   perd rien, on n'affiche jamais de trou.
+
+   Quatre images suffisent : quarante minutes de mouvement, assez pour voir un
+   cyclone tourner, et deux fois moins de trafic que six. */
+const NU_MAX = () => map.getZoom() < 3.5 ? 1 : map.getZoom() < 5 ? 3 : 4;
 
 async function nuConstruit(){
   const T = await nuTemps();
   if(!T) return;
-  const nb = nuNb();
+  const nb = NU_MAX();
   const cle = nb + "|" + Object.values(T).map(v => v[v.length-1]).join(",");
   if(cle === nuCle && nuCouches.length) return;
   nuPurge();
   nuCle = cle;
+
+  const fabrique = (s, t) => L.tileLayer(
+    GIBS + s.id + "/default/" + t
+      + "/GoogleMapsCompatible_Level" + s.niv + "/{z}/{y}/{x}.png",
+    { attribution:"NASA GIBS / " + s.nm,
+      bounds:L.latLngBounds([[-62, s.o], [62, s.e]]),
+      maxNativeZoom:s.niv, maxZoom:19, opacity:0,
+      pane:"nuagePane", updateWhenIdle:true, keepBuffer:0, crossOrigin:true,
+      /* Une image manquante ne doit ni trouer le ciel ni remplir le journal. */
+      errorTileUrl:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" });
+
+  /* Étape 1 : la plus récente, pour chaque satellite. Rien d'autre. */
   for(const s of SATS){
     const dispo = T[s.id];
     if(!dispo || !dispo.length) continue;
     const inst = dispo.slice(-nb);
-    const bornes = L.latLngBounds([[-62, s.o], [62, s.e]]);
-    const l = inst.map(t => L.tileLayer(
-      GIBS + s.id + "/default/" + t
-        + "/GoogleMapsCompatible_Level" + s.niv + "/{z}/{y}/{x}.png",
-      { attribution:"NASA GIBS / " + s.nm, bounds:bornes,
-        maxNativeZoom:s.niv, maxZoom:19, opacity:0,
-        pane:"nuagePane", updateWhenIdle:true, keepBuffer:0, crossOrigin:true,
-        /* Une image manquante ne doit ni trouer le ciel ni remplir le journal. */
-        errorTileUrl:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" }
-    ).addTo(map));
-    nuCouches.push({ s, l, inst });
+    const derniere = inst[inst.length-1];
+    nuCouches.push({ s, inst, l:[fabrique(s, derniere).addTo(map)], pret:1 });
   }
   if(!nuCouches.length) return;
-  nuIdx = nuCouches[0].l.length - 1;
+  nuIdx = 0;
   nuAffiche();
-  if(nuCouches[0].l.length > 1) nuTimer = setInterval(nuAvance, 700);
   nuEtiquette();
+  if(nb > 1) nuEnchaine(cle);
+}
+
+/* Ajoute UNE image de plus par satellite, puis se rappelle quand celle-ci est
+   chargée. La clé garde la main : si la boucle a été reconstruite entre-temps
+   (zoom, nouveau créneau, couche éteinte), l'enchaînement s'arrête. */
+function nuEnchaine(cle){
+  if(cle !== nuCle || !nuCouches.length) return;
+  const g = nuCouches.find(x => x.pret < x.inst.length);
+  if(!g){
+    /* Toutes les images sont là : l'animation peut commencer. */
+    if(!nuTimer && nuCouches[0].l.length > 1) nuTimer = setInterval(nuAvance, 750);
+    return;
+  }
+  const t = g.inst[g.inst.length - 1 - g.pret];
+  const l = L.tileLayer(
+    GIBS + g.s.id + "/default/" + t
+      + "/GoogleMapsCompatible_Level" + g.s.niv + "/{z}/{y}/{x}.png",
+    { attribution:"NASA GIBS / " + g.s.nm,
+      bounds:L.latLngBounds([[-62, g.s.o], [62, g.s.e]]),
+      maxNativeZoom:g.s.niv, maxZoom:19, opacity:0,
+      pane:"nuagePane", updateWhenIdle:true, keepBuffer:0, crossOrigin:true,
+      errorTileUrl:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" });
+  g.l.unshift(l);              /* la plus ancienne en tête : l'ordre reste chronologique */
+  g.pret++;
+  l.addTo(map);
+  let suite = false;
+  const puis = ()=>{ if(suite) return; suite = true; setTimeout(()=>nuEnchaine(cle), 250); };
+  l.once("load", puis);
+  /* Filet : si le service ne répond pas, on n'attend pas indéfiniment. */
+  setTimeout(puis, 6000);
 }
 
 const NU_OPACITE = () => map.getZoom() < 4 ? .5 : .64;
@@ -2598,7 +2643,7 @@ function nuAffiche(){
   }
 }
 function nuAvance(){
-  const n = nuCouches.length ? nuCouches[0].l.length : 1;
+  const n = nuCouches.length ? Math.max(...nuCouches.map(g=>g.l.length)) : 1;
   nuIdx = (nuIdx + 1) % n;
   nuAffiche();
   nuEtiquette();
