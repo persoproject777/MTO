@@ -2073,7 +2073,7 @@ const LAYERS = [
   /* ---- Météo ---- */
   {id:"tg-cities",   cat:"meteo", icon:"thermometer", nm:"Températures", full:"Températures sur villes et villages",  c:"#4be3a4", cnt:"c-cities", on:1},
   {id:"tg-wind",     cat:"meteo", icon:"wind",        nm:"Vent",         full:"Vent animé en direct",                 c:"#3ce0ff", cnt:"c-wind",   on:1},
-  {id:"tg-nuages",   cat:"meteo", icon:"smoke",       nm:"Nuages",       full:"Nuages vus par satellite", sub:"géostationnaire — la spirale et l'œil des cyclones", c:"#cfe0ff", cnt:"c-nuages", on:0},
+  {id:"tg-nuages",   cat:"meteo", icon:"smoke",       nm:"Nuages",       full:"Nuages vus par satellite", sub:"la spirale et l'œil des cyclones — zoomez sur une région", c:"#cfe0ff", cnt:"c-nuages", on:0},
   {id:"tg-radar",    cat:"meteo", icon:"radar",       nm:"Radar",        full:"Radar de pluie animé",                 c:"#22d3ee", cnt:"c-radar",  on:0},
   {id:"tg-aq",       cat:"meteo", icon:"particles",   nm:"Air",          full:"Qualité de l'air et fumées (PM2,5)",   c:"#a78bfa", cnt:"c-aq",     on:0},
   /* ---- Terre ---- */
@@ -2608,7 +2608,19 @@ function nuPurge(){
 
    Quatre images suffisent : quarante minutes de mouvement, assez pour voir un
    cyclone tourner, et deux fois moins de trafic que six. */
-const NU_MAX = () => map.getZoom() < 3.5 ? 1 : map.getZoom() < 5 ? 3 : 4;
+/* PAS DE NUAGES A L'ECHELLE DU MONDE, et c'est un choix assume.
+   Trois satellites geostationnaires ne couvrent pas la Terre d'un seul tenant :
+   chacun voit un morceau, avec une emprise rectangulaire et des bords francs.
+   Vu du monde entier, cela donne inevitablement un patchwork — trois rectangles
+   accoles, plus deux bandes vides au nord et au sud, plus le trou de l'Europe et
+   de l'Afrique que Meteosat couvrirait s'il figurait au catalogue.
+   Aucun reglage ne repare cela : il faudrait une mosaique mondiale unique, et il
+   n'en existe pas de gratuite en temps quasi reel.
+   La couche ne s'affiche donc qu'a partir du niveau 3, ou l'on regarde une
+   region — c'est-a-dire precisement la ou elle sert, sur un cyclone. En dessous,
+   on le dit plutot que de montrer n'importe quoi. */
+const NU_ZOOM_MIN = 3;
+const NU_MAX = () => map.getZoom() < 4 ? 2 : map.getZoom() < 5.5 ? 3 : 4;
 
 async function nuConstruit(){
   const T = await nuTemps();
@@ -2626,6 +2638,10 @@ async function nuConstruit(){
       bounds:L.latLngBounds([[-62, s.o], [62, s.e]]),
       maxNativeZoom:s.niv, maxZoom:19, opacity:0,
       pane:"nuagePane", updateWhenIdle:true, keepBuffer:0, crossOrigin:true,
+      /* La carte affiche plusieurs copies du monde cote a cote. Sans ce
+         drapeau, chaque copie recevait son propre jeu de nuages : on voyait
+         les memes cyclones repetes a gauche et a droite. */
+      noWrap:true,
       /* Une image manquante ne doit ni trouer le ciel ni remplir le journal. */
       errorTileUrl:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" });
 
@@ -2663,6 +2679,10 @@ function nuEnchaine(cle){
       bounds:L.latLngBounds([[-62, g.s.o], [62, g.s.e]]),
       maxNativeZoom:g.s.niv, maxZoom:19, opacity:0,
       pane:"nuagePane", updateWhenIdle:true, keepBuffer:0, crossOrigin:true,
+      /* La carte affiche plusieurs copies du monde cote a cote. Sans ce
+         drapeau, chaque copie recevait son propre jeu de nuages : on voyait
+         les memes cyclones repetes a gauche et a droite. */
+      noWrap:true,
       errorTileUrl:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" });
   g.l.unshift(l);              /* la plus ancienne en tête : l'ordre reste chronologique */
   g.pret++;
@@ -2689,6 +2709,10 @@ function nuAvance(){
   nuEtiquette();
 }
 function nuEtiquette(){
+  /* Sous le seuil, on dit « zoom+ » et non « hors couverture » : ce n'est pas la
+     zone qui manque, c'est l'echelle qui ne convient pas. Deux causes
+     differentes ne doivent pas porter le meme mot. */
+  if(map.getZoom() < NU_ZOOM_MIN){ setC("c-nuages","zoom+"); return; }
   const lon = map.getCenter().lng;
   const g = nuCouches.find(x => lon >= x.s.o && lon <= x.s.e);
   if(!g){ setC("c-nuages","hors couverture"); return; }
@@ -2700,6 +2724,11 @@ function nuEtiquette(){
 async function majNuages(){
   const on = $("#tg-nuages") && $("#tg-nuages").checked;
   if(!on){ nuPurge(); setC("c-nuages","–"); return; }
+  if(map.getZoom() < NU_ZOOM_MIN){
+    nuPurge();
+    setC("c-nuages","zoom+");
+    return;
+  }
   await nuConstruit();
   nuAffiche();
 }
