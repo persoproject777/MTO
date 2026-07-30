@@ -674,24 +674,18 @@ async function air() {
   const STEP = 12, pts = [];
   for (let la = -60; la <= 72; la += STEP)
     for (let lo = -180; lo < 180; lo += STEP) pts.push([la, lo]);
-  const cells = [];
-  for (let i = 0; i < pts.length; i += 100) {
-    const chunk = pts.slice(i, i + 100);
-    try {
-      const d = await get("https://air-quality-api.open-meteo.com/v1/air-quality"
-        + "?latitude=" + chunk.map(p => p[0]).join(",")
-        + "&longitude=" + chunk.map(p => p[1]).join(",")
-        + "&current=european_aqi,pm2_5", 45000);
-      (Array.isArray(d) ? d : [d]).forEach((o, j) => {
-        if (!o || !o.current || !chunk[j]) return;
-        const aqi = o.current.european_aqi, pm = o.current.pm2_5;
-        if (aqi == null) return;
-        cells.push([chunk[j][0], chunk[j][1], Math.round(aqi), Math.round((pm || 0) * 10) / 10]);
-      });
-    } catch (e) { console.log("     bloc air " + (i / 100 + 1) + " : " + e.message); }
-    if (i + 100 < pts.length) await new Promise(r => setTimeout(r, 900));
-  }
-  if (cells.length < 100) { console.log("  !  air : trop peu de points (" + cells.length + "), fichier conservé"); return false; }
+  const cells = await omBlocs(pts,
+    chunk => "https://air-quality-api.open-meteo.com/v1/air-quality"
+      + "?latitude=" + chunk.map(p => p[0]).join(",")
+      + "&longitude=" + chunk.map(p => p[1]).join(",")
+      + "&current=european_aqi,pm2_5",
+    (o, pt, out) => {
+      if (!o || !o.current) return;
+      const aqi = o.current.european_aqi, pm = o.current.pm2_5;
+      if (aqi == null) return;
+      out.push([pt[0], pt[1], Math.round(aqi), Math.round((pm || 0) * 10) / 10]);
+    }, "air");
+  if (!grilleComplete(cells, "air", 100, 300, 0.7, pts.length)) return false;
   cells.sort(byKey(c => String(c[0]).padStart(5, "0") + "|" + String(c[1]).padStart(5, "0")));
   write("air.json", { t: now, step: STEP, cells }, cells.length + " points de qualité de l'air");
   return true;
@@ -740,6 +734,77 @@ async function air() {
    décrit par le socle. Le raccord entre les deux grilles est adouci côté
    navigateur, sur la dernière bande, pour qu'aucune ligne de rupture
    n'apparaisse à la frontière du carré. */
+/* ---------- CADENCE OPEN-METEO ----------
+   Open-Meteo accorde 600 « unités » par minute sur l'offre gratuite, et une
+   unité vaut UN point de mesure. J'envoyais des blocs de 100 points toutes les
+   900 ms, soit 6 600 unités par minute : les six premiers blocs passaient, tout
+   le reste revenait en 429. La grille mondiale s'arrêtait donc à −40° de
+   latitude — il ne restait que l'océan Austral. Et personne ne s'en apercevait,
+   parce que mon garde-fou comptait le NOMBRE de points sans jamais regarder leur
+   RÉPARTITION : 600 points entassés au pôle Sud lui semblaient une grille
+   mondiale valable.
+
+   On tient donc un seau commun à toutes les tâches Open-Meteo : chaque point
+   consommé y reste une minute, et on attend qu'il se vide avant d'envoyer le
+   bloc suivant. C'est plus lent — quelques minutes par heure — mais complet,
+   ce qui vaut infiniment mieux qu'un quart de planète servi tout de suite. */
+const OM_PAR_MIN = 550;
+let omSeau = [];
+async function omAttends(n) {
+  for (let garde = 0; garde < 400; garde++) {
+    const t = Date.now();
+    omSeau = omSeau.filter(x => t - x.t < 61000);
+    const pris = omSeau.reduce((a2, x) => a2 + x.n, 0);
+    if (pris + n <= OM_PAR_MIN || !omSeau.length) { omSeau.push({ t, n }); return; }
+    await new Promise(r => setTimeout(r, Math.max(600, 61000 - (t - omSeau[0].t))));
+  }
+}
+
+/* Découpe une liste de points en blocs de 100, les demande à la cadence
+   autorisée, et réessaie deux fois quand Open-Meteo répond « attendez ». */
+async function omBlocs(pts, url, lit, etiq) {
+  const out = [];
+  for (let i = 0; i < pts.length; i += 100) {
+    const chunk = pts.slice(i, i + 100);
+    await omAttends(chunk.length);
+    for (let essai = 0; essai < 3; essai++) {
+      try {
+        const d = await get(url(chunk), 45000);
+        (Array.isArray(d) ? d : [d]).forEach((o, j) => { if (chunk[j]) lit(o, chunk[j], out); });
+        break;
+      } catch (err) {
+        /* 429 n'est pas une panne, c'est un « pas si vite ». On laisse le seau
+           se vider entièrement plutôt que d'abandonner : un bloc perdu troue la
+           grille, et une grille trouée ment sur ce qu'elle montre. */
+        if (/429/.test(err.message) && essai < 2) { await omAttends(OM_PAR_MIN); continue; }
+        console.log("     " + etiq + " bloc " + (i / 100 + 1) + " : " + err.message);
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+/* Contrôle de RÉPARTITION : une grille doit couvrir ce qu'elle prétend couvrir.
+   On vérifie l'étendue réelle en latitude et en longitude, pas seulement le
+   compte — c'est précisément ce qui manquait. */
+function grilleComplete(cells, etiq, minLat, minLon, minTaux, attendu) {
+  if (!cells.length) { console.log("  !  " + etiq + " : aucun point"); return false; }
+  let laMin = 90, laMax = -90, loMin = 180, loMax = -180;
+  for (const c of cells) {
+    if (c[0] < laMin) laMin = c[0];
+    if (c[0] > laMax) laMax = c[0];
+    if (c[1] < loMin) loMin = c[1];
+    if (c[1] > loMax) loMax = c[1];
+  }
+  const taux = cells.length / attendu;
+  const ok = (laMax - laMin) >= minLat && (loMax - loMin) >= minLon && taux >= minTaux;
+  if (!ok) console.log("  !  " + etiq + " : couverture insuffisante — " + cells.length + "/" + attendu
+    + " points (" + Math.round(taux * 100) + " %), latitudes " + Math.round(laMin) + "° à "
+    + Math.round(laMax) + "° — fichier précédent conservé");
+  return ok;
+}
+
 /* GDACS ne publie pas le nom du cyclone dans un champ à lui : il est noyé dans
    la phrase d'annonce (« Green notification for tropical cyclone FAUSTO-26.
    Population affected… »). On l'en extrait, sinon les zones s'appelleraient
@@ -796,41 +861,7 @@ async function ventCyclone() {
         if (la < -89 || la > 89) continue;
         pts.push([la, Math.round((((z.lo + dlo + 540) % 360) - 180) * 100) / 100]);
       }
-    const cells = [];
-    for (let i = 0; i < pts.length; i += 100) {
-      const chunk = pts.slice(i, i + 100);
-      const u = "https://api.open-meteo.com/v1/forecast"
-        + "?latitude=" + chunk.map(p => p[0]).join(",")
-        + "&longitude=" + chunk.map(p => p[1]).join(",")
-        + "&current=wind_speed_10m,wind_direction_10m";
-      /* Open-Meteo répond 429 quand le quota de la minute est épuisé. Ce n'est
-         pas une panne : c'est un « attendez ». On attend donc, deux fois, au
-         lieu de renoncer — un bloc perdu troue la grille et fait écarter tout
-         le cyclone. */
-      for (let essai = 0; essai < 3; essai++) {
-        try {
-          const d = await get(u, 45000);
-          const arr = Array.isArray(d) ? d : [d];
-          arr.forEach((o, j) => {
-            if (!o || !o.current || !chunk[j]) return;
-            const sp = o.current.wind_speed_10m, di = o.current.wind_direction_10m;
-            if (sp == null || di == null) return;
-            const r = (di + 180) * Math.PI / 180;
-            cells.push([chunk[j][0], chunk[j][1],
-              Math.round(sp * Math.sin(r) * 100) / 100,
-              Math.round(sp * Math.cos(r) * 100) / 100]);
-          });
-          break;
-        } catch (err) {
-          const attend = /429/.test(err.message) && essai < 2;
-          if (!attend) { console.log("     " + z.nm.slice(0, 22) + " bloc " + (i / 100 + 1) + " : " + err.message); break; }
-          await new Promise(r => setTimeout(r, 20000));
-        }
-      }
-      if (i + 100 < pts.length) await new Promise(r => setTimeout(r, 900));
-    }
-    /* Une grille à moitié trouée serait pire que pas de grille : le navigateur
-       alternerait entre deux champs différents d'une particule à l'autre. */
+    const cells = await omBlocs(pts, VENT_URL, LIT_VENT, z.nm.slice(0, 22));
     if (cells.length < pts.length * 0.6) { console.log("     " + z.nm.slice(0, 22) + " : " + cells.length + "/" + pts.length + " points — zone écartée"); z.ko = 1; continue; }
     z.cells = cells; total += cells.length;
   }
@@ -843,39 +874,32 @@ async function ventCyclone() {
   return true;
 }
 
+const VENT_URL = chunk => "https://api.open-meteo.com/v1/forecast"
+  + "?latitude=" + chunk.map(p => p[0]).join(",")
+  + "&longitude=" + chunk.map(p => p[1]).join(",")
+  + "&current=wind_speed_10m,wind_direction_10m";
+/* On stocke les COMPOSANTES, pas la direction : le navigateur interpole
+   linéairement entre quatre cellules, ce qui est faux sur un angle (350° et 10°
+   donneraient 180°) mais exact sur des composantes. */
+const LIT_VENT = (o, pt, out) => {
+  if (!o || !o.current) return;
+  const sp = o.current.wind_speed_10m, di = o.current.wind_direction_10m;
+  if (sp == null || di == null) return;
+  const r = (di + 180) * Math.PI / 180;
+  out.push([pt[0], pt[1],
+    Math.round(sp * Math.sin(r) * 100) / 100,
+    Math.round(sp * Math.cos(r) * 100) / 100]);
+};
+
 async function wind() {
   const STEP = 5, pts = [];
   for (let la = -80; la <= 80; la += STEP)
     for (let lo = -180; lo < 180; lo += STEP) pts.push([la, lo]);
 
-  const cells = [];
-  for (let i = 0; i < pts.length; i += 100) {
-    const chunk = pts.slice(i, i + 100);
-    const u = "https://api.open-meteo.com/v1/forecast"
-      + "?latitude=" + chunk.map(p => p[0]).join(",")
-      + "&longitude=" + chunk.map(p => p[1]).join(",")
-      + "&current=wind_speed_10m,wind_direction_10m";
-    try {
-      const d = await get(u, 45000);
-      const arr = Array.isArray(d) ? d : [d];
-      arr.forEach((o, j) => {
-        if (!o || !o.current || !chunk[j]) return;
-        const sp = o.current.wind_speed_10m, di = o.current.wind_direction_10m;
-        if (sp == null || di == null) return;
-        /* On stocke les composantes, pas la direction : le navigateur interpole
-           linéairement entre quatre cellules, ce qui est faux sur un angle
-           (350° et 10° donneraient 180°) mais exact sur des composantes. */
-        const r = (di + 180) * Math.PI / 180;
-        cells.push([chunk[j][0], chunk[j][1],
-          Math.round(sp * Math.sin(r) * 100) / 100,
-          Math.round(sp * Math.cos(r) * 100) / 100]);
-      });
-    } catch (e) {
-      console.log("     bloc " + (i / 100 + 1) + " : " + e.message);
-    }
-    if (i + 100 < pts.length) await new Promise(r => setTimeout(r, 900));
-  }
-  if (cells.length < 200) { console.log("  !  vent : trop peu de points (" + cells.length + "), fichier conservé"); return false; }
+  const cells = await omBlocs(pts, VENT_URL, LIT_VENT, "vent");
+  /* Étendue exigée : au moins 140° de latitude et 340° de longitude. Sans cela
+     une grille cantonnée à un hémisphère passerait pour mondiale. */
+  if (!grilleComplete(cells, "vent", 140, 340, 0.8, pts.length)) return false;
   cells.sort(byKey(c => String(c[0]).padStart(5, "0") + "|" + String(c[1]).padStart(5, "0")));
   write("wind.json", { t: now, step: STEP, cells }, cells.length + " points de vent (grille " + STEP + "°)");
   return true;
