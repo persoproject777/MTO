@@ -190,6 +190,245 @@ async function gdacs() {
     f.length + " alertes (" + rouge + " rouges, " + orange + " orange, " + (f.length - rouge - orange) + " vertes)");
 }
 
+/* ---------- CONTOURS RÉELS DES ALERTES GDACS ----------
+   RECTIFICATION IMPORTANTE. Le flux RSS ne porte aucune géométrie utile : son
+   champ `gdacs:bbox` vaut toujours « centre ±4° », soit un carré fixe de 888 km
+   qui n'apprend rien (c'est pourquoi il n'est plus dessiné). Et le lien CAP
+   renvoie une page d'administration.
+   J'en avais conclu que GDACS ne publiait AUCUN contour. C'ÉTAIT FAUX : il
+   existe un point d'accès distinct, `getgeometry`, qui rend de vrais polygones.
+   Mesuré : inondation en Chine, 2 polygones et 5 235 sommets, 53 ko ; inondation
+   aux États-Unis, 2 polygones, 5 ko ; sécheresse européenne, 1 multipolygone.
+   C'est la seule source sans clé donnant une emprise de SÉCHERESSE.
+
+   On ne le demande que pour les alertes GRAVES et EN COURS : sur 341 alertes du
+   flux, une douzaine seulement, donc une douzaine de requêtes par cycle. Et on
+   simplifie : 5 235 sommets sur un écran de téléphone, c'est du poids pur. */
+const GEOM_TYPES = ["FL", "DR", "TC", "WF"];
+async function gdacsGeom() {
+  let f = [];
+  try { f = JSON.parse(fs.readFileSync(path.join(OUT, "gdacs.json"), "utf8")).f || []; }
+  catch (e) { console.log("  …  contours GDACS : gdacs.json absent, on passe"); return; }
+
+  const cibles = f.filter(x => (x.a === "Red" || x.a === "Orange") && x.cur
+                            && GEOM_TYPES.includes(x.t) && x.id).slice(0, 14);
+  if (!cibles.length) { write("gdacsgeo.json", { t: now, f: [] }, "aucune alerte grave à contourer"); return; }
+
+  const out = [];
+  for (const x of cibles) {
+    const u = "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry"
+            + "?eventtype=" + x.t + "&eventid=" + x.id + "&episodeid=1";
+    try {
+      const d = await get(u, 30000);
+      for (const g of (d.features || [])) {
+        const ty = g.geometry && g.geometry.type;
+        /* Le point est déjà porté par l'alerte elle-même : on ne garde que ce
+           qui apporte une EMPRISE, c'est tout l'intérêt de cet appel. */
+        if (ty !== "Polygon" && ty !== "MultiPolygon") continue;
+        const pr = g.properties || {};
+        out.push({
+          id: x.id, t: x.t, a: x.a, co: x.co,
+          /* `Class` distingue chez GDACS l'emprise observée de l'emprise
+             prévue : on le republie tel quel plutôt que d'inventer un libellé. */
+          cl: String(pr.Class || pr.class || ""),
+          nm: String(pr.polygonlabel || pr.eventname || ""),
+          g: { type: ty, coordinates: simpGeo(g.geometry.coordinates) }
+        });
+      }
+    } catch (e) { /* une alerte sans contour n'est pas une panne */ }
+  }
+  const som = JSON.stringify(out).length;
+  write("gdacsgeo.json", { t: now, f: out },
+    out.length + " contours d'alerte (" + Math.round(som / 1024) + " ko)");
+}
+
+/* ---------- TORNADES ET ORAGES VIOLENTS (NWS, États-Unis) ----------
+   Le seul flux ouvert au monde qui donne le POLYGONE d'une tornade en cours.
+   Vérifié : les « Warning » portent un polygone en ligne ; les « Watch » n'en
+   ont pas (elles renvoient à des zones administratives qu'il faudrait résoudre
+   depuis une archive de 26 Mo au format shapefile — hors de portée d'un robot
+   sans dépendances, donc écartées pour l'instant, et c'est dit).
+
+   DEUX PIÈGES MESURÉS, à ne pas réintroduire :
+   · l'en-tête User-Agent est OBLIGATOIRE — sans lui, la réponse est 403 ;
+   · il faut TOUJOURS filtrer par `event`. La collection complète pesait
+     1 145 ko le jour du test, et ce volume double selon la météo. */
+const NWS_ORAGE = ["Tornado Warning", "Severe Thunderstorm Warning",
+                   "Flash Flood Warning", "Extreme Wind Warning", "Dust Storm Warning"];
+async function storms() {
+  const u = "https://api.weather.gov/alerts/active?event="
+          + NWS_ORAGE.map(encodeURIComponent).join(",");
+  const d = await get(u, 45000, { Accept: "application/geo+json" });
+  const f = (d.features || []).filter(x => x.geometry).map(x => {
+    const p = x.properties || {};
+    /* Le code VTEC dit si l'alerte est NEUVE, PROLONGÉE, ou déjà ANNULÉE ou
+       EXPIRÉE. Une alerte annulée qui traîne dans le flux ne doit jamais se
+       lire comme une tornade en cours — c'est la règle du projet. */
+    const vtec = String((p.parameters && p.parameters.VTEC && p.parameters.VTEC[0]) || "");
+    const act = (vtec.match(/\/[A-Z]\.([A-Z]{3})\./) || [])[1] || "";
+    /* Le déplacement du noyau orageux, quand il est publié : direction, vitesse
+       et position d'origine. C'est une mesure du radar, pas une extrapolation. */
+    const mot = String((p.parameters && p.parameters.eventMotionDescription
+                       && p.parameters.eventMotionDescription[0]) || "");
+    const mm = mot.match(/(\d{1,3})DEG\.\.\.(\d{1,3})KT\.\.\.(-?[\d.]+),(-?[\d.]+)/);
+    return {
+      ev: p.event || "", sev: p.severity || "", cert: p.certainty || "",
+      urg: p.urgency || "", zone: p.areaDesc || "",
+      d0: p.effective || p.sent || "", d1: p.expires || p.ends || "",
+      /* ACTIVE tant que l'action VTEC n'est ni annulée ni expirée. */
+      on: !(act === "CAN" || act === "EXP"),
+      act,
+      tor: String((p.parameters && p.parameters.tornadoDetection
+                  && p.parameters.tornadoDetection[0]) || ""),
+      grele: String((p.parameters && p.parameters.maxHailSize
+                    && p.parameters.maxHailSize[0]) || ""),
+      vent: String((p.parameters && p.parameters.maxWindGust
+                   && p.parameters.maxWindGust[0]) || ""),
+      dep: mm ? { brg: +mm[1], kt: +mm[2], c: [p3(+mm[3]), p3(+mm[4])] } : null,
+      txt: String(p.headline || "").slice(0, 180),
+      g: { type: x.geometry.type, coordinates: simpGeo(x.geometry.coordinates) }
+    };
+  }).sort(byKey(x => x.ev + "|" + x.zone + "|" + x.d0));
+
+  const tor = f.filter(x => x.ev === "Tornado Warning").length;
+  write("storms.json", { t: now, f },
+    f.length + " orages violents (" + tor + " tornades)");
+}
+
+/* ---------- CENDRES VOLCANIQUES (SIGMET internationaux) ----------
+   Mesuré : 138 SIGMET, dont 11 pour des cendres, TOUS avec des coordonnées.
+   C'est la seule source ouverte donnant un polygone de nuage de cendres à
+   l'échelle du monde — les VAAC eux-mêmes publient en texte ou en CSV maison. */
+async function sigmet() {
+  const d = await get("https://aviationweather.gov/api/data/isigmet?format=json", 30000);
+  const f = (Array.isArray(d) ? d : []).filter(x => Array.isArray(x.coords) && x.coords.length >= 3)
+    .map(x => ({
+      h: String(x.hazard || ""),          /* VA = cendres, TS = orage, TURB, ICE… */
+      q: String(x.qualifier || ""),
+      fir: String(x.firName || x.firId || ""),
+      d0: x.validTimeFrom || null, d1: x.validTimeTo || null,
+      /* Tranche de niveaux de vol : c'est ce qui compte pour l'aviation. */
+      b: x.base == null ? null : +x.base, tp: x.top == null ? null : +x.top,
+      txt: String(x.rawSigmet || "").replace(/\s+/g, " ").slice(0, 240),
+      g: { type: "Polygon", coordinates: [x.coords.map(c => [p3(c.lon), p3(c.lat)])] }
+    }))
+    .sort(byKey(x => x.h + "|" + x.fir + "|" + String(x.d0)));
+  const va = f.filter(x => /VA|ASH/i.test(x.h)).length;
+  write("sigmet.json", { t: now, f },
+    f.length + " SIGMET (" + va + " cendres volcaniques)");
+}
+
+/* ---------- VIGILANCES EUROPÉENNES (MeteoAlarm) ----------
+   La seule source ouverte qui couvre la FRANCE. L'API temps réel de
+   Météo-France exige une clé, et son archive ouverte accuse trois semaines de
+   retard (vérifié : dernier dossier au 9 juillet) — elle ne convient donc pas.
+
+   MeteoAlarm publie du CAP sans aucune géométrie : uniquement des codes NUTS3,
+   c'est-à-dire les départements en France. C'est le robot qui va chercher les
+   contours chez Eurostat (1 143 ko pour 1 345 unités) et n'en republie QUE les
+   zones réellement en vigilance — le visiteur ne reçoit jamais le fichier
+   complet. */
+/* LA FRANCE ET ELLE SEULE, et c'est une contrainte de la donnee, pas un choix.
+   J'ai tire les flux des dix pays et releve leur systeme de codes de zone :
+     france          NUTS3        <- resolvable
+     spain, italy, portugal, austria, netherlands   EMMA_ID
+     germany         EMMA_ID, WARNCELLID
+     belgium         EMMA_ID, NUTS2   (trop grossier : une region entiere)
+     switzerland, united-kingdom      AUCUN code
+   EMMA_ID est un identifiant interne a MeteoAlarm, dont je n'ai trouve aucun
+   fichier de contours publie. Dessiner ces pays exigerait d'inventer leurs
+   limites : exclu. La couche s'appelle donc « Vigilance France » et ne pretend
+   pas couvrir l'Europe. */
+const MA_PAYS = ["france"];
+/* On traduit d'après le LIBELLÉ publié dans le flux, pas d'après le numéro.
+   Première version de ce tableau : j'avais deviné les numéros, et je me suis
+   trompé — 13 est « pluie-inondation », pas « vent de terre », et 12 est
+   « inondation », pas « vagues ». Le libellé, lui, est dans la donnée. */
+const MA_TYPE = {
+  "wind":"Vent", "snow-ice":"Neige et verglas", "thunderstorm":"Orages",
+  "fog":"Brouillard", "high-temperature":"Chaleur extrême",
+  "low-temperature":"Grand froid", "coastalevent":"Submersion côtière",
+  "coastal-event":"Submersion côtière", "forest-fire":"Feu de forêt",
+  "forestfire":"Feu de forêt", "avalanches":"Avalanches", "avalanche":"Avalanches",
+  "rain":"Pluie", "flooding":"Inondation", "flood":"Inondation",
+  "rain-flood":"Pluie-inondation", "rainflood":"Pluie-inondation"
+};
+const MA_NIV = { 1:"vert", 2:"jaune", 3:"orange", 4:"rouge" };
+let NUTS = null;
+async function chargeNuts() {
+  if (NUTS) return NUTS;
+  /* MILLESIME 2013, et surtout pas un plus recent. Verifie code par code :
+     les identifiants du flux (FR814, FR421, FR422, FR434) existent dans la
+     nomenclature 2013 et NULLE PART ailleurs — 5 sur 5 en 2013, 1 sur 5 en
+     2016, 2021 et 2024. Charger le millesime courant donnait zero jointure,
+     donc une couche vide, sans le moindre message d'erreur. */
+  const d = await get("https://gisco-services.ec.europa.eu/distribution/v2/nuts/geojson/"
+                    + "NUTS_RG_60M_2013_4326_LEVL_3.geojson", 60000);
+  NUTS = new Map();
+  for (const f of (d.features || [])) {
+    const id = f.properties && f.properties.NUTS_ID;
+    if (id && f.geometry) NUTS.set(id, f.geometry);
+  }
+  return NUTS;
+}
+async function meteoalarm() {
+  const nuts = await chargeNuts();
+  const zones = new Map();   /* code NUTS3 → la vigilance la plus grave */
+  let lus = 0;
+  for (const pays of MA_PAYS) {
+    let d;
+    try { d = await get("https://feeds.meteoalarm.org/api/v1/warnings/feeds-" + pays, 30000); }
+    catch (e) { continue; }
+    lus++;
+    for (const w of (d.warnings || [])) {
+      const al = w.alert; if (!al || !Array.isArray(al.info)) continue;
+      for (const inf of al.info) {
+        const par = {};
+        for (const p of (inf.parameter || [])) par[p.valueName] = p.value;
+        /* PIÈGE : ces champs sont des CHAÎNES, « 2; yellow; Moderate » et
+           « 13; rain-flood », pas des nombres. Les additionner donnait NaN,
+           donc un niveau de 0, donc zéro vigilance retenue sur les 82 du flux
+           français — la couche était vide sans que rien ne le signale. */
+        const nivS = String(par.awareness_level || "");
+        const niv  = +((nivS.match(/^\s*(\d)/) || [])[1] || 0);
+        const typS = String(par.awareness_type || "");
+        const typL = (typS.split(";")[1] || "").trim().toLowerCase();
+        if (niv < 2) continue;             /* le vert n'est pas une vigilance */
+        /* Une vigilance PÉRIMÉE ne doit jamais se lire comme une vigilance en
+           cours : le flux en conserve plusieurs jours. Règle du projet. */
+        const fin = inf.expires ? Date.parse(inf.expires) : NaN;
+        if (isFinite(fin) && fin < now) continue;
+        for (const ar of (inf.area || [])) {
+          for (const gc of (ar.geocode || [])) {
+            if (gc.valueName !== "NUTS3" || !nuts.has(gc.value)) continue;
+            const anc = zones.get(gc.value);
+            if (anc && anc.niv >= niv) continue;   /* on garde le plus grave */
+            zones.set(gc.value, {
+              niv, typL,
+              nm: String(ar.areaDesc || ""),
+              pays,
+              d0: inf.onset || inf.effective || null,
+              d1: inf.expires || null,
+              txt: String(inf.description || inf.headline || "").replace(/\s+/g, " ").slice(0, 220)
+            });
+          }
+        }
+      }
+    }
+  }
+  const f = [...zones.entries()].map(([id, v]) => ({
+    id, niv: v.niv, nivn: MA_NIV[v.niv] || "",
+    /* Si le libellé n'est pas dans le tableau, on republie l'original tel quel
+       plutôt que d'inventer une traduction. */
+    typn: MA_TYPE[v.typL] || v.typL || "",
+    nm: v.nm, pays: v.pays, d0: v.d0, d1: v.d1, txt: v.txt,
+    g: { type: nuts.get(id).type, coordinates: simpGeo(nuts.get(id).coordinates) }
+  })).sort(byKey(x => (9 - x.niv) + "|" + x.id));
+  const rouge = f.filter(x => x.niv === 4).length, orange = f.filter(x => x.niv === 3).length;
+  write("meteoalarm.json", { t: now, f },
+    f.length + " departements en vigilance (" + rouge + " rouges, " + orange + " orange)");
+}
+
 /* ---------- Vigilances des météorologues d'État (NWS, États-Unis) ---------- */
 async function nws() {
   const d = await get("https://api.weather.gov/alerts/active?status=actual&severity=Extreme,Severe",
@@ -422,7 +661,11 @@ async function effis() {
 
   const tasks = only === "slow"
     ? [["effis", effis]]
-    : [["quakes", quakes], ["eonet", eonet], ["gdacs", gdacs], ["nws", nws], ["hotspots", hotspots]];
+    /* `gdacsGeom` vient APRÈS `gdacs` : il relit gdacs.json pour savoir quelles
+       alertes méritent qu'on aille chercher leur contour. L'ordre compte. */
+    : [["quakes", quakes], ["eonet", eonet], ["gdacs", gdacs], ["gdacsgeo", gdacsGeom],
+       ["nws", nws], ["storms", storms], ["sigmet", sigmet], ["meteoalarm", meteoalarm],
+       ["hotspots", hotspots]];
 
   let failed = 0;
   for (const [name, fn] of tasks) {

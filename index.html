@@ -2029,7 +2029,12 @@ const LAYERS = [
   {id:"tg-air",       cat:"ciel", icon:"helicopter", nm:"Moyens engagés", full:"Moyens aériens engagés", sub:"lutte, secours, évacuation — le trafic commercial est écarté", c:"#ff3d5f", cnt:"c-air", on:0},
   /* ---- Alertes ---- */
   {id:"tg-safe",      cat:"alertes", icon:"shield", nm:"Ma sécurité", full:"Ma sécurité", sub:"suis-je concerné, ici, maintenant ?", c:"#4be3a4", cnt:"c-safe",  on:0},
-  {id:"tg-alerts",    cat:"alertes", icon:"siren",  nm:"Officielles", full:"Alertes officielles", sub:"ONU et météorologues d'État", c:"#ff9f43", cnt:"c-alerts", on:1, scope:"wus"}
+  {id:"tg-alerts",    cat:"alertes", icon:"siren",  nm:"Officielles", full:"Alertes officielles", sub:"ONU et météorologues d'État", c:"#ff9f43", cnt:"c-alerts", on:1, scope:"wus"},
+  /* Deux cases de plus seulement, pour QUATRE sources nouvelles : les contours
+     réels des alertes ONU rejoignent « Officielles » et les cendres volcaniques
+     rejoignent « Volcans » — elles ne méritaient pas leur propre commande. */
+  {id:"tg-vigi",      cat:"alertes", icon:"shield", nm:"Vigilance",    full:"Vigilance officielle française", sub:"Météo-France, par département", c:"#ff9f43", cnt:"c-vigi",   on:1},
+  {id:"tg-orages",    cat:"terre",   icon:"warning", nm:"Orages",      full:"Orages violents et tornades", sub:"contours réels — États-Unis", c:"#ff1744", cnt:"c-orages", on:1, scope:"na"}
 ];
 const LAYER_BY_ID = new Map(LAYERS.map(l=>[l.id,l]));
 
@@ -2556,6 +2561,12 @@ const layers = {
   quakes: L.layerGroup().addTo(map),
   storms: L.layerGroup().addTo(map),
   alerts: L.layerGroup().addTo(map),
+  /* Vigilance officielle française, par département, et orages violents
+     américains avec leur polygone réel. Deux couches de plus, quatre sources de
+     plus : les contours d'alerte GDACS rejoignent `alerts`, et les cendres
+     volcaniques rejoignent `volcanoes` — pas de case supplémentaire pour elles. */
+  vigi: L.layerGroup().addTo(map),
+  orages: L.layerGroup().addTo(map),
   volcanoes: clusterGroup("#ff2e63",SVG.volc).addTo(map),
   other: clusterGroup("#ffc46b",SVG.warn).addTo(map),
   ice: clusterGroup("#9bd7ff",SVG.ice,9),
@@ -4379,6 +4390,129 @@ function drawComplexes(){
 }
 
 
+
+/* ===== VIGILANCE OFFICIELLE FRANÇAISE =====
+   Source : MeteoAlarm (EUMETNET), qui relaie la vigilance de Météo-France.
+   Pourquoi pas Météo-France directement : son API temps réel exige une clé, et
+   son archive ouverte accuse trois semaines de retard (vérifié, dernier dossier
+   au 9 juillet) — inutilisable pour du direct.
+
+   POURQUOI LA FRANCE SEULE. J'ai tiré les flux de dix pays et relevé leur
+   système de codes de zone : la France emploie NUTS3, résolvable en contours de
+   départements ; l'Espagne, l'Italie, l'Allemagne, le Portugal, l'Autriche et
+   les Pays-Bas emploient EMMA_ID, un identifiant interne à MeteoAlarm dont
+   aucun fichier de contours n'est publié ; la Suisse et le Royaume-Uni ne
+   fournissent aucun code. Dessiner ces pays exigerait d'inventer leurs limites.
+   La couche s'appelle donc « Vigilance France » et ne prétend pas à l'Europe.
+
+   Le robot fait la jointure et ne publie QUE les départements réellement en
+   vigilance : le visiteur ne reçoit jamais le fichier de contours complet
+   (1 143 ko pour 1 345 unités européennes). */
+const VIGI_COL = {2:"#f6d13a", 3:"#ff9f43", 4:"#ff2e63"};
+let vigiT=0;
+async function loadVigilance(){
+  if(!$("#tg-vigi").checked){ setC("c-vigi","–"); layers.vigi.clearLayers(); return; }
+  if(Date.now()-vigiT < 240000 && layers.vigi.getLayers().length) return;
+  try{
+    const p=await preload("meteoalarm", 3*3600e3);
+    layers.vigi.clearLayers();
+    if(!p || !p.f){ setC("c-vigi","indispo"); return; }
+    vigiT=Date.now();
+    const age=p.t?Math.round((Date.now()-p.t)/60000):null;
+    let n=0, rouge=0, orange=0;
+    for(const z of p.f){
+      const col=VIGI_COL[z.niv]||"#8fa4cc";
+      if(z.niv===4) rouge++; else if(z.niv===3) orange++;
+      L.geoJSON(z.g,{renderer:cnv,
+        style:{color:col, weight:1.4, opacity:.9, fillColor:col,
+               fillOpacity: z.niv===4?.30:z.niv===3?.22:.14}})
+        .bindPopup(`<div class="pp-t" style="color:${col}">${ic("siren","x18")}Vigilance ${esc(z.nivn)}</div>
+          <div class="pp-cat">${esc(z.nm||"")}</div>
+          <div class="stbadge" style="--c:${col}">${esc(String(z.typn||"").toUpperCase())}</div>
+          <div class="pp-row">Niveau <b>${esc(z.nivn)}</b> — ${z.niv===4
+            ? "danger d’une intensité exceptionnelle. Une vigilance rouge n’est émise que quelques fois par an."
+            : z.niv===3 ? "phénomènes dangereux d’intensité forte. Soyez très vigilant."
+            : "phénomènes habituels dans la région mais occasionnellement dangereux."}</div>
+          ${z.d1?`<div class="pp-row">En vigueur jusqu’au <b>${fmtWhen(z.d1)}</b></div>`:""}
+          ${z.txt?`<div class="pp-row" style="color:#b9c8e8">${esc(z.txt)}</div>`:""}
+          <div class="pp-prec">${ic("target","x12")}<b>Ce que délimite ce contour</b><br>
+            C’est le <b>département</b> entier, découpage officiel de la vigilance française. Le phénomène ne touche pas nécessairement toute sa surface — c’est la maille à laquelle Météo-France publie, pas l’emprise du danger.</div>
+          <div class="pp-foot">Météo-France via MeteoAlarm (EUMETNET)${age!=null?` · relevé il y a ${age} min`:""}</div>`,
+          {maxWidth:mqMobile.matches?262:320})
+        .addTo(layers.vigi);
+      n++;
+    }
+    setC("c-vigi", n ? (rouge?rouge+" rouge"+(rouge>1?"s":"")+" · ":"")+(orange?orange+" orange":n+" zones") : 0);
+  }catch(e){ setC("c-vigi","–"); }
+}
+
+/* ===== ORAGES VIOLENTS ET TORNADES =====
+   Le seul flux ouvert au monde qui publie le POLYGONE d'une tornade en cours
+   (NWS, États-Unis). Les vigilances de type « Warning » portent leur contour en
+   ligne ; les « Watch » n'en ont pas — elles renvoient à des zones
+   administratives qu'il faudrait résoudre depuis une archive de 26 Mo au format
+   shapefile, hors de portée d'un robot sans dépendances. Elles sont donc
+   écartées, et c'est écrit dans l'aide plutôt que masqué.
+
+   L'échelle de Fujita améliorée (EF0 à EF5) n'existe PAS pendant l'événement :
+   c'est un classement établi après expertise des dégâts, publié par le NCEI avec
+   environ trois mois de décalage. Une carte du temps réel ne peut donc pas
+   l'afficher en direct, et prétendre le contraire serait faux. Ce qui EST
+   disponible pendant l'épisode, et que l'on montre : la détection radar ou
+   visuelle, la grêle maximale, la rafale maximale, et le déplacement mesuré du
+   noyau orageux. */
+const ORAGE_COL = {"Tornado Warning":"#ff1744", "Severe Thunderstorm Warning":"#ff9f43",
+                   "Flash Flood Warning":"#38bdf8", "Extreme Wind Warning":"#c084fc",
+                   "Dust Storm Warning":"#d4a373"};
+const ORAGE_FR = {"Tornado Warning":"Tornade", "Severe Thunderstorm Warning":"Orage violent",
+                  "Flash Flood Warning":"Crue soudaine", "Extreme Wind Warning":"Vent extrême",
+                  "Dust Storm Warning":"Tempête de poussière"};
+let oragesT=0;
+async function loadOrages(){
+  if(!$("#tg-orages").checked){ setC("c-orages","–"); layers.orages.clearLayers(); return; }
+  if(Date.now()-oragesT < 120000 && layers.orages.getLayers().length) return;
+  try{
+    const p=await preload("storms", 3600e3);
+    layers.orages.clearLayers();
+    if(!p || !p.f){ setC("c-orages","indispo"); return; }
+    oragesT=Date.now();
+    let n=0, tor=0;
+    for(const s of p.f){
+      /* Une alerte ANNULÉE ou EXPIRÉE ne se dessine pas comme une alerte en
+         cours : c'est la règle du projet, et le code VTEC nous le dit. */
+      if(!s.on) continue;
+      const col=ORAGE_COL[s.ev]||"#8fa4cc", nm=ORAGE_FR[s.ev]||s.ev;
+      const est=s.ev==="Tornado Warning";
+      if(est) tor++;
+      let dep="";
+      if(s.dep){
+        const tip=destPoint(s.dep.c[0], s.dep.c[1], s.dep.brg, s.dep.kt*1.852*0.5);
+        L.polyline([s.dep.c, tip],{renderer:cnv,color:col,weight:2.4,opacity:.85}).addTo(layers.orages);
+        dep=`<div class="pp-row">Déplacement du noyau : vers le <b>${compass(s.dep.brg)}</b> à <b>${fmtV(s.dep.kt*1.852)}</b><br><span style="color:#8fa4cc">mesuré au radar, publié avec l’alerte</span></div>`;
+      }
+      L.geoJSON(s.g,{renderer:cnv,
+        style:{color:col, weight:est?2.6:1.8, opacity:.95, fillColor:col,
+               fillOpacity:est?.24:.14, dashArray:est?null:"5 4"}})
+        .bindPopup(`<div class="pp-t" style="color:${col}">${ic(est?"cyclone":"warning","x18")}${esc(nm)}</div>
+        <div class="pp-cat">${esc(s.zone||"")}</div>
+        <div class="stbadge" style="--c:${col}">EN COURS${s.sev?" · "+esc(String(s.sev).toUpperCase()):""}</div>
+        ${s.tor?`<div class="pp-row">Tornade : <b>${esc(s.tor)}</b><br><span style="color:#8fa4cc">détection annoncée par le service météo — radar ou observation au sol</span></div>`:""}
+        ${s.grele?`<div class="pp-row">Grêle maximale attendue : <b>${esc(s.grele)} pouce</b> (${nf(parseFloat(s.grele)*2.54,1)}${NB}cm)</div>`:""}
+        ${s.vent?`<div class="pp-row">Rafale maximale attendue : <b>${esc(s.vent)}</b></div>`:""}
+        ${dep}
+        ${s.d1?`<div class="pp-row">Jusqu’à <b>${fmtWhen(s.d1)}</b></div>`:""}
+        ${s.txt?`<div class="pp-row" style="color:#b9c8e8">${esc(s.txt)}</div>`:""}
+        ${est?`<div class="pp-warn">Une <b>vigilance tornade</b> signifie qu’une tornade est en cours ou imminente sur cette zone. Mettez-vous à l’abri immédiatement, au niveau le plus bas et loin des fenêtres.</div>`:""}
+        <div class="pp-prec">${ic("target","x12")}<b>Sur l’échelle de Fujita</b><br>
+          La cote <b>EF0 à EF5 n’existe pas pendant l’événement</b> : elle est établie après expertise des dégâts et publiée avec environ trois mois de décalage. Ce polygone est la zone que le service météo place sous alerte, pas la trajectoire de la tornade.</div>
+        <div class="pp-foot">National Weather Service (NOAA) — domaine public</div>`,
+        {maxWidth:mqMobile.matches?262:320})
+        .addTo(layers.orages);
+      n++;
+    }
+    setC("c-orages", n ? (tor? tor+" tornade"+(tor>1?"s":"")+" · "+n : n) : 0);
+  }catch(e){ setC("c-orages","–"); }
+}
 
 /* ===== RIVIÈRES ET RISQUE DE CRUE (GloFAS / Copernicus) =====
    Le débit prévu est comparé aux 60 derniers jours du même cours d’eau :
@@ -6634,6 +6768,14 @@ $("#country").addEventListener("change", e=>{
 $("#tg-safe").addEventListener("change",ev=>{
   if(ev.target.checked) startSafety(); else stopSafety();
 });
+$("#tg-vigi").addEventListener("change",ev=>{
+  if(ev.target.checked){ map.addLayer(layers.vigi); vigiT=0; loadVigilance(); }
+  else{ map.removeLayer(layers.vigi); layers.vigi.clearLayers(); setC("c-vigi","–"); }
+});
+$("#tg-orages").addEventListener("change",ev=>{
+  if(ev.target.checked){ map.addLayer(layers.orages); oragesT=0; loadOrages(); }
+  else{ map.removeLayer(layers.orages); layers.orages.clearLayers(); setC("c-orages","–"); }
+});
 $("#tg-flood").addEventListener("change",ev=>{
   if(ev.target.checked){ map.addLayer(layers.flood); floodKey=""; loadFlood(); }
   else{ map.removeLayer(layers.flood); setC("c-flood","–"); }
@@ -7090,7 +7232,11 @@ function initWelcome(){
 const SHARE_VER="2";
 const SHARE_KEYS=["tg-fire","tg-burnt","tg-risk",
   "tg-quakes","tg-volcanoes","tg-storms","tg-other","tg-alerts",
-  "tg-cities","tg-wind","tg-radar","tg-aq","tg-flood","tg-air"];
+  "tg-cities","tg-wind","tg-radar","tg-aq","tg-flood","tg-air",
+  /* Ajoutees A LA FIN : les positions precedentes restent valides, donc les
+     liens deja partages continuent d'etre lus correctement et la version du
+     format n'a pas a changer. */
+  "tg-vigi","tg-orages"];
 /* Lien court : les couches sont encodées en bits plutôt qu'en noms, ce qui fait
    passer l'adresse de 205 à une soixantaine de caractères. Un lien à rallonge
    inquiète les destinataires, qui le prennent pour une tentative d'arnaque. */
@@ -7389,8 +7535,10 @@ async function staggered(tasks, gap){
 async function loadAll(){
   hotKey=""; ebKey="";
   aqKey="";
+  vigiT=0; oragesT=0;
   const tasks=[()=>loadEonet(),()=>loadQuakes(),()=>loadHotspots(),
-               ()=>loadAlerts(),()=>loadPerims(),()=>loadEuba()];
+               ()=>loadAlerts(),()=>loadPerims(),()=>loadEuba(),
+               ()=>loadVigilance(),()=>loadOrages()];
   if($("#tg-radar").checked) initRadar();
   if($("#tg-aq").checked){ aqKey=""; tasks.push(()=>loadAQ()); }
   if($("#tg-flood").checked){ floodKey=""; tasks.push(()=>loadFlood()); }
@@ -7467,6 +7615,7 @@ premierChargement.then(()=>{
     if($("#tg-radar").checked) initRadar();
     if($("#tg-aq").checked) loadAQ();
     if($("#tg-flood").checked) loadFlood();
+    loadVigilance(); loadOrages();
     if($("#tg-fwi").checked) initFWI();
     loadForecastGrid(true);
     /* Une fois tout chargé et les compteurs renseignés, on éteint ce qui n'a
