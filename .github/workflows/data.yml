@@ -171,7 +171,12 @@ jobs:
       # contente alors de le signaler. Le jour ou il est ajoute, la chaine
       # s'amorce d'elle-meme et le robot devient reellement continu.
       - name: Relancer le service
-        if: always() && github.event_name != 'workflow_dispatch'
+        # La relance s'applique des que le SERVICE a tourne, quel que soit ce qui
+        # l'a declenche. Ma premiere condition excluait les declenchements
+        # manuels : la chaine ne pouvait donc s'amorcer que sur un passage
+        # programme — precisement ce qui ne vient plus. Seul un passage unique
+        # demande expressement ne relance rien.
+        if: always() && !inputs.passage_unique
         env:
           JETON: ${{ secrets.RELANCE }}
         run: |
