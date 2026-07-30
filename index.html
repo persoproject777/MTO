@@ -606,6 +606,7 @@ details a:hover{border-bottom-color:#7fc4ea}
 .dg-e.CONSOLE{border-left-color:#e63946}
 .dg-e.ALERTE{border-left-color:#ffc46b}
 .dg-e u{text-decoration:none;color:var(--mut);font-size:10px;margin-right:6px}
+.dg-n{display:inline-block;margin-left:6px;padding:0 5px;border-radius:8px;background:#22303f;color:#9fb3cc;font:700 10px/16px system-ui,sans-serif;vertical-align:1px}
 .dg-e k{color:#ff9f9f;font-weight:700;margin-right:5px}
 .dg-empty{color:var(--ok);font-size:12.5px;padding:8px 2px}
 #dgenv{font:11px/1.5 var(--mono);color:var(--mut);white-space:pre-wrap;margin:0;
@@ -1778,7 +1779,20 @@ function host(u){
   try{ return new URL(u,location.href).hostname.replace(/^www\./,""); }catch(e){ return "local"; }
 }
 function push(type,msg,extra){
-  LOG.push({t:new Date().toLocaleTimeString("fr-FR"),type:type,msg:String(msg).slice(0,700),x:extra||""});
+  var m=String(msg).slice(0,700);
+  /* Une même panne répétée cent fois reste UNE panne. On regroupe les lignes
+     identiques qui se suivent plutôt que de noyer le journal : ce qui compte
+     est de savoir quoi a échoué, et combien de fois — pas de le relire cent
+     fois. */
+  var d=LOG[LOG.length-1];
+  if(d && d.type===type && d.msg===m){
+    d.n=(d.n||1)+1;
+    d.t=new Date().toLocaleTimeString("fr-FR");
+    badge();
+    if(document.getElementById("diag") && document.getElementById("diag").classList.contains("open")) render();
+    return;
+  }
+  LOG.push({t:new Date().toLocaleTimeString("fr-FR"),type:type,msg:m,x:extra||""});
   if(LOG.length>250) LOG.shift();
   badge();
   if(document.getElementById("diag") && document.getElementById("diag").classList.contains("open")) render();
@@ -1842,7 +1856,7 @@ var of=window.fetch;
 window.fetch=function(u,o){
   var url=(typeof u==="string")?u:((u&&u.url)||"");
   var h=host(url), t0=(performance&&performance.now)?performance.now():Date.now();
-  if(!SRC[h]) SRC[h]={ok:0,ko:0,ms:0,last:""};
+  if(!SRC[h]) SRC[h]={ok:0,ko:0,an:0,ms:0,last:""};
   return of.apply(this,arguments).then(function(r){
     var dt=Math.round(((performance&&performance.now)?performance.now():Date.now())-t0);
     SRC[h].ms=dt;
@@ -1853,6 +1867,14 @@ window.fetch=function(u,o){
     }
     return r;
   }).catch(function(e){
+    var notre=!!(o&&o.signal&&o.signal.__mto);
+    /* Abandon décidé par la carte elle-même : on le compte à part et on n'en
+       parle pas. Le compter comme un échec faisait passer une rotation du globe
+       pour une avarie réseau. */
+    if(e&&e.name==="AbortError"&&!notre){
+      SRC[h].an=(SRC[h].an||0)+1;
+      throw e;
+    }
     SRC[h].ko++;
     var m=(e&&e.name==="AbortError")?"délai dépassé":((e&&e.message)||"échec");
     SRC[h].last=m;
@@ -1870,12 +1892,14 @@ function render(){
     var v=SRC[h], col=v.ko===0?"#4be3a4":(v.ok>0?"#ffc46b":"#ff2e63");
     var g=window.__diagGuard&&window.__diagGuard.get&&window.__diagGuard.get(h);
     var paused=(g&&g.until>Date.now())?' <b style="color:#ff9f43">EN PAUSE '+Math.ceil((g.until-Date.now())/1000)+'s</b>':'';
-    return '<div><i style="background:'+col+'"></i><span>'+h+'</span><b>'+v.ok+' ok · '+v.ko+' ko · '+v.last+paused+'</b></div>';
+    var an=v.an?' · '+v.an+' abandons':'';
+    return '<div><i style="background:'+col+'"></i><span>'+h+'</span><b>'+v.ok+' ok · '+v.ko+' ko'+an+' · '+v.last+paused+'</b></div>';
   }).join("") : '<div class="dg-empty">Aucune requête pour l\'instant.</div>';
   var rev=LOG.slice().reverse();
   lg.innerHTML = rev.length ? rev.map(function(e){
+    var rep=e.n>1?' <b class="dg-n">×'+e.n+'</b>':'';
     return '<div class="dg-e '+e.type+'"><u>'+e.t+'</u><k>'+e.type+'</k>'+
-      e.msg.replace(/[<>&]/g,function(c){return {"<":"&lt;",">":"&gt;","&":"&amp;"}[c];})+'</div>';
+      e.msg.replace(/[<>&]/g,function(c){return {"<":"&lt;",">":"&gt;","&":"&amp;"}[c];})+rep+'</div>';
   }).join("") : '<div class="dg-empty">Aucune erreur détectée. Tout fonctionne.</div>';
   ev.textContent=envText();
   var dc=document.getElementById("dgcache");
@@ -2257,6 +2281,14 @@ function rawFetch(url, opts, timeout){
   if(NO_SIGNAL) return noSignal();
   const withSignal=()=>{
     const ctl=new AbortController();
+    /* On MARQUE nos propres abandons. Une bibliothèque comme MapLibre annule
+       elle-même ses requêtes de tuiles dès que la caméra bouge : c'est un
+       fonctionnement normal, pas une panne. Les deux produisent la même erreur
+       « AbortError », et sans ce marqueur le journal les confondait — d'où cent
+       soixante-quatorze « délai dépassé » affichés pendant une simple rotation
+       du globe, pour des requêtes que la carte avait elle-même décidé
+       d'abandonner. */
+    ctl.signal.__mto=1;
     const t=setTimeout(()=>{ try{ctl.abort();}catch(e){} }, ms);
     return fetch(url, Object.assign({}, opts||{}, {signal:ctl.signal}))
       .finally(()=>clearTimeout(t));
