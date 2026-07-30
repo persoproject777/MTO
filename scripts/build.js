@@ -1047,16 +1047,29 @@ async function effis() {
     if (fs.existsSync(wf)) {
       try { wAge = now - (JSON.parse(fs.readFileSync(wf, "utf8")).t || 0); } catch (e) {}
     }
-    if (wAge > 50 * 60e3 && now - windAt > 45 * 60e3) {
-      console.log("  …  vent " + (wAge === Infinity ? "absent" : "vieux de " + Math.round(wAge / 60e3) + " min") + " — reconstruction");
-      windAt = now;
-      try { await wind(); } catch (e) { console.log("  x  vent échec : " + e.message); }
+    /* Le délai avant une NOUVELLE tentative dépend de ce que la précédente a
+       donné. J'avais posé le verrou de 45 min AVANT d'essayer : une tentative
+       ratee bloquait donc la reconstruction aussi longtemps qu'une réussie, et
+       la carte est restée cinquante minutes entières sans champ de vent alors
+       que le fichier n'existait même pas. On ne pose le long verrou qu'après un
+       SUCCÈS ; un échec se retente au tour suivant, et l'absence pure et simple
+       du fichier ne se laisse pas attendre. */
+    const jamais = wAge === Infinity;
+    const repos = jamais ? 5 * 60e3 : 45 * 60e3;
+    if ((jamais || wAge > 50 * 60e3) && now - windAt > repos) {
+      console.log("  …  vent " + (jamais ? "ABSENT" : "vieux de " + Math.round(wAge / 60e3) + " min") + " — reconstruction");
+      let ok = false;
+      try { ok = await wind(); } catch (e) { console.log("  x  vent échec : " + e.message); }
       /* La qualité de l'air suit le même rythme horaire que le vent : les deux
          viennent d'Open-Meteo, autant grouper leur consommation. */
       try { await air(); } catch (e) { console.log("  x  air échec : " + e.message); }
       /* La grille fine suit le vent : elle n'a de sens qu'avec un socle frais,
          et les deux puisent au même quota. */
       try { await ventCyclone(); } catch (e) { console.log("  x  vent cyclone échec : " + e.message); }
+      /* Un échec ne recule l'horloge que de dix minutes : assez pour ne pas
+         matraquer Open-Meteo, trop peu pour laisser la carte sans vent. */
+      windAt = ok ? now : now - 35 * 60e3;
+      if (!ok) console.log("     vent non reconstruit — nouvelle tentative dans une dizaine de minutes");
     } else {
       if (fs.existsSync(wf)) PRESENT.push("wind");
       if (fs.existsSync(path.join(OUT, "air.json"))) PRESENT.push("air");
