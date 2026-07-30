@@ -2370,7 +2370,7 @@ let PRE = {ok:false, age:null, seen:false, seenAge:0};
 /* On sonde UNE seule fois si le dossier data/ existe. S'il est absent (robot
    GitHub jamais lancé, ou fichier ouvert seul), on n'essaie plus du tout :
    inutile de multiplier les 404 dans le journal. */
-let PRE_AVAIL = null, PRE_FILES = null;
+let PRE_AVAIL = null, PRE_FILES = null, PRE_VU = null;
 async function preAvailable(){
   if(PRE_AVAIL!==null) return PRE_AVAIL;
   try{ if(location.protocol==="content:"||location.protocol==="file:"){ PRE_AVAIL=false; return false; } }catch(e){}
@@ -2382,6 +2382,10 @@ async function preAvailable(){
       /* Le robot déclare la liste exacte de ce qu'il a produit : on ne demandera
          jamais un fichier absent, donc plus aucun 404 dans le journal. */
       PRE_FILES = Array.isArray(m.files) ? m.files : null;
+      /* Date de dernière VÉRIFICATION de chaque source, distincte de la date
+         inscrite dans son fichier : une donnée inchangée n'est pas une donnée
+         périmée. Voir le commentaire de VU dans le robot. */
+      PRE_VU = (m.vu && typeof m.vu === "object") ? m.vu : null;
     }
   }catch(e){ PRE_AVAIL=false; }
   if(!PRE_AVAIL && window.__diagPush)
@@ -2427,7 +2431,12 @@ async function preload(name, maxAgeMs){
     const d = await fetchJSON(DATA_BASE+name+".json?v="+Math.floor(Date.now()/300000), null, 240000, 12000);
     if(!d) return null;
     if(d.t){ PRE.seen=true; PRE.seenAge=Date.now()-d.t; }
-    if(maxAgeMs && d.t && (Date.now()-d.t) > maxAgeMs) return null;   /* trop vieux : on ira au direct */
+    /* On juge sur la dernière VÉRIFICATION, pas sur le dernier CHANGEMENT.
+       Les alertes françaises peuvent ne pas bouger de quatre heures sans cesser
+       d'être à jour ; l'ancienne lecture les déclarait périmées et renvoyait
+       chaque visiteur interroger MeteoAlarm lui-même. */
+    const vu = Math.max(d.t || 0, (PRE_VU && PRE_VU[name]) || 0);
+    if(maxAgeMs && vu && (Date.now()-vu) > maxAgeMs) return null;   /* trop vieux : on ira au direct */
     if(PRE_MISS.delete(name)) savePreMiss();
     PRE.ok=true;
     if(d.t) PRE.age=Date.now()-d.t;

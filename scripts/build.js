@@ -57,9 +57,26 @@ const byKey = k => (a, b) => { const x = k(a), y = k(b); return x < y ? -1 : x >
 
 const WROTE = [];
 const PRESENT = [];
+/* « VU » : quand chaque source a été INTERROGÉE AVEC SUCCÈS, que sa réponse ait
+   changé ou non. C'est différent de l'horodatage écrit DANS le fichier, qui ne
+   bouge que si le contenu bouge.
+
+   Sans cette distinction, « inchangé » finit par se faire prendre pour
+   « périmé » : les alertes françaises n'avaient pas bougé depuis quatre heures,
+   leur fichier portait donc un horodatage de quatre heures, et le navigateur —
+   qui n'accepte pas au-delà de trois — le rejetait et repartait interroger
+   MeteoAlarm par visiteur. Exactement ce que ce robot existe pour éviter.
+
+   On ne peut pas non plus se contenter de la date du dernier passage : un
+   fichier dont la source est en panne depuis des heures resterait alors
+   annoncé comme frais. VU n'est inscrit que lorsque la collecte a réellement
+   abouti. */
+const VU = {};
 function write(name, obj, label) {
   const file = path.join(OUT, name);
-  PRESENT.push(name.replace(".json", ""));
+  const cle = name.replace(".json", "");
+  PRESENT.push(cle);
+  VU[cle] = now;
   const fresh = JSON.stringify(obj);
   const payload = JSON.stringify(Object.assign({}, obj, { t: 0 }));
   if (fs.existsSync(file)) {
@@ -1242,12 +1259,19 @@ async function effis() {
   /* meta.json n'est réécrit que s'il change vraiment. Comme il portait
      `built: Date.now()`, il différait à chaque exécution et garantissait à lui
      seul un commit par cycle, même quand aucune donnée n'avait bougé. */
+  /* On reporte les dates de dernière vérification des sources non interrogées
+     ce tour-ci : elles restent vraies, seules celles du tour changent. */
+  const vu = Object.assign({}, prev.vu || {}, VU);
   const listChanged = JSON.stringify(prev.files || []) !== JSON.stringify(files);
   const triedChanged = (prev.effisTried || 0) !== effisTried || (prev.windAt || 0) !== windAt
     || (prev.tcAt || 0) !== tcAt;
-  if (WROTE.length || listChanged || triedChanged) {
+  /* Une source revue vaut publication même sans changement de contenu : c'est
+     précisément l'information qui manquait au navigateur. On ne republie que si
+     l'écart dépasse le quart d'heure, pour ne pas commiter à chaque tour. */
+  const vuChanged = Object.keys(vu).some(k => (vu[k] || 0) - ((prev.vu || {})[k] || 0) > 14 * 60e3);
+  if (WROTE.length || listChanged || triedChanged || vuChanged) {
     fs.writeFileSync(path.join(OUT, "meta.json"), JSON.stringify({
-      built: now, builtISO: new Date(now).toISOString(), kind: only, files, effisTried, windAt, tcAt
+      built: now, builtISO: new Date(now).toISOString(), kind: only, files, vu, effisTried, windAt, tcAt
     }));
     console.log("  +  meta.json      " + files.length + " fichiers : " + files.join(", "));
   } else {
