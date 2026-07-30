@@ -8312,6 +8312,13 @@ async function ouvreGlobe(){
          périmètres, les analyses. On bascule plutôt que d'entretenir deux vues
          concurrentes qui divergeraient. */
       glMap.on("zoomend", ()=>{
+        /* Redescendu sous le niveau 4, le relief ne se voit plus mais
+           continue de tirer des tuiles : on le retire de lui-meme. */
+        if(glRelief && glMap.getZoom() < 4){
+          glRelief=false;
+          try{ glMap.setTerrain(null); }catch(_){}
+          const br=$("#gl-relief"); if(br) br.setAttribute("aria-pressed","false");
+        }
         if(!glOuvert || glMap.getZoom() < GL_ZOOM_PASSAGE) return;
         /* +1 : le zoom de MapLibre est défini sur des tuiles de 512 px, celui de
            Leaflet sur des tuiles de 256. À échelle égale, Leaflet = MapLibre + 1.
@@ -8356,6 +8363,11 @@ async function ouvreGlobe(){
          conséquence sur une sphère qu'on fait tourner vite. */
       const m=String(e&&e.error&&e.error.message||"");
       if(/tile|abort|Failed to fetch/i.test(m)) return;
+      /* Limitation connue du moteur : le halo atmospherique n'est pas calcule
+         quand le relief et la projection globe sont combines. Ce n'est ni une
+         panne ni quelque chose sur quoi le lecteur peut agir — on ne l'inscrit
+         pas au journal, ou il noyait les vraies erreurs. */
+      if(/calculateFogMatrix|not supported on globe/i.test(m)) return;
       if(window.__diagPush) window.__diagPush("RÉSEAU","Vue planète : "+m);
     });
   }
@@ -8422,15 +8434,36 @@ $("#gl-relief").addEventListener("click", e=>{
   e.currentTarget.setAttribute("aria-pressed", String(on));
   try{
     if(on){
-      /* Les tuiles d'élévation ne sont demandées qu'ici : elles pèsent une
-         centaine de kilo-octets pièce, on ne les impose à personne. */
-      if(!glMap.getSource("relief")) glMap.addSource("relief",{
-        type:"raster-dem", tileSize:256, maxzoom:12, encoding:"terrarium",
-        tiles:["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
-        attribution:"Tuiles d’élévation AWS · SRTM, ASTER, GMTED"});
-      glMap.setTerrain({source:"relief", exaggeration:1.35});
-      if(glMap.getZoom()<4.2) glMap.easeTo({zoom:5.2, pitch:58, duration:1400});
-      else glMap.easeTo({pitch:58, duration:900});
+      /* ON APPROCHE D'ABORD, ON POSE LE RELIEF ENSUITE. C'est l'ordre qui compte.
+         En activant le relief au zoom du globe, MapLibre réclame le modèle
+         d'élévation de la PLANÈTE ENTIÈRE : à cent cinquante kilo-octets la
+         tuile, cela représente des dizaines de mégaoctets lancés d'un coup. Le
+         réseau saturait, et l'imagerie de la carte elle-même se mettait à
+         expirer par ricochet — c'est ce qu'on voyait dans le journal, des
+         dizaines de « délai dépassé » sur terrarium ET sur l'imagerie.
+         D'ailleurs le relief n'a aucun sens vu de l'espace : à cette distance,
+         l'Himalaya représente moins d'un pixel de dénivelé. */
+      const pose = ()=>{
+        if(!glMap || !glRelief) return;
+        if(!glMap.getSource("relief")) glMap.addSource("relief",{
+          type:"raster-dem", tileSize:256, encoding:"terrarium",
+          /* Plafond à 9 et non 12 : au-delà, le gain de relief est invisible
+             avec une exagération de 1,35, et chaque niveau quadruple le nombre
+             de tuiles. */
+          maxzoom:9,
+          tiles:["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
+          attribution:"Tuiles d’élévation AWS · SRTM, ASTER, GMTED"});
+        glMap.setTerrain({source:"relief", exaggeration:1.35});
+      };
+      if(glMap.getZoom() < 5){
+        /* On monte à un niveau où le relief se voit ET où l'emprise est bornée,
+           puis on le pose une fois le déplacement terminé. */
+        glMap.once("moveend", pose);
+        glMap.easeTo({zoom:5.4, pitch:58, duration:1400});
+      }else{
+        glMap.easeTo({pitch:58, duration:900});
+        pose();
+      }
     }else{
       glMap.setTerrain(null);
       glMap.easeTo({pitch:0, duration:700});
