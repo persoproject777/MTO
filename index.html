@@ -4038,12 +4038,21 @@ function omThrottle(fn, cost, rapide){
   }
   if(omPaused()) return Promise.reject(new Error("météo suspendue (quota atteint)"));
   const run = omChain.then(async ()=>{
-    let used=omUsed();
-    if(used+c>OM_LIMIT && omLog.length){
+    /* ATTENDRE JUSQU'À CE QUE LE BUDGET SUFFISE, et non quinze secondes puis
+       partir quand même. Avec l'ancienne écriture, deux lots de 380 points dans
+       la même minute passaient tous les deux : 760 unités là où Open-Meteo en
+       accorde 600, donc un 429 et trois minutes de suspension — vu en clair
+       dans le journal du 30 juillet. On patiente réellement, et si le budget ne
+       se libère pas dans la minute on renonce : le socle mondial est complet,
+       l'animation continue sans que personne ne voie d'erreur. */
+    for(let garde=0; garde<12; garde++){
+      if(omUsed()+c<=OM_LIMIT || !omLog.length) break;
       const oldest=omLog[0].t;
-      const wait=Math.min(15000, Math.max(1000, 60000-(Date.now()-oldest)));
+      const wait=Math.max(700, Math.min(8000, 60000-(Date.now()-oldest)));
       await new Promise(r=>setTimeout(r,wait));
     }
+    if(omUsed()+c>OM_LIMIT && omLog.length)
+      throw new Error("budget météo de la minute épuisé");
     const gap=Math.max(0, (c>60?1200:600)-(Date.now()-omLast));
     if(gap) await new Promise(r=>setTimeout(r,gap));
     omLast=Date.now();
@@ -6130,7 +6139,17 @@ async function fetchWind(){
     wind.pause=false;
     return;
   }
-  const batch=need.slice(0, Math.min(380, PERF.windCells+40));
+  /* On ne demande jamais plus que ce que le budget de la minute peut porter :
+     un lot plus gros que le plafond ne pouvait, par construction, que le
+     dépasser. En dessous de cinquante cellules à gagner, on ne demande rien du
+     tout — le socle mondial couvre déjà le point de vue. */
+  const reste=Math.max(0, OM_LIMIT-omUsed());
+  const batch=need.slice(0, Math.min(380, PERF.windCells+40, reste));
+  if(batch.length<50 && WBASE.size){
+    setC("c-wind", "mondial " + wbaseStep + "°");
+    updKmPx(); seedParts(false); wind.pause=false; startLoop();
+    return;
+  }
   try{
     setC("c-wind","…");
     /* Open-Meteo choisit automatiquement le modèle national le plus fin :
@@ -6587,8 +6606,15 @@ function airProbes(){
   const out=[];
   for(let j=0;j<nY;j++) for(let i=0;i<nX;i++){
     if(out.length>=max) break;
-    const la=b.getSouth()+(b.getNorth()-b.getSouth())*(j+0.5)/nY;
-    const lo=b.getWest()+(b.getEast()-b.getWest())*(i+0.5)/nX;
+    const la=Math.max(-90, Math.min(90, b.getSouth()+(b.getNorth()-b.getSouth())*(j+0.5)/nY));
+    /* LA LONGITUDE DOIT ÊTRE REPLIÉE. La carte fait défiler le monde en continu :
+       passé l'antiméridien, Leaflet rend des longitudes de 181, 183, 190… qui
+       sont justes pour lui mais hors plage pour un service web. airplanes.live
+       les refusait, et le journal se remplissait de « Failed to fetch » sur des
+       adresses en .../182.988/... — douze échecs pour quarante-six réussites,
+       uniquement parce que l'utilisateur avait fait glisser la carte vers l'est.
+       Le champ de vent, lui, repliait déjà : c'est la même formule. */
+    const lo=((b.getWest()+(b.getEast()-b.getWest())*(i+0.5)/nX+540)%360)-180;
     /* Rayon juste suffisant pour la case, avec recouvrement */
     /* Rayon = demi-diagonale de la case, pour qu'aucun coin ne soit oublié */
     const cellH=hKm/nY, cellW=wKm/nX;
