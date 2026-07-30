@@ -3023,6 +3023,30 @@ const fmtWhen = t => fmtShort(t)+(TZ_LABEL?" ("+TZ_LABEL+")":"");
 const state = {qfeed:"45w", iceRaw:[], iceBuilt:false, citiesLoaded:false, bbox:null, cc:""};
 
 /* ---------- Pays ciblables ---------- */
+/* Declaree ICI, avant son premier usage. Piege : `typeof x` NE PROTEGE PAS
+   contre la zone morte temporelle d'un `let` ou d'un `const` — contrairement
+   a une variable jamais declaree, il leve une erreur. La liste des pays, qui
+   se construit bien plus haut que le module de traduction, plantait donc au
+   chargement et interrompait tout le reste du script. */
+/* ---------- ETAT DE LA TRADUCTION, DECLARE TOT ----------
+   Ces variables sont declarees ICI, bien avant le module qui les emploie,
+   parce que la liste des pays — construite beaucoup plus haut — passe par
+   `cherche()` pour traduire ses intitules de groupes.
+   PIEGE RENCONTRE DEUX FOIS : `typeof x` NE PROTEGE PAS contre la zone morte
+   temporelle d'un `let` ou d'un `const`. Contrairement a une variable jamais
+   declaree, il LEVE. Une garde `typeof cherche === "function"` laissait donc
+   passer l'appel, qui echouait ensuite sur `DICO` — et cette erreur, survenue
+   au premier niveau du script, interrompait TOUT le reste : ni liste de pays,
+   ni menu de langues, ni vue planete. Le seul remede sur est de declarer
+   avant d'employer. */
+const LANGUES = {
+  fr: "Français", en: "English", es: "Español",
+  de: "Deutsch", it: "Italiano", pt: "Português", zh: "中文"
+};
+let LANG = "fr", DICO = null, DICO_N = null;
+let ORIG = new Map();
+const dicoCache = new Map();
+
 const COUNTRIES = {
 /* ---- Zones élargies ---- */
 _eu:{n:"Union européenne",b:[-10.5,34.5,32.5,71.5],grp:1},
@@ -3107,23 +3131,51 @@ cl:{n:"Chili",b:[-75.8,-56.0,-66.4,-17.5]},
 pe:{n:"Pérou",b:[-81.4,-18.4,-68.6,0.1]},
 co:{n:"Colombie",b:[-79.1,-4.3,-66.8,12.6]}
 };
-(function fillCountries(){
+/* Nom d'un pays DANS LA LANGUE DE LECTURE. Les clés de la table sont les codes
+   ISO à deux lettres : le navigateur possède la table officielle des noms de
+   pays dans toutes les langues, il serait absurde de la recopier dans six
+   dictionnaires — et impossible à tenir à jour. Les entrées qui ne sont pas des
+   pays (les zones élargies, préfixées d'un souligné) gardent leur libellé, qui
+   passe par le dictionnaire comme le reste de l'interface. */
+function nomPays(code, base){
+  if(!code || code[0] === "_") return base;
+  /* « France · Réunion » : on ne traduit que la partie pays, le territoire
+     garde son nom propre. */
+  const part = base.split(" · ");
+  try{
+    const dn = new Intl.DisplayNames([LANG || "fr"], {type:"region"});
+    const v = dn.of(code.toUpperCase());
+    if(v && v !== code.toUpperCase()) part[0] = v;
+  }catch(e){}
+  return part.join(" · ");
+}
+function fillCountries(){
   const sel=$("#country");
-  const all=Object.entries(COUNTRIES);
+  if(!sel) return;
+  const garde = sel.value;
+  const lg = LANG || "fr";
+  const all=Object.entries(COUNTRIES).map(([k,c]) => [k, c, nomPays(k, c.n)]);
   const zones=all.filter(([k,c])=>c.grp);
   const fr=all.filter(([k,c])=>!c.grp && c.n.indexOf("France")===0)
-    .sort((a,b)=>a[1].n.localeCompare(b[1].n,"fr"));
+    .sort((a,b)=>a[2].localeCompare(b[2], lg));
   const rest=all.filter(([k,c])=>!c.grp && c.n.indexOf("France")!==0)
-    .sort((a,b)=>a[1].n.localeCompare(b[1].n,"fr"));
+    .sort((a,b)=>a[2].localeCompare(b[2], lg));
   /* Aucun drapeau : une liste déroulante native ne sait pas styler son contenu,
      et les drapeaux emoji sont dessinés différemment sur chaque système. Les
      intitulés de groupes suffisent à structurer la liste. */
-  const opt=([k,c])=>`<option value="${k}">${c.n}</option>`;
-  sel.innerHTML='<option value="">Monde entier</option>'+
-    '<optgroup label="Zones élargies">'+zones.map(opt).join("")+'</optgroup>'+
-    '<optgroup label="France et territoires">'+fr.map(opt).join("")+'</optgroup>'+
-    '<optgroup label="Pays">'+rest.map(opt).join("")+'</optgroup>';
-})();
+  const opt=([k,c,n])=>`<option value="${k}">${esc(n)}</option>`;
+  const tr = t => (typeof cherche === "function" && cherche(t)) || t;
+  sel.innerHTML='<option value="">'+esc(tr("Monde entier"))+'</option>'+
+    '<optgroup label="'+esc(tr("Zones élargies"))+'">'+zones.map(opt).join("")+'</optgroup>'+
+    '<optgroup label="'+esc(tr("France et territoires"))+'">'+fr.map(opt).join("")+'</optgroup>'+
+    '<optgroup label="'+esc(tr("Pays"))+'">'+rest.map(opt).join("")+'</optgroup>';
+  if(garde) sel.value = garde;
+}
+/* L'APPEL EST PLUS BAS, apres la declaration de `esc`. Le placer ici levait
+   une erreur de zone morte qui interrompait TOUT le reste du script : la liste
+   des pays restait vide, le menu des langues aussi, et le globe n'existait
+   meme pas. Rappel du piege : `typeof` ne protege pas d'une `const` non encore
+   initialisee, il leve aussi. */
 
 /* ---------- Référentiels ---------- */
 /* Codes temps de l'OMM : libellé + nom du symbole dans le sprite.
@@ -3411,6 +3463,10 @@ const CITIES = [["Paris",48.86,2.35],["Londres",51.51,-0.13],["Madrid",40.42,-3.
 
 /* ---------- Utilitaires ---------- */
 const esc = s => String(s==null?"":s).replace(/[<>&"]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]));
+
+/* La liste des pays se construit ICI : elle echappe ses libelles, donc elle ne
+   peut pas etre remplie avant que `esc` existe. */
+fillCountries();
 const fmtDate = d => { try { return new Date(d).toLocaleString("fr-FR",{dateStyle:"medium",timeStyle:"short"}); } catch(e){ return String(d); } };
 const fmtShort = d => { try { return new Date(d).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); } catch(e){ return ""; } };
 const compass = d => ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"][Math.round(((d%360)+360)%360/22.5)%16];
@@ -8072,12 +8128,6 @@ setTimeout(hideLoader,9000);
 
    LE TEXTE D'ORIGINE EST CONSERVÉ sur chaque nœud, sinon changer deux fois de
    langue traduirait une traduction. */
-const LANGUES = {
-  fr: "Français", en: "English", es: "Español",
-  de: "Deutsch", it: "Italiano", pt: "Português", zh: "中文"
-};
-let LANG = "fr", DICO = null;
-const dicoCache = new Map();
 
 async function chargeDico(lg){
   if(lg === "fr") return null;
@@ -8105,7 +8155,6 @@ async function chargeDico(lg){
    changement de langue traduisait une traduction, que le dictionnaire ne
    reconnaissait plus. C'est ce qui laissait des libellés figés en anglais.
    Une table nœud → texte d'origine règle le cas, quelle que soit la structure. */
-let ORIG = new Map();
 
 /* La recherche tolère trois écarts de forme qui, autrement, faisaient échouer
    des dizaines de correspondances pourtant présentes au dictionnaire :
@@ -8122,7 +8171,6 @@ function normalise(t){
           .replace(/\s+/g, " ")
           .trim();
 }
-let DICO_N = null;
 function cherche(brut){
   if(!DICO) return null;
   if(DICO[brut]) return DICO[brut];
@@ -8207,6 +8255,9 @@ async function changeLangue(lg){
   LANG = lg; DICO = d; DICO_N = null;
   document.documentElement.lang = lg;
   if(d) traduisDOM();
+  /* La liste des pays ne se traduit pas par dictionnaire mais par la table du
+     navigateur : on la reconstruit, en conservant la selection en cours. */
+  try{ fillCountries(); }catch(e){}
   try{ localStorage.setItem("pedLang", lg); }catch(e){}
   if(btn){ btn.classList.remove("busy"); btn.querySelector(".lgcode").textContent = lg.toUpperCase(); }
   majMenuLangue();

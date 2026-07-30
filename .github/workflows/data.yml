@@ -31,6 +31,10 @@ on:
         description: "Forcer la reconstruction des périmètres brûlés (Copernicus)"
         type: boolean
         default: false
+      passage_unique:
+        description: "Un seul passage au lieu d'ouvrir le service de 5 h 45"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -88,7 +92,13 @@ jobs:
         env:
           # Un déclenchement programmé ouvre le service ; un déclenchement
           # manuel ne fait qu'un passage, pour ne pas bloquer un essai.
-          DUREE_MIN: ${{ github.event_name == 'schedule' && 330 || 0 }}
+          # Un declenchement MANUEL ouvre desormais le service lui aussi, sauf si
+          # l'on demande expressement un passage unique. Raison mesuree : entre le
+          # 29 et le 30 juillet, GitHub n'a delivre que trois declenchements
+          # programmes en vingt heures, puis PLUS AUCUN pendant onze heures. Le
+          # service ne peut pas s'ouvrir si rien ne le declenche ; autant que
+          # chaque geste manuel couvre les six heures suivantes.
+          DUREE_MIN: ${{ inputs.passage_unique && 0 || 330 }}
           PAS_SEC: 900
         run: |
           set -uo pipefail
@@ -145,6 +155,39 @@ jobs:
             # autre travail) : on se resynchronise avant de recollecter.
             git pull --rebase --autostash -q origin main || true
           done
+
+      # ================= RELANCE AUTOMATIQUE =================
+      # Le planificateur de GitHub ne tient AUCUNE cadence sur ce depot : mesure
+      # sur trois expressions cron differentes, puis onze heures sans le moindre
+      # declenchement. Le service de 5 h 45 couvre bien la journee, mais encore
+      # faut-il qu'il s'ouvre.
+      #
+      # Un travail ne peut pas se relancer avec le jeton fourni d'office :
+      # GitHub refuse deliberement qu'un evenement emis avec GITHUB_TOKEN cree un
+      # nouveau travail, pour eviter les boucles infinies. Il faut un jeton
+      # personnel, range dans les secrets du depot sous le nom RELANCE.
+      #
+      # CETTE ETAPE EST INOFFENSIVE TANT QUE LE SECRET N'EXISTE PAS : elle se
+      # contente alors de le signaler. Le jour ou il est ajoute, la chaine
+      # s'amorce d'elle-meme et le robot devient reellement continu.
+      - name: Relancer le service
+        if: always() && github.event_name != 'workflow_dispatch'
+        env:
+          JETON: ${{ secrets.RELANCE }}
+        run: |
+          if [ -z "${JETON:-}" ]; then
+            echo "::notice::Aucun secret RELANCE : le service ne se relancera pas tout seul."
+            echo "Pour rendre le robot continu, creer un jeton personnel a portee"
+            echo "« actions: write » et l'enregistrer dans les secrets du depot"
+            echo "sous le nom RELANCE."
+            exit 0
+          fi
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST             -H "Authorization: Bearer $JETON"             -H "Accept: application/vnd.github+json"             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/data.yml/dispatches"             -d '{"ref":"main"}')
+          if [ "$code" = "204" ]; then
+            echo "Service suivant demande (HTTP $code)."
+          else
+            echo "::warning::Relance refusee (HTTP $code) — verifier la portee du jeton RELANCE."
+          fi
 
       - name: Périmètres brûlés (sur demande)
         if: github.event_name == 'workflow_dispatch' && inputs.slow
