@@ -411,11 +411,6 @@ details a:hover{border-bottom-color:#7fc4ea}
 .plabel .arr{display:inline-block;color:#57e6ff;line-height:0}
 .plabel .arr .mic{width:8px;height:8px;filter:drop-shadow(0 0 1px rgba(0,0,0,.9))}
 .citychip .arr .mic{width:8px;height:8px}
-body.base-light .plabel{color:#122845;text-shadow:0 1px 2px #fff,0 0 3px #fff,0 0 6px #fff,0 0 10px #fff}
-body.base-light .plabel .nm{color:#2c4a75}
-body.base-light .plabel b{color:#0d1f38}
-body.base-light .plabel .arr{color:#0a6a8f}
-body.base-light #map{background:#cfd8e3}
 .leaflet-tooltip.ttime{background:#0d1830;border:1px solid #2c5c96;color:#9fd8ff;
   font:11px var(--mono);padding:1px 6px;border-radius:6px;box-shadow:none}
 .leaflet-tooltip-top.ttime::before{border-top-color:#2c5c96}
@@ -444,8 +439,6 @@ body.base-light #map{background:#cfd8e3}
   text-transform:uppercase;pointer-events:none;
   text-shadow:0 0 3px rgba(4,8,16,.95),0 0 6px rgba(4,8,16,.85),0 1px 2px rgba(4,8,16,.9)}
 .pnom.pt{font-size:9.5px;letter-spacing:.09em;opacity:.86}
-body.base-light .pnom{color:#2b3b55;
-  text-shadow:0 0 3px rgba(255,255,255,.95),0 0 6px rgba(255,255,255,.85)}
 @media (max-width:899px),(max-height:500px){ .pnom{font-size:11px} .pnom.pt{font-size:10px} }
 
 .pp-warn{margin-top:8px;font-size:11.5px;color:#ffd9a0;background:#1c1526;border-radius:8px;padding:7px 9px;line-height:1.45}
@@ -649,7 +642,6 @@ body.base-light .pnom{color:#2b3b55;
   color:#dbe7ff;font-size:15px;line-height:1;cursor:pointer;display:grid;place-items:center}
 #safebtn.act{border-color:#4be3a4;background:#0e3a2a}
 #safebtn.alert{border-color:var(--alert);background:#3a0e18;animation:thrb 1.4s ease-in-out infinite}
-body.base-light #safebtn{background:rgba(255,255,255,.92);color:#26364f;border-color:#c3d0e2}
 #safe{position:absolute;left:8px;right:8px;bottom:8px;z-index:1216;display:none;
   background:var(--panel);border:1px solid var(--line);border-radius:14px;
   max-height:56dvh;overflow-y:auto;box-shadow:0 -6px 24px rgba(0,0,0,.5);
@@ -683,7 +675,6 @@ body.base-light #safebtn{background:rgba(255,255,255,.92);color:#26364f;border-c
   color:#dbe7ff;font-size:17px;line-height:1;cursor:pointer;display:grid;place-items:center}
 #geoloc.busy{color:var(--cyan);animation:rot 1s linear infinite}
 #geoloc:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
-body.base-light #geoloc{background:rgba(255,255,255,.92);color:#26364f;border-color:#c3d0e2}
 #fresh{position:absolute;top:8px;left:8px;z-index:1160;display:none;
   background:rgba(9,15,29,.92);border:1px solid var(--line);border-radius:9px;
   padding:5px 9px;font:600 10.5px/1.3 var(--mono);color:#cfe0ff;pointer-events:none;
@@ -692,8 +683,6 @@ body.base-light #geoloc{background:rgba(255,255,255,.92);color:#26364f;border-co
 #fresh i{font-style:normal;display:inline-block;width:7px;height:7px;border-radius:50%;
   margin-right:5px;vertical-align:1px}
 #fresh b{color:#fff}
-body.base-light #fresh{background:rgba(255,255,255,.93);color:#26364f;border-color:#c3d0e2}
-body.base-light #fresh b{color:#0d1f38}
 #tl{position:absolute;left:8px;right:8px;bottom:8px;z-index:1170;display:none;
   flex-direction:column;gap:2px;background:rgba(9,15,29,.96);border:1px solid var(--line);
   border-radius:14px;padding:8px 10px 4px;box-shadow:0 6px 22px rgba(0,0,0,.55)}
@@ -743,7 +732,6 @@ body.base-light #fresh b{color:#0d1f38}
 .leaflet-control-scale{margin:0 0 6px 8px!important}
 .leaflet-control-scale-line{background:rgba(9,15,29,.7)!important;border-color:#2c5c96!important;
   color:#cfe0ff!important;font:10px var(--mono)!important;padding:1px 5px!important}
-body.base-light .leaflet-control-scale-line{background:rgba(255,255,255,.8)!important;color:#26364f!important}
 @media (prefers-reduced-motion:reduce){#panel,.spin,.mk svg,.cl{transition:none;animation:none!important}#windcv{display:none}}
 @media (max-width:899px){
   .leaflet-popup-content{font-size:11.8px;margin:9px 10px;min-width:150px;max-height:36vh;overflow-y:auto}
@@ -1214,13 +1202,6 @@ body.base-light .leaflet-control-scale-line{background:rgba(255,255,255,.8)!impo
 
       <!-- ---------- Affichage ---------- -->
       <section class="pgrp">
-        <h2 class="sec">Fond de carte</h2>
-        <div class="segs" id="bseg">
-          <button type="button" data-base="light" class="on">Clair</button>
-          <button type="button" data-base="dark">Sombre</button>
-          <button type="button" data-base="sat">Satellite</button>
-        </div>
-
         <h2 class="sec">Unités</h2>
         <div class="segs" id="useg">
           <button type="button" data-u="met">°C · km/h</button>
@@ -1328,11 +1309,11 @@ body.base-light .leaflet-control-scale-line{background:rgba(255,255,255,.8)!impo
 
       <details>
         <summary><svg class="ic x16" aria-hidden="true"><use href="#i-map"/></svg><span>Fonds de carte, routes et lisibilité</span></summary>
-        <p><b>Six catégories</b> remplacent la longue liste : Feux, Météo, Terre, Ciel, Alertes, Fond et Zone. Touchez-en une : un petit tableau de tuiles s’ouvre, chaque tuile allume ou éteint sa couche <b>instantanément</b>, avec son compteur en coin. Le chiffre sur la catégorie indique combien de couches y sont actives.</p>
+        <p><b>Six catégories</b> remplacent la longue liste : Feux, Météo, Terre, Ciel, Alertes, Repères et Zone. Touchez-en une : un petit tableau de tuiles s’ouvre, chaque tuile allume ou éteint sa couche <b>instantanément</b>, avec son compteur en coin. Le chiffre sur la catégorie indique combien de couches y sont actives.</p>
         <p>Le tiroir se referme dès que vous touchez la carte. Le bouton de menu ouvre les réglages complets, la recherche et ces explications ; la croix les referme.</p>
-        <p>Trois styles en haut à droite : <b>Clair</b> (routes et noms bien visibles, par défaut), <b>Sombre</b>, <b>Satellite</b> (idéal pour voir le terrain réel autour d’un incendie).</p>
+        <p>Le fond est l’<b>imagerie satellite</b>, et elle seule. C’est le seul fond qui montre le terrain réel autour d’un incendie, d’une crue ou d’un cyclone, et le plus reposant à regarder longtemps. Comme elle ne porte aucun nom, les <b>frontières et les noms de lieux</b> se superposent par-dessus — ils s’activent dans le groupe <b>Repères</b>.</p>
         <p><b>Températures partout, précision maximale</b> : les étiquettes <b>Nom · 21° · 12 km/h</b> (lieu · température · vent) s’enrichissent à mesure que vous zoomez — villes, puis <b>villages</b>, puis <b>hameaux et lieux-dits</b>. Un algorithme anti-chevauchement affiche le maximum de noms lisibles sans jamais les superposer : plus vous zoomez, plus la campagne se détaille. Touchez une étiquette pour la fiche complète.</p>
-        <p><b>Routes fermées / ouvertes</b> : aucun flux ouvert mondial n’existe pour les fermetures en temps réel (données préfectures / Waze non publiques). En France, référez-vous à <a href="https://www.bison-fute.gouv.fr" target="_blank" rel="noopener">Bison Futé</a> et à la préfecture. Les fonds Clair et Satellite montrent maintenant le réseau routier sous les périmètres d’incendie.</p>
+        <p><b>Routes fermées / ouvertes</b> : aucun flux ouvert mondial n’existe pour les fermetures en temps réel (données préfectures / Waze non publiques). En France, référez-vous à <a href="https://www.bison-fute.gouv.fr" target="_blank" rel="noopener">Bison Futé</a> et à la préfecture. L’imagerie satellite montre le réseau routier réel sous les périmètres d’incendie.</p>
       </details>
 
       <details>
@@ -1394,7 +1375,7 @@ body.base-light .leaflet-control-scale-line{background:rgba(255,255,255,.8)!impo
 
       <details>
         <summary><svg class="ic x16" aria-hidden="true"><use href="#i-link"/></svg><span>Partager une vue exacte</span></summary>
-        <p>Le bouton de partage copie un lien qui <b>rouvre exactement ce que vous voyez</b> : position, zoom, fond de carte, couches activées, densité des noms et filtre des séismes.</p>
+        <p>Le bouton de partage copie un lien qui <b>rouvre exactement ce que vous voyez</b> : position, zoom, couches activées, densité des noms et filtre des séismes.</p>
         <p><b>Un lien court, pas un pavé.</b> Les couches sont encodées en bits plutôt qu’en toutes lettres : l’adresse fait une soixantaine de caractères au lieu de deux cents. Un lien à rallonge inquiète les destinataires, qui le prennent souvent pour une tentative d’arnaque.</p>
         <p>Concrètement : vous zoomez sur un incendie, activez le panache et les localités menacées, vous partagez — la personne qui ouvre le lien voit <b>la même chose que vous</b>, avec les données rafraîchies à l’instant de son ouverture. L’adresse se met à jour toute seule pendant que vous naviguez.</p>
       </details>
@@ -2040,8 +2021,8 @@ const CAT = [
    hint:"Aéronefs qui émettent en ADS-B. La couleur indique l'altitude. Touchez un appareil pour son type, son immatriculation et son cap."},
   {id:"alertes", icon:"siren",    nm:"Alertes",
    hint:"Alertes graduées GDACS (ONU et Commission européenne) et bulletins des météorologues d'État américains, consignes comprises."},
-  {id:"fond",    icon:"map",      nm:"Fond",    kind:"base",
-   hint:"Le fond clair montre le mieux les routes et les noms. Le satellite montre le terrain réel autour d'un incendie."},
+  {id:"fond",    icon:"layers",   nm:"Repères", kind:"base",
+   hint:"L'imagerie satellite n'affiche aucun nom : les frontières et les noms de lieux se superposent par-dessus."},
   {id:"zone",    icon:"target",   nm:"Zone",    kind:"country",
    hint:"Cibler une zone recentre la carte et ne charge que ses données : plus rapide, et beaucoup plus détaillé."}
 ];
@@ -2524,19 +2505,24 @@ clampVue();
 const cnv = L.canvas({padding:.4});
 /* Tuiles haute densité seulement si le réseau et l’appareil suivent */
 const HD = (IS_WEBVIEW || SLOW_NET || DEV_MEM<=3) ? "" : "{r}";
+/* UN SEUL FOND : L'IMAGERIE SATELLITE.
+   Il y avait trois styles — clair, sombre, satellite. Le satellite est le seul
+   qui montre le terrain réel autour d'un incendie, d'une crue ou d'un cyclone,
+   et c'est aussi le plus reposant à regarder longtemps. Les deux autres
+   n'apportaient qu'un choix de plus à faire, et obligeaient chaque élément
+   dessiné par-dessus — étiquettes, frontières, particules de vent, avions — à
+   exister en deux variantes de couleur. Tout est désormais calibré pour un seul
+   fond, donc lisible partout.
+
+   La vue 3D utilisait déjà cette même imagerie : les deux vues sont maintenant
+   cohérentes.
+
+   `maxNativeZoom` est la profondeur réellement servie par la source ; `maxZoom`
+   autorise un cran de plus, où la dernière tuile est agrandie. On peut donc
+   continuer d'approcher au lieu de heurter un mur.
+   Vérifié : Esri sert bien le zoom 19 avec de vraies images (11 à 17 ko par
+   tuile en zone rurale), soit le niveau du bâtiment. */
 const BASES = {
-  /* `maxNativeZoom` est la profondeur réellement servie par la source ;
-     `maxZoom` autorise un cran de plus, où la dernière tuile est agrandie. On
-     peut donc continuer d'approcher au lieu de heurter un mur, et une couche
-     dont la source s'arrête plus tôt n'affiche plus de trou. */
-  light: L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}"+HD+".png",
-    {attribution:"© OpenStreetMap © CARTO", subdomains:"abcd", maxNativeZoom:19, maxZoom:19,
-     updateWhenIdle:true, keepBuffer:1, crossOrigin:true}),
-  dark: L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}"+HD+".png",
-    {attribution:"© OpenStreetMap © CARTO", subdomains:"abcd", maxNativeZoom:19, maxZoom:19,
-     updateWhenIdle:true, keepBuffer:1, crossOrigin:true}),
-  /* Imagerie Esri : vérifié, elle sert bien le zoom 19 avec de vraies images
-     (11 à 17 ko par tuile en zone rurale), soit le niveau du bâtiment. */
   sat: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     {attribution:"© Esri, Maxar, Earthstar Geographics", maxNativeZoom:19, maxZoom:19,
      updateWhenIdle:true, keepBuffer:2})
@@ -2829,10 +2815,9 @@ async function chargeReference(){
 function styleBord(z, dessous){
   const fin = z < 4 ? 0.6 : z < 7 ? 0.9 : 1.2;
   return { renderer: cnv, interactive:false, fill:false,
-    color: dessous ? "rgba(6,11,22,.55)"
-                   : (baseCur==="light" ? "#5c6b86" : "#c3d2ea"),
+    color: dessous ? "rgba(6,11,22,.55)" : "#c3d2ea",
     weight: dessous ? fin+1.6 : fin,
-    opacity: dessous ? .5 : (baseCur==="sat" ? .82 : .55) };
+    opacity: dessous ? .5 : .82 };
 }
 
 async function dessineReference(){
@@ -2893,7 +2878,6 @@ function majReference(){
 map.on("zoomend", majReference);
 map.on("moveend", majReference);
 
-let baseCur = "light";
 /* Une tuile qui échoue (réseau mobile instable) est redemandée une fois */
 Object.values(BASES).forEach(t=>{
   t.on("tileerror", e=>{
@@ -2904,17 +2888,7 @@ Object.values(BASES).forEach(t=>{
     setTimeout(()=>{ try{ img.src=src.split("?")[0]+"?r="+Date.now(); }catch(_){} }, 1200);
   });
 });
-BASES.light.addTo(map);
-document.body.classList.add("base-light");
-function setBase(k){
-  if(k===baseCur) return;
-  map.removeLayer(BASES[baseCur]); BASES[k].addTo(map); baseCur=k;
-  document.body.classList.toggle("base-light", k==="light");
-  document.querySelectorAll('[data-base]').forEach(b=>b.classList.toggle("on", b.dataset.base===k));
-  /* Le satellite n'a aucune étiquette, les autres fonds en ont déjà : la
-     variante de référence change avec le fond. */
-  majReference();
-}
+BASES.sat.addTo(map);
 L.control.zoom({position:"bottomright"}).addTo(map);
 L.control.scale({imperial:false, position:"bottomleft"}).addTo(map);
 
@@ -6091,9 +6065,9 @@ function windRGB(sp){
 }
 function wcol(sp){
   const r=windRGB(sp), c=Array.isArray(r[0])?r[0]:r[1], o=Array.isArray(r[0])?r[1]:r[2];
-  /* Sur fond clair, on assombrit légèrement pour garder le contraste */
-  const k = baseCur==="light" ? .72 : 1;
-  return `rgba(${Math.round(c[0]*k)},${Math.round(c[1]*k)},${Math.round(c[2]*k)},${o})`;
+  /* Les couleurs de l'échelle sont calibrées pour l'imagerie satellite, seul
+     fond désormais : plus rien à assombrir. */
+  return `rgba(${c[0]},${c[1]},${c[2]},${o})`;
 }
 function windLabel(sp){
   if(sp<10) return "calme";
@@ -6591,7 +6565,7 @@ function aFrame(){
       actx.fillText(nom, q.x, q.y+size+12);
       if(showLbl && a.role){
         actx.font='500 9px system-ui,sans-serif';
-        actx.fillStyle = baseCur==="light" ? "#3a4a63" : "#a9bcd8";
+        actx.fillStyle = "#a9bcd8";
         actx.fillText(a.role, q.x, q.y+size+23);
       }
       actx.shadowBlur=0;
@@ -7505,20 +7479,17 @@ function buildDrawer(c){
     return;
   }
   if(c.kind==="base"){
-    const B=[["light","map","Clair"],["dark","moon","Sombre"],["sat","satellite","Satellite"]];
-    dEl.innerHTML=`<div class="tiles">${B.map(([k,i,n])=>
-      `<button class="tile${baseCur===k?" on":""}" type="button" data-base="${k}">`
-      + `<svg class="ic x18 te" aria-hidden="true"><use href="#i-${i}"/></svg>`
-      + `<span class="tl">${n}</span></button>`).join("")}</div>`
-      + `<p class="dhint">${c.hint}</p>`;
-    /* La commande « Frontières et noms » vit ici, à côté du choix du fond :
-       c'est un réglage de carte, pas une catégorie d'événement. */
+    /* Il n'y a plus qu'un fond — l'imagerie satellite — donc plus rien à
+       choisir ici. Le groupe garde la commande des frontières et des noms, qui
+       est un réglage de carte et non une catégorie d'évènement : sur une image
+       satellite, qui ne porte aucune étiquette, c'est même le seul moyen de
+       savoir quel pays on regarde. */
+    dEl.innerHTML=`<p class="dhint">${c.hint}</p>`;
     const cbr=$("#tg-ref"), actif=!!(cbr&&cbr.checked);
     dEl.insertAdjacentHTML("beforeend",
       `<button class="tile tref${actif?" on":""}" type="button" id="btn-ref" aria-pressed="${actif}" style="--c:#96aac4">`
       + `<svg class="ic x18 te" aria-hidden="true"><use href="#i-layers"/></svg>`
       + `<span class="tl">Frontières et noms de lieux</span></button>`);
-    dEl.querySelectorAll("[data-base]").forEach(b=>b.onclick=()=>setBase(b.dataset.base));
     const br=$("#btn-ref");
     if(br) br.onclick=()=>{
       const c=$("#tg-ref"); if(!c) return;
@@ -7860,8 +7831,10 @@ const SHARE_KEYS=["tg-fire","tg-burnt","tg-risk",
 /* Lien court : les couches sont encodées en bits plutôt qu'en noms, ce qui fait
    passer l'adresse de 205 à une soixantaine de caractères. Un lien à rallonge
    inquiète les destinataires, qui le prennent pour une tentative d'arnaque. */
-const BASE_CODE={light:"l", dark:"d", sat:"s"};
-const CODE_BASE={l:"light", d:"dark", s:"sat"};
+/* Le fond ne se choisit plus. On continue d'écrire un caractère à sa place
+   pour que la longueur du code reste la même, et on l'ignore à la lecture :
+   un lien émis du temps des trois styles reste donc valide, il ouvre
+   simplement le satellite. */
 const QF_CODE={"45w":"0","25d":"1","25w":"2"};
 const CODE_QF={"0":"45w","1":"25d","2":"25w"};
 function buildShareURL(){
@@ -7877,7 +7850,7 @@ function buildShareURL(){
        valait « seismes », il vaut « temperatures ». Un lien emis avant cette
        livraison, relu sans marqueur, n'allumait pas seulement de mauvaises
        couches -- il eteignait activement les bonnes, en silence. */
-    (BASE_CODE[baseCur]||"l")+labelDensity+(QF_CODE[state.qfeed]||"0")+SHARE_VER,
+    "s"+labelDensity+(QF_CODE[state.qfeed]||"0")+SHARE_VER,
     bits.toString(36)
   ].join(",");
   return location.origin+location.pathname+h;
@@ -7891,7 +7864,7 @@ function applyShareURL(){
       const p=h.slice(1).split(",");
       const la=+p[0], lo=+p[1], z=+p[2];
       const opt=p[3]||"l10", bits=BigInt("0x"+BigInt(parseInt(p[4]||"0",36)).toString(16));
-      if(CODE_BASE[opt[0]]) setBase(CODE_BASE[opt[0]]);
+      /* opt[0] portait le fond : plus rien à en faire. */
       if(opt[1]!=null) labelDensity=Math.max(0,Math.min(2,+opt[1]||0));
       if(CODE_QF[opt[2]]) state.qfeed=CODE_QF[opt[2]];
       /* SANS LE BON MARQUEUR DE VERSION, ON N'APPLIQUE AUCUNE COUCHE.
@@ -7921,7 +7894,6 @@ function applyShareURL(){
     const pr=new URLSearchParams(h.slice(1));
     const v=(pr.get("v")||"").split(",").map(Number);
     const b=pr.get("b"), d=pr.get("d"), q=pr.get("q"), l=pr.get("l");
-    if(b && BASES[b]) setBase(b);
     if(d!=null && d!=="") labelDensity=Math.max(0,Math.min(2,+d));
     if(q && QFEEDS[q]) state.qfeed=q;
     if(l!=null){
