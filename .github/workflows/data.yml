@@ -35,6 +35,10 @@ on:
         description: "Un seul passage au lieu d'ouvrir le service de 5 h 45"
         type: boolean
         default: false
+      duree:
+        description: "Durée du service en minutes (vide = 330). Sert à vérifier la relance."
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -98,7 +102,7 @@ jobs:
           # programmes en vingt heures, puis PLUS AUCUN pendant onze heures. Le
           # service ne peut pas s'ouvrir si rien ne le declenche ; autant que
           # chaque geste manuel couvre les six heures suivantes.
-          DUREE_MIN: ${{ inputs.passage_unique && 0 || 330 }}
+          DUREE_MIN: ${{ inputs.passage_unique && 0 || (inputs.duree != '' && inputs.duree || 330) }}
           PAS_SEC: 900
         run: |
           set -uo pipefail
