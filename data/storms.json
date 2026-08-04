@@ -1,1 +1,1 @@
-{"t":1785820735139,"f":[]}
+{"t":1785821694427,"f":[{"ev":"Severe Thunderstorm Warning","sev":"Severe","cert":"Observed","urg":"Immediate","zone":"St. Louis, MN","d0":"2026-08-04T00:32:00-05:00","d1":"2026-08-04T01:15:00-05:00","on":true,"act":"NEW","tor":"","grele":"1.00","vent":"60 MPH","dep":{"brg":225,"kt":59,"c":[47.41,-92.49]},"txt":"Severe Thunderstorm Warning issued August 4 at 12:32AM CDT until August 4 at 1:15AM CDT by NWS Duluth MN","g":{"type":"Polygon","coordinates":[[[-92.55,47.29],[-92.65,47.41],[-92.06,47.87],[-91.8,47.67],[-92.55,47.29]]]}}]}
