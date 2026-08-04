@@ -1,1 +1,1 @@
-{"t":1785819783326,"f":[{"ev":"Severe Thunderstorm Warning","sev":"Severe","cert":"Observed","urg":"Immediate","zone":"Pima, AZ","d0":"2026-08-03T21:57:00-07:00","d1":"2026-08-03T22:15:00-07:00","on":true,"act":"CON","tor":"","grele":"1.00","vent":"60 MPH","dep":null,"txt":"Severe Thunderstorm Warning issued August 3 at 9:57PM MST until August 3 at 10:15PM MST by NWS Tucson AZ","g":{"type":"Polygon","coordinates":[[[-111.88,32.28],[-111.81,31.83],[-111.76,31.55],[-112.31,31.72],[-112.37,32.34],[-111.88,32.28]]]}}]}
+{"t":1785820735139,"f":[]}
