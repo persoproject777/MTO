@@ -1,1 +1,1 @@
-{"t":1786184476247,"f":[]}
+{"t":1786187711599,"f":[{"ev":"Severe Thunderstorm Warning","sev":"Severe","cert":"Observed","urg":"Immediate","zone":"Cherry, NE","d0":"2026-08-08T06:03:00-05:00","d1":"2026-08-08T06:45:00-05:00","on":true,"act":"NEW","tor":"","grele":"1.50","vent":"Up to 50 MPH","dep":{"brg":293,"kt":11,"c":[42.56,-101.59]},"txt":"Severe Thunderstorm Warning issued August 8 at 6:03AM CDT until August 8 at 6:45AM CDT by NWS North Platte NE","g":{"type":"Polygon","coordinates":[[[-101.72,42.5],[-101.63,42.67],[-101.22,42.58],[-101.36,42.34],[-101.72,42.5]]]}}]}
