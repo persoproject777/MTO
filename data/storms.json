@@ -1,1 +1,1 @@
-{"t":1787046005948,"f":[]}
+{"t":1787080160600,"f":[{"ev":"Severe Thunderstorm Warning","sev":"Severe","cert":"Observed","urg":"Immediate","zone":"Olmsted, MN; Wabasha, MN","d0":"2026-08-18T14:05:00-05:00","d1":"2026-08-18T15:00:00-05:00","on":true,"act":"CON","tor":"","grele":"1.50","vent":"60 MPH","dep":{"brg":287,"kt":17,"c":[44.13,-92.47]},"txt":"Severe Thunderstorm Warning issued August 18 at 2:05PM CDT until August 18 at 3:00PM CDT by NWS La Crosse WI","g":{"type":"Polygon","coordinates":[[[-92.55,44.19],[-92.12,44.18],[-92.23,43.93],[-92.65,44.12],[-92.55,44.19]]]}}]}
