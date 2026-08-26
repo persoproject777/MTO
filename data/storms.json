@@ -1,1 +1,1 @@
-{"t":1787723823799,"f":[{"ev":"Severe Thunderstorm Warning","sev":"Severe","cert":"Observed","urg":"Immediate","zone":"Goshen, WY; Platte, WY","d0":"2026-08-25T23:54:00-06:00","d1":"2026-08-26T00:04:00-06:00","on":false,"act":"EXP","tor":"","grele":"","vent":"","dep":{"brg":270,"kt":21,"c":[42.5,-104.46]},"txt":"Severe Thunderstorm Warning issued August 25 at 11:54PM MDT until August 26 at 12:00AM MDT by NWS Cheyenne WY","g":{"type":"Polygon","coordinates":[[[-104.41,42.09],[-104.79,42.09],[-104.95,42.6],[-104.53,42.61],[-104.41,42.09]]]}}]}
+{"t":1787724790704,"f":[]}
