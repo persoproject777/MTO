@@ -1,1 +1,1 @@
-{"t":1788693128443,"f":[{"ev":"Severe Thunderstorm Warning","sev":"Severe","cert":"Observed","urg":"Immediate","zone":"Holt, NE","d0":"2026-09-06T06:07:00-05:00","d1":"2026-09-06T06:17:00-05:00","on":false,"act":"EXP","tor":"","grele":"","vent":"","dep":{"brg":185,"kt":16,"c":[42.64,-98.85]},"txt":"Severe Thunderstorm Warning issued September 6 at 6:07AM CDT until September 6 at 6:15AM CDT by NWS North Platte NE","g":{"type":"Polygon","coordinates":[[[-98.78,42.49],[-99,42.56],[-99.04,42.75],[-98.69,42.75],[-98.78,42.49]]]}}]}
+{"t":1788694064038,"f":[]}
