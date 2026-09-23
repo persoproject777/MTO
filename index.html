@@ -344,12 +344,15 @@ details a:hover{border-bottom-color:#7fc4ea}
   filter:drop-shadow(0 0 5px var(--c)) drop-shadow(0 1px 2px rgba(0,0,0,.8))}
 .tc-ic.sud svg{animation-direction:reverse}
 @keyframes tcspin{to{transform:rotate(-360deg)}}
-.tc-ray{animation:tcpulse 3.4s ease-in-out infinite}
-@keyframes tcpulse{0%,100%{fill-opacity:.1}50%{fill-opacity:.3}}
+/* La pulsation s'applique au calque ENTIER, en opacité : la carte graphique la
+   compose seule. Animée disque par disque, elle forçait à repeindre à chaque
+   image un calque vectoriel de la taille de l'écran. */
+.tc-svg{animation:tcpulse 3.4s ease-in-out infinite;will-change:opacity}
+@keyframes tcpulse{0%,100%{opacity:.62}50%{opacity:1}}
 .leaflet-tooltip.tc-nom{background:rgba(8,14,26,.84);border:1px solid rgba(255,255,255,.2);color:#fff;
   font:700 11px/1.2 system-ui,sans-serif;padding:3px 8px;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.4);white-space:nowrap}
 .leaflet-tooltip.tc-nom:before{display:none}
-@media (prefers-reduced-motion:reduce){.tc-ic svg,.tc-ray{animation:none}}
+@media (prefers-reduced-motion:reduce){.tc-ic svg,.tc-svg{animation:none}}
 /* Carte météo : les toiles apparaissent en fondu, comme au bulletin. */
 .cmeteo{position:absolute;left:0;top:0;opacity:0;transition:opacity .6s ease;will-change:opacity;pointer-events:none}
 .cmeteo.vu{opacity:1}
@@ -559,6 +562,20 @@ details a:hover{border-bottom-color:#7fc4ea}
   margin-top:1px;opacity:.85;white-space:nowrap}
 .fbadge.big i{font-size:9px}
 
+/* Symbole de sinistre : un point, taille = puissance, couleur = état.
+   L'onde d'un feu actif est animée en TRANSFORMATION et en OPACITÉ seulement,
+   que la carte graphique compose seule : l'ancienne ombre animée forçait le
+   navigateur à repeindre chaque pastille à chaque image, vingt-sept fois. */
+.fsym{position:relative;width:var(--d);height:var(--d);border-radius:50%;background:var(--c);
+  border:1.5px solid rgba(255,255,255,.92);box-shadow:0 0 0 1px rgba(0,0,0,.35),0 1px 4px rgba(0,0,0,.5);cursor:pointer}
+.fsym.actif::after{content:"";position:absolute;inset:-2px;border-radius:50%;border:2px solid var(--c);
+  opacity:0;animation:fonde 2.6s ease-out infinite;will-change:transform,opacity;pointer-events:none}
+@keyframes fonde{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.3);opacity:0}}
+.fsym.zombie{background:rgba(20,26,38,.75);border:1.5px dashed #9aa6b8}
+.leaflet-tooltip.fsym-t{background:rgba(10,15,25,.86);border:none;border-radius:4px;color:#f1f4f9;
+  font:600 11.5px/1.2 system-ui,sans-serif;padding:2px 6px;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.leaflet-tooltip.fsym-t:before{display:none}
+@media (prefers-reduced-motion:reduce){.fsym.actif::after{animation:none}}
 /* EN COURS — rond plein qui respire */
 .fbadge.actif{border-radius:50%;animation:fpulse 2.4s ease-in-out infinite}
 @keyframes fpulse{0%,100%{box-shadow:0 1px 5px rgba(0,0,0,.6)}
@@ -3779,6 +3796,7 @@ layers.cyclones = L.layerGroup().addTo(map);
 /* La carte dessine en canevas par défaut (preferCanvas), qui ignore les classes
    CSS : les disques de vent, qu'on anime, passent par un rendu SVG à part. */
 const svgTc = L.svg({padding:.3});
+svgTc.on("add", ()=>{ if(svgTc._container) svgTc._container.classList.add("tc-svg"); });
 let CYCL=null;                    /* liste officielle, ou null si pas encore chargée */
 const EONET_TC=[];                /* tracés EONET de secours : {grp, nom, ll} */
 const TC_COUL={1:"#6ab8ff", 2:"#ffd24a", 3:"#ff5a4a", 4:"#d56bff"};
@@ -4189,6 +4207,12 @@ async function loadAlerts(){
         else if(x.a==="Red") nRouge++;
         else if(x.a==="Orange") nOrange++;
         if(!grave && !vertsVisibles) continue;
+        /* Un événement CLOS est un historique : il n'a pas sa place sur la vue du
+           globe, où il se mêlait aux alertes en cours. Il reste consultable dès le
+           zoom 5. Et un cyclone déjà dessiné par la couche Cyclones — spirale,
+           trajectoire, zones de vent — n'a pas besoin d'un second rond. */
+        if(clos && zA<5) continue;
+        if(x.t==="TC" && CYCL && $("#tg-storms") && $("#tg-storms").checked) continue;
         /* Hors du champ de vision : rien à dessiner. */
         if(lat<bA.getSouth()||lat>bA.getNorth()||lon<bA.getWest()||lon>bA.getEast()) continue;
         const [lvl,colBrut]=GLVL[x.a]||["","#8fa4cc"];
@@ -4512,7 +4536,10 @@ function labelWidth(name, temp, wind){
 function renderPlaces(){
   if(!$("#tg-cities").checked || !placesData.length) return;
   const sz=map.getSize(), placed=[];
-  const PAD=[12,6,2][labelDensity], LIM=[24,55,120][labelDensity];
+  /* De loin, moins de noms : à l'échelle du globe, trente-quatre étiquettes
+     s'ajoutaient aux phénomènes. On garde les plus grandes villes. */
+  const zP=map.getZoom();
+  const PAD=[12,6,2][labelDensity], LIM=Math.round([24,55,120][labelDensity]*(zP<3?0.45:zP<4?0.7:1));
   layers.cities.clearLayers();
   for(const p of placesData){
     const q=map.latLngToContainerPoint([p.la,p.lo]);
@@ -4544,7 +4571,7 @@ function renderPlaces(){
   }
   setC("c-cities",placed.length);
 }
-map.on("moveend zoomend", ()=>{
+map.on("moveend", ()=>{
   clearTimeout(placesT);
   renderPlaces();
   placesT=setTimeout(()=>loadCities(false), 1200);
@@ -4810,9 +4837,12 @@ async function loadEuba(){
   finally{ ebBusy=false; }
 }
 
-/* Rafraîchissement au déplacement (groupé, sans surcharger les serveurs) */
+/* Rafraîchissement au déplacement (groupé, sans surcharger les serveurs).
+   Un seul événement : Leaflet émet TOUJOURS « moveend » après « zoomend ».
+   Écouter les deux faisait tout recalculer deux fois à chaque zoom — c'était
+   la moitié du temps perdu au dézoom. */
 let aqT=0;
-map.on("moveend zoomend",()=>{
+map.on("moveend",()=>{
   /* Retracé IMMÉDIAT, sans réseau : les données sont déjà en mémoire, seul le
      filtrage par champ de vision change. C'est ce qui rend le déplacement
      instantané malgré le masquage de tout ce qui est hors écran — sans cela,
@@ -5098,17 +5128,37 @@ function localitesHTML(c){
    + `Une distance faible signifie que le feu est passé près, pas que la localité a été détruite.</div>`;
   return h;
 }
+/* LE REGROUPEMENT DES FOYERS NE DÉPEND PAS DE LA VUE. Il était refait à chaque
+   déplacement — 4 144 foyers regroupés puis analysés — alors que seul le
+   filtrage par champ de vision change. On le garde tant que les foyers, la
+   réglette temporelle et le quart d'heure (qui fait vieillir les âges) ne
+   bougent pas. */
+let cxMemo=null, cxMemoSrc=null, cxMemoCle="", cxAffCle="";
+function sinistresCalcules(){
+  const cle=tlH+"|"+Math.floor(Date.now()/9e5);
+  if(cxMemo && cxMemoSrc===hotRaw && cxMemoCle===cle) return cxMemo;
+  cxMemoSrc=hotRaw; cxMemoCle=cle;
+  return (cxMemo=buildComplexes(tlFilter(hotRaw)).map(analyseComplex));
+}
 function drawComplexes(){
-  layers.complexes.clearLayers();
-  if(!$("#tg-complex").checked || !hotRaw.length){ setC("c-complex",0); return; }
-  /* Même règle de champ de vision que pour les foyers, avec une marge plus
-     large : un repère de sinistre juste hors écran doit apparaître dès le début
-     du déplacement, sans attendre. */
+  if(!$("#tg-complex").checked || !hotRaw.length){ layers.complexes.clearLayers(); cxAffCle=""; setC("c-complex",0); return; }
+  /* NIVEAU DE DÉTAIL. À l'échelle du globe, quatre-vingt-seize pastilles
+     couvraient la carte et la rendaient illisible — et lente. On montre les
+     sinistres qui comptent, les plus puissants d'abord, puis davantage à mesure
+     qu'on approche. Rien n'est perdu : en zoomant, tout revient. */
+  const z=map.getZoom();
+  const MAXN = z<3 ? 14 : z<4 ? 24 : z<6 ? 40 : 60;
   const vb=map.getBounds().pad(0.5);
-  const cx=buildComplexes(tlFilter(hotRaw)).map(analyseComplex)
+  const cx=sinistresCalcules()
     .filter(c=>c.area>=0.4 && c.c[0]>=vb.getSouth() && c.c[0]<=vb.getNorth()
-                           && c.c[1]>=vb.getWest()  && c.c[1]<=vb.getEast())
-    .sort((a,b)=>b.frp-a.frp).slice(0,40);
+                           && c.c[1]>=vb.getWest()  && c.c[1]<=vb.getEast()
+                           && (z>=4 || c.burned*100>=40 || c.frp>=60))
+    .sort((a,b)=>b.frp-a.frp).slice(0,MAXN);
+  /* Même ensemble à l'écran qu'au dessin précédent : on ne refait rien. */
+  const cleAff=z+"|"+(isImp()?1:0)+"|"+cx.map(c=>c.c[0].toFixed(3)+","+c.c[1].toFixed(3)+","+c.st.key).join(";");
+  if(cleAff===cxAffCle) return;
+  cxAffCle=cleAff;
+  layers.complexes.clearLayers();
   for(const c of cx){
     const st=c.st, bk=FIRE_BUCKET[st.key]||FIRE_BUCKET.stable, col=bk.col;
     const mort=(bk.k==="zombie");
@@ -5140,7 +5190,9 @@ function drawComplexes(){
        deux, celui qui englobe le terrain resté vert entre les foyers. C'était le
        nombre le plus visible de la fiche et le moins défendable. Le titre porte
        désormais le majorant de surface touchée, annoncé comme tel. */
-    const html=`<div class="pp-t" style="color:${col}">${ic(mort?"smoke":"flame","x18")}${mort?"Zone brûlée":"Incendie"} — au plus ${fmtA(c.burned*100)}</div>
+    /* Fabriquée à l'ouverture seulement : quarante fiches complètes, villages
+       exposés compris, étaient composées à chaque déplacement pour rien. */
+    const html=()=>`<div class="pp-t" style="color:${col}">${ic(mort?"smoke":"flame","x18")}${mort?"Zone brûlée":"Incendie"} — au plus ${fmtA(c.burned*100)}</div>
       <div class="pp-cat">Foyers regroupés · analyse automatique</div>
       <div class="stbadge" style="--c:${col}">${bk.nm}${bk.k!=="zombie"?" · "+st.nm:""}</div>
       <div class="pp-row" style="color:${col};font-weight:600">${st.label}</div>
@@ -5167,12 +5219,18 @@ function drawComplexes(){
        « mille cinq cents » a l’anglaise, et « 1 5k » a la francaise. */
     const d1 = Math.round(bVal/100)/10;
     const bTxt = bVal>=1000 ? nf(d1, Number.isInteger(d1)?0:1)+"k" : nf(Math.round(bVal));
-    L.marker(c.c,{icon:L.divIcon({className:"",iconSize:[0,0],
-        html:`<div class="fbadge ${bk.k}${gros?" big":""}" style="--c:${col}">`
-           + `<b>${bTxt}</b>`
-           + `<i>${isImp()?"ac max":"ha max"}</i></div>`}),
-      zIndexOffset: bk.k==="actif"?600:100})
-      .bindPopup(html,{maxWidth:mqMobile.matches?260:320}).addTo(layers.complexes);
+    /* UN POINT, PAS UNE PASTILLE. « 478 ha max » écrit dans un rond ne se lisait
+       pas, et quatre-vingt-seize de ces ronds couvraient le globe. Le symbole est
+       désormais un point dont la TAILLE dit la puissance du feu et la COULEUR son
+       état — rouge : il brûle ; gris cerclé : il a brûlé. La surface s'écrit
+       à côté quand on approche (zoom 7), et en toutes lettres dans la fiche. */
+    const dia=Math.round(Math.max(10, Math.min(24, 7+Math.log10(1+c.frp)*5.5)));
+    const mk=L.marker(c.c,{icon:L.divIcon({className:"", iconSize:[dia,dia], iconAnchor:[dia/2,dia/2],
+        html:`<div class="fsym ${bk.k}${gros?" gros":""}" style="--c:${col};--d:${dia}px"></div>`}),
+      zIndexOffset: bk.k==="actif"?600:100, riseOnHover:true})
+      .bindPopup(html,{maxWidth:mqMobile.matches?260:320});
+    if(z>=7) mk.bindTooltip(`≈ ${bTxt} ${isImp()?"ac":"ha"}`,{permanent:true, direction:"right", className:"fsym-t", offset:[dia/2+2,0]});
+    mk.addTo(layers.complexes);
   }
   setC("c-complex",cx.length);
   lastCx=cx;
@@ -6820,7 +6878,9 @@ function dessineP(){
   const {ctx, s}=caleToile(cvP);
   const pas=LOW?16:11;
   const {nx, ny, lon, lat}=axesEcran(pas, s);
-  const P=rasterS("p", {nx, ny, lon, lat}, 80);
+  /* Au-delà de 70°, Mercator étire tant que les isobares de l'océan Austral
+     formaient un paquet de lignes serrées sans valeur de lecture. */
+  const P=rasterS("p", {nx, ny, lon, lat}, 70);
   let vmin=1e9, vmax=-1e9;
   for(let q=0;q<P.length;q++){ const v=P[q]; if(v===v){ if(v<vmin) vmin=v; if(v>vmax) vmax=v; } }
   if(vmin>vmax){ cvP.classList.remove("vu"); setC("c-isob","–"); return; }
@@ -6833,10 +6893,15 @@ function dessineP(){
   };
   ctx.font="600 10.5px system-ui,sans-serif";
   ctx.textAlign="center"; ctx.textBaseline="middle";
-  const v0=Math.ceil(vmin/5)*5, nv=Math.max(0, Math.floor((vmax-v0)/5)+1);
-  const SEG=segmentsTous(P, nx, ny, pas, v0, 5, nv);
+  /* Écart entre isobares : 5 hPa, comme les cartes de Météo-France, mais
+     10 hPa à l'échelle du globe — celui des cartes à grande échelle. À 5 hPa,
+     les vents d'ouest de l'océan Austral dessinaient un paquet de lignes serrées
+     illisible. */
+  const dv=map.getZoom()<3 ? 10 : 5;
+  const v0=Math.ceil(vmin/dv)*dv, nv=Math.max(0, Math.floor((vmax-v0)/dv)+1);
+  const SEG=segmentsTous(P, nx, ny, pas, v0, dv, nv);
   for(let q=0;q<nv;q++){
-    const v=v0+q*5;
+    const v=v0+q*dv;
     const lignes=recoud(SEG[q]);
     const fort=v%20===0;
     for(const l0 of lignes){
@@ -6849,7 +6914,7 @@ function dessineP(){
       ctx.strokeStyle=fort?"rgba(255,255,255,.86)":"rgba(236,243,255,.66)"; ctx.lineWidth=fort?1.7:1.15; ctx.stroke();
       /* Valeur au milieu des lignes assez longues pour la porter. */
       let long=0; for(let q=1;q<l.length;q++) long+=Math.hypot(l[q][0]-l[q-1][0], l[q][1]-l[q-1][1]);
-      if(long<170) continue;
+      if(long<(map.getZoom()<3 ? 300 : 170)) continue;
       const m=l[Math.floor(l.length/2)], txt=String(v), w=ctx.measureText(txt).width+8;
       if(!libre(m[0]-w/2, m[1]-8, w, 16)) continue;
       ctx.fillStyle="rgba(8,16,30,.72)";
@@ -6859,7 +6924,12 @@ function dessineP(){
   }
   /* A et D par-dessus tout. */
   const b=map.getBounds().pad(0.05);
-  for(const c of centresAction()){
+  /* De loin, les centres les plus marqués seulement : douze à l'échelle du
+     globe, comme une carte de bulletin. */
+  const zC=map.getZoom(), maxC=zC<3 ? 12 : zC<5 ? 20 : 60;
+  let nPoses=0;
+  for(const c of [...centresAction()].sort((a,b2)=>(b2.cyclone?99:b2.rel||0)-(a.cyclone?99:a.rel||0))){
+    if(nPoses>=maxC) break;
     let lo=c.lo;
     /* La vue peut s'étendre au-delà de ±180 : on ramène le centre dans la copie
        du monde affichée. */
@@ -6875,6 +6945,7 @@ function dessineP(){
     ctx.font="700 11px system-ui,sans-serif";
     texteHalo(ctx, sous, q.x, q.y+19, "rgba(6,12,24,.85)", "#f4f8ff");
     if(c.bas) nD++; else nA++;
+    nPoses++;
   }
   cvP.classList.add("vu");
   setC("c-isob", nA+" A · "+nD+" D");
@@ -6895,7 +6966,7 @@ function majLegendeMeteo(){
     const grad=PAL_T.map(([v,c])=>`rgb(${c.map(Math.round).join(",")}) ${Math.round((v+40)/85*100)}%`).join(",");
     html+=`<div class="lgm-t"><b>Températures</b><i style="background:linear-gradient(90deg,${grad})"></i><div class="lgm-d">${deg}</div></div>`;
   }
-  if(p) html+=`<div class="lgm-p"><b>Pression</b> <span class="lgm-long">isobares tous les 5 hPa · </span><span class="lgA">A</span> anticyclone · <span class="lgD">D</span> dépression</div>`;
+  if(p) html+=`<div class="lgm-p"><b>Pression</b> <span class="lgm-long">${map.getZoom()<3?"isobares tous les 10 hPa · ":"isobares tous les 5 hPa · "}</span><span class="lgA">A</span> anticyclone · <span class="lgD">D</span> dépression</div>`;
   html+=`<div class="lgm-s"><span>Modèle Open-Meteo, grille de 5°</span>${h?` · <span>relevé de</span> ${h}`:""}</div>`;
   el.innerHTML=html; el.hidden=false;
   if(typeof traduisDOM==="function" && DICO) traduisDOM(el);
@@ -7656,7 +7727,7 @@ map.on("click", e=>{
      <div class="pp-foot">ADS-B communautaire · position vue il y a ${Math.round(best.seen||0)} s · code ${esc(best.hex||"")}</div>`);
 });
 
-map.on("moveend zoomend", ()=>{ if(airOn()) { clearTimeout(AIR.mv); AIR.mv=setTimeout(loadAir,2200); } });
+map.on("moveend", ()=>{ if(airOn()) { clearTimeout(AIR.mv); AIR.mv=setTimeout(loadAir,2200); } });
 map.on("resize", ()=>{ aResize(); aReposition(); });
 
 
@@ -8834,7 +8905,7 @@ function refreshHash(){
     try{ history.replaceState(null,"",buildShareURL()); }catch(e){}
   }, 1200);
 }
-map.on("moveend zoomend", refreshHash);
+map.on("moveend", refreshHash);
 /* `GROUPS` n'a jamais existe : la liste des categories s'appelle CAT. Des
    qu'un tiroir etait ouvert, chaque moveend jetait un ReferenceError qui
    remontait hors de map.invalidateSize() -- l'evenement `resize` qui suit
@@ -8842,7 +8913,7 @@ map.on("moveend zoomend", refreshHash);
    du vent gardait son ancienne taille sur une carte devenue plus large.
    Le glissement de carte masquait le defaut (movestart ferme le tiroir avant),
    invalidateSize non : elle emet moveend SANS movestart. */
-map.on("moveend zoomend", ()=>{
+map.on("moveend", ()=>{
   if(!openGroup) return;
   const c=CAT.find(g=>g.id===openGroup);
   if(c) buildDrawer(c);
@@ -9172,7 +9243,7 @@ setTimeout(hideLoader,9000);
    data/i18n/*.json. Elle sert de clé à la copie locale ; sans elle, un
    visiteur garderait des traductions périmées, ou retéléchargerait à chaque
    visite un fichier de 150 ko qui n'a pas changé. */
-const I18N_VER = "2026-09-23b";
+const I18N_VER = "2026-09-24a";
 async function chargeDico(lg){
   if(lg === "fr") return null;
   if(dicoCache.has(lg)) return dicoCache.get(lg);
