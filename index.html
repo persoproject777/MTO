@@ -337,6 +337,45 @@ details a:hover{border-bottom-color:#7fc4ea}
 @keyframes breathe{0%,100%{opacity:1}50%{opacity:.62}}
 .mk.cyc .mic{animation:spin 9s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* Cyclones : la spirale tourne dans le sens du cyclone (antihoraire au nord),
+   plus vite quand il est plus fort ; les disques de vent respirent. */
+.tc-ic{background:none!important;border:none!important}
+.tc-ic svg{display:block;animation:tcspin 3s linear infinite;transform-origin:50% 50%;
+  filter:drop-shadow(0 0 5px var(--c)) drop-shadow(0 1px 2px rgba(0,0,0,.8))}
+.tc-ic.sud svg{animation-direction:reverse}
+@keyframes tcspin{to{transform:rotate(-360deg)}}
+.tc-ray{animation:tcpulse 3.4s ease-in-out infinite}
+@keyframes tcpulse{0%,100%{fill-opacity:.1}50%{fill-opacity:.3}}
+.leaflet-tooltip.tc-nom{background:rgba(8,14,26,.84);border:1px solid rgba(255,255,255,.2);color:#fff;
+  font:700 11px/1.2 system-ui,sans-serif;padding:3px 8px;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.4);white-space:nowrap}
+.leaflet-tooltip.tc-nom:before{display:none}
+@media (prefers-reduced-motion:reduce){.tc-ic svg,.tc-ray{animation:none}}
+/* Carte météo : les toiles apparaissent en fondu, comme au bulletin. */
+.cmeteo{position:absolute;left:0;top:0;opacity:0;transition:opacity .6s ease;will-change:opacity;pointer-events:none}
+.cmeteo.vu{opacity:1}
+@media (prefers-reduced-motion:reduce){.cmeteo{transition:none}}
+#lgmeteo{position:absolute;left:10px;bottom:30px;z-index:810;max-width:min(300px,calc(100% - 90px));
+  padding:7px 10px 6px;border-radius:8px;background:rgba(8,14,26,.84);border:1px solid rgba(160,190,230,.18);
+  color:#dfe8f6;font:500 10.5px/1.35 system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.35);backdrop-filter:blur(4px)}
+#lgmeteo b{font-weight:700;color:#fff;margin-right:4px}
+#lgmeteo .lgm-t i{display:block;height:8px;border-radius:4px;margin:4px 0 2px}
+#lgmeteo .lgm-d{display:flex;justify-content:space-between;color:#aebdd4;font-size:9.5px}
+#lgmeteo .lgm-p{margin-top:5px}
+#lgmeteo .lgA{color:#4ea8ff;font-weight:800}
+#lgmeteo .lgD{color:#ff5b5b;font-weight:800}
+#lgmeteo .lgm-s{margin-top:4px;color:#8ea2bd;font-size:9.5px}
+/* Petit écran : la légende ne doit jamais manger la carte. Une vignette de
+   190 px au plus, sans la ligne de source ni le détail des isobares. */
+@media (max-width:899px),(max-height:500px){
+  #lgmeteo{left:8px;bottom:26px;padding:4px 7px 3px;font-size:9px;width:190px;max-width:calc(100% - 110px)}
+  #lgmeteo .lgm-t i{height:6px;margin:3px 0 1px}
+  #lgmeteo .lgm-d{font-size:8.5px}
+  #lgmeteo .lgm-p{margin-top:3px}
+  #lgmeteo .lgm-s,#lgmeteo .lgm-long{display:none}
+}
+/* Repères de prévision des cyclones : discrets, et moins nombreux de loin. */
+.leaflet-tooltip.tc-h{font-size:9.5px;padding:0 5px;line-height:15px}
+.tc-loin .leaflet-tooltip.tc-h48,.tc-loin .leaflet-tooltip.tc-h96,.tc-tresloin .leaflet-tooltip.tc-h{display:none}
 .thr{width:24px;height:24px;border-radius:50%;background:var(--c,#ff1744);color:#fff;
   display:grid;place-items:center;font:800 15px/1 system-ui,sans-serif;cursor:pointer;
   border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.6)}
@@ -2105,6 +2144,11 @@ const LAYERS = [
   /* ---- Météo ---- */
   {id:"tg-cities",   cat:"meteo", icon:"thermometer", nm:"Températures", full:"Températures sur villes et villages",  c:"#4be3a4", cnt:"c-cities", on:1},
   {id:"tg-wind",     cat:"meteo", icon:"wind",        nm:"Vent",         full:"Vent animé en direct",                 c:"#3ce0ff", cnt:"c-wind",   on:1},
+  /* La carte du bulletin météo : isobares et centres d'action allumés d'office,
+     ils ne masquent rien ; le dégradé des températures, lui, recouvre
+     l'imagerie satellite — il reste à un geste. */
+  {id:"tg-isob",     cat:"meteo", icon:"gauge",       nm:"Pression",     full:"Pression et isobares", sub:"anticyclones (A) et dépressions (D), comme au bulletin météo", c:"#9fc2ff", cnt:"c-isob", on:1},
+  {id:"tg-tmap",     cat:"meteo", icon:"sun",         nm:"Carte T°",     full:"Carte des températures", sub:"du froid polaire aux fortes chaleurs, en dégradé", c:"#f7a541", cnt:"c-tmap", on:0},
   {id:"tg-nuages",   cat:"meteo", icon:"smoke",       nm:"Nuages",       full:"Nuages vus par satellite", sub:"la spirale et l'œil des cyclones — zoomez sur une région", c:"#cfe0ff", cnt:"c-nuages", on:0},
   {id:"tg-radar",    cat:"meteo", icon:"radar",       nm:"Radar",        full:"Radar de pluie animé",                 c:"#22d3ee", cnt:"c-radar",  on:0},
   {id:"tg-aq",       cat:"meteo", icon:"particles",   nm:"Air",          full:"Qualité de l'air et fumées (PM2,5)",   c:"#a78bfa", cnt:"c-aq",     on:0},
@@ -3560,7 +3604,7 @@ async function loadEonet(){
     data = {events: (dLocal.events||[]).concat((dOcean&&dOcean.events)||[])
       .filter((e,i,arr)=>arr.findIndex(x=>x.id===e.id)===i)};
   }
-  layers.fires.clearLayers(); layers.storms.clearLayers();
+  layers.fires.clearLayers(); layers.storms.clearLayers(); EONET_TC.length=0;
   layers.volcanoes.clearLayers(); layers.other.clearLayers();
   layers.ice.clearLayers(); state.iceRaw=[]; state.iceBuilt=false;
   const mk = {fires:[], volcanoes:[], other:[]};
@@ -3612,6 +3656,8 @@ async function loadEonet(){
         {maxWidth:mqMobile.matches?258:310});
       mk.fires.push(m); n.fires++;
     } else if(catId==="severeStorms"){
+      /* Version officielle déjà connue : le tracé EONET, en retard, n'ajoute rien. */
+      if(tcOfficielPour(ev.title, ll)) continue;
       processStorm(ev, pts, ll, when, src); n.storms++;
     } else if(catId==="volcanoes"){
       mk.volcanoes.push(L.marker(ll,{icon:mkIcon("volc")}).bindPopup(
@@ -3642,7 +3688,7 @@ async function loadEonet(){
   setC("c-fires",n.fires); setC("ch-fires",n.fires);
   if(n.archives && window.__diagPush)
     window.__diagPush("INFO", n.archives+" incendies references de plus de 8 jours ecartes (archives sans valeur informative)");
-  setC("c-storms",n.storms); setC("ch-storms",n.storms);
+  compteCyclones();
   setC("c-volcanoes",n.volcanoes); setC("c-other",n.other); setC("c-ice",n.ice);
 }
 function buildIce(){
@@ -3652,11 +3698,200 @@ function buildIce(){
 }
 
 /* ================= Cyclones : vitesse + trajectoire prévue ================= */
+
+/* =====================================================================
+   CYCLONES OFFICIELS (GDACS)
+   =====================================================================
+   Pour chaque cyclone en cours, le robot republie ce que les centres
+   officiels (NHC, JTWC, JMA…) diffusent par GDACS à chaque bulletin :
+   position observée, trajectoire, prévision datée sur cinq jours, cône
+   d'incertitude, et zones où le vent dépasse 60, 90 et 120 km/h.
+
+   Avant, cette couche partait des positions EONET — 13 à 46 heures de retard
+   le 23 septembre 2026 — et EXTRAPOLAIT elle-même une prévision à partir de
+   là. Ces tracés restent en secours, pour un système qu'on ne trouverait pas
+   chez GDACS ; dès qu'un cyclone officiel correspond, la version EONET est
+   retirée de la carte. */
+layers.cyclones = L.layerGroup().addTo(map);
+/* La carte dessine en canevas par défaut (preferCanvas), qui ignore les classes
+   CSS : les disques de vent, qu'on anime, passent par un rendu SVG à part. */
+const svgTc = L.svg({padding:.3});
+let CYCL=null;                    /* liste officielle, ou null si pas encore chargée */
+const EONET_TC=[];                /* tracés EONET de secours : {grp, nom, ll} */
+const TC_COUL={1:"#6ab8ff", 2:"#ffd24a", 3:"#ff5a4a", 4:"#d56bff"};
+const TC_NOM={1:"Dépression tropicale", 2:"Tempête tropicale", 3:"Ouragan", 4:"Super-typhon"};
+/* Le nom dépend aussi de l'océan : on parle de typhon dans le Pacifique nord-
+   ouest, de cyclone dans l'océan Indien et le Pacifique sud, d'ouragan
+   ailleurs. Même phénomène, trois mots. */
+function nomClasse(c){
+  if((c.rang||1)<3) return TC_NOM[c.rang||1];
+  if((c.rang||1)===4) return "Super-typhon";
+  const [la, lo]=c.pos||[0,0];
+  if(la>0 && lo>=100 && lo<=180) return "Typhon";
+  if(lo>=30 && lo<100) return "Cyclone";
+  if(la<0) return "Cyclone";
+  return "Ouragan";
+}
+function nomPropreTc(t){
+  const m=String(t||"").toLowerCase().match(/[a-z0-9à-ÿ-]{2,}$/);
+  return m ? m[0] : "";
+}
+/* Un tracé EONET décrit-il un cyclone officiel ? Même nom, ou moins de huit
+   degrés d'écart (EONET appelle « 01B » ce que GDACS appelle « One »). */
+function tcOfficielPour(nom, ll){
+  if(!CYCL) return null;
+  const n=nomPropreTc(nom);
+  return CYCL.find(c=>(n && nomPropreTc(c.nom)===n)
+    || (ll && Math.abs(c.pos[0]-ll[0])<8 && Math.abs(((c.pos[1]-ll[1]+540)%360)-180)<8)) || null;
+}
+function icoCyclone(c){
+  const r=c.rang||1, col=TC_COUL[r]||TC_COUL[1];
+  /* Assez grande pour se lire par-dessus les disques de vent, qui sont de la
+     même famille de couleurs : à 32 px, la spirale d'un ouragan se perdait dans
+     son propre disque rouge. */
+  const t=[26,32,42,48][r-1]||26;
+  /* Rotation : antihoraire au nord, horaire au sud ; plus le système est
+     fort, plus la spirale tourne vite. */
+  const sud=(c.pos&&c.pos[0]<0) ? " sud" : "";
+  const dur=[4.2,3.2,2.2,1.5][r-1]||3;
+  return L.divIcon({className:"tc-ic"+sud, iconSize:[t,t], iconAnchor:[t/2,t/2],
+    html:`<svg viewBox="-20 -20 40 40" width="${t}" height="${t}" style="--c:${col};animation-duration:${dur}s" aria-hidden="true">
+      <path d="M0-4C8-4 13 2 12 9M0 4C-8 4-13-2-12-9M4 0C4 8-2 13-9 12M-4 0C-4-8 2-13 9-12" fill="none" stroke="#06101e" stroke-width="7.4" stroke-linecap="round" opacity=".72"/>
+      <path d="M0-4C8-4 13 2 12 9M0 4C-8 4-13-2-12-9" fill="none" stroke="${col}" stroke-width="4.2" stroke-linecap="round"/>
+      <path d="M4 0C4 8-2 13-9 12M-4 0C-4-8 2-13 9-12" fill="none" stroke="${col}" stroke-width="4.2" stroke-linecap="round" opacity=".6"/>
+      <circle r="4.2" fill="#08101e" stroke="#fff" stroke-width="1.6"/></svg>`});
+}
+function dateTc(min){
+  const d=new Date(min*60000);
+  return d.toLocaleString(LANG==="fr"?"fr-FR":LANG,{weekday:"short", day:"numeric", hour:"2-digit", minute:"2-digit"})
+    + (TZ_LABEL?" ("+TZ_LABEL+")":"");
+}
+function dessineCyclone(c){
+  const g=L.layerGroup();
+  const col=TC_COUL[c.rang||1];
+  const zc={60:"#ffd24a", 90:"#ff9a3c", 120:"#ff4a4a"};
+  /* Couloir du vent sur toute la trajectoire prévue : là où le vent dépassera
+     chaque seuil. C'est la réponse à « est-ce que ça vient sur nous ». */
+  for(const s of [60,90,120]){
+    const z=c.zones&&c.zones[s];
+    if(!z) continue;
+    L.polygon(z,{renderer:cnv, interactive:false, color:zc[s], weight:s===60?1:1.2,
+      opacity:.55, dashArray:s===60?"5 5":null, fillColor:zc[s], fillOpacity:s===60?.07:s===90?.09:.11}).addTo(g);
+  }
+  if(c.cone) L.polygon(c.cone,{renderer:cnv, interactive:false, color:"#eaf2ff", weight:1.2, opacity:.7,
+    dashArray:"3 6", fill:true, fillColor:"#eaf2ff", fillOpacity:.035}).addTo(g);
+  /* Vent de l'instant présent : les disques respirent doucement, pour qu'on
+     distingue d'un coup d'œil le maintenant du prévu. */
+  for(const s of [60,90,120]){
+    const z=c.rayons&&c.rayons[s];
+    if(!z) continue;
+    L.polygon(z,{renderer:svgTc, interactive:false, className:"tc-ray tc-r"+s, color:zc[s], weight:1.4, opacity:.85,
+      fillColor:zc[s], fillOpacity:s===60?.16:s===90?.2:.26}).addTo(g);
+  }
+  const trk=(c.trk||[]).map(q=>[q[0],q[1]]);
+  const prv=(c.prv||[]).map(q=>[q[0],q[1]]);
+  if(trk.length>1){
+    L.polyline(trk,{renderer:cnv, interactive:false, color:"#03101f", weight:5, opacity:.45}).addTo(g);
+    L.polyline(trk,{renderer:cnv, interactive:false, color:col, weight:2.4, opacity:.95}).addTo(g);
+    trk.slice(0,-1).forEach(p=>L.circleMarker(p,{renderer:cnv, interactive:false, radius:2.2, color:col, weight:1, fillColor:"#08101e", fillOpacity:1}).addTo(g));
+  }
+  if(prv.length){
+    L.polyline([c.pos, ...prv],{renderer:cnv, interactive:false, color:"#eaf2ff", weight:1.8, opacity:.9, dashArray:"2 6"}).addTo(g);
+    /* Repères à +24 h, +48 h… : le point prévu le plus proche de chaque jour. */
+    const t0=c.tpos ? c.tpos/60000 : Date.now()/60000;
+    const pris=new Set();
+    for(const h of [24,48,72,96,120]){
+      let best=null;
+      for(const q of c.prv){ const d=Math.abs(q[2]-(t0+h*60)); if(d<=9*60 && (!best||d<best.d)) best={q,d}; }
+      if(!best || pris.has(best.q)) continue;
+      pris.add(best.q);
+      L.circleMarker([best.q[0],best.q[1]],{renderer:cnv, radius:4, color:"#eaf2ff", weight:1.4, fillColor:col, fillOpacity:1})
+        .bindTooltip("+"+h+" h",{permanent:true, direction:"right", className:"ttime tc-h tc-h"+h, offset:[5,0]})
+        .bindPopup(`<div class="pp-t">${ic("clock","x16")}${esc(c.nom)} — position prévue</div><div class="pp-row"><b>${esc(dateTc(best.q[2]))}</b></div><div class="pp-row" style="color:#8fa4cc;font-size:11.5px">Prévision du bulletin officiel. L'incertitude grandit avec l'échéance : c'est le rôle du cône.</div>`,{maxWidth:260})
+        .addTo(g);
+    }
+  }
+  /* Déplacement mesuré sur les deux dernières positions officielles. */
+  let move="Déplacement lent ou indéterminé";
+  const T=c.trk||[];
+  if(T.length>=2){
+    const a=T[T.length-2], b=T[T.length-1], h=(b[2]-a[2])/60;
+    if(h>0.5){
+      const v=distKm([a[0],a[1]],[b[0],b[1]])/h;
+      if(v>1 && v<120) move=`Se déplace à <b>${fmtV(v)}</b> vers <b>${compass(bearing([a[0],a[1]],[b[0],b[1]]))}</b>`;
+    }
+  }
+  const nomCl=nomClasse(c);
+  const ageH=c.tpos ? (Date.now()-c.tpos)/36e5 : null;
+  const zoneTxt=[120,90,60].filter(s=>c.zones&&c.zones[s]).map(s=>`<span style="color:${zc[s]}">≥ ${fmtV(s)}</span>`).join(" · ");
+  const pop=`<div class="pp-t" style="color:${col}">${ic("cyclone","x18")}${esc(nomCl)} ${esc(c.nom)}</div>
+    <div class="pp-cat">Cyclone tropical — bulletin officiel via GDACS</div>
+    ${c.vmax?`<div class="pp-row">Pic de vent sur la vie du système, <b>observé ou prévu</b> : <b>${fmtV(c.vmax)}</b></div>`:""}
+    <div class="pp-row">Position officielle : <b>${c.tpos?esc(dateTc(Math.round(c.tpos/60000))):"—"}</b>${ageH!=null&&ageH>9?` <span style="color:#e0a33c">(bulletin de plus de ${Math.round(ageH)} h)</span>`:""}</div>
+    <div class="pp-row">${move}</div>
+    ${prv.length?`<div class="pp-row">Prévision officielle jusqu'au <b>${esc(dateTc(c.prv[c.prv.length-1][2]))}</b> — pointillés et cône.</div>`:`<div class="pp-row" style="color:#8fa4cc">Plus de prévision publiée : le système s'affaiblit ou se dissipe.</div>`}
+    ${zoneTxt?`<div class="pp-row">Couloirs de vent prévus : ${zoneTxt}</div>`:""}
+    ${c.co?`<div class="pp-row">Pays concernés : <b>${esc(c.co)}</b></div>`:""}
+    <div class="pp-row" style="color:#8fa4cc;font-size:11.5px">Disques pleins : le vent maintenant. Zones teintées : là où il soufflera au passage du cyclone. Activez « Vent » pour voir la rotation, « Pression » pour la dépression.</div>
+    ${c.geoAncienne?`<div class="pp-warn">Géométrie du bulletin précédent : le dernier n'a pas pu être lu.</div>`:""}
+    <a class="pp-link" href="#" onclick="showNews(${c.pos[0]},${c.pos[1]},'storm','Cyclone — actualités');return false">${ic("news","x14")}Actualités : dégâts, évacuations</a>
+    ${c.u?`<br><a class="pp-link" href="${esc(c.u)}" target="_blank" rel="noopener">Bulletin GDACS${ic("external","x12 xl")}</a>`:""}`;
+  L.marker(c.pos,{icon:icoCyclone(c), zIndexOffset:900, riseOnHover:true})
+    /* L'étiquette ne porte QUE la classe actuelle et le nom. Le vent maximal
+       publié est le pic de toute la vie du système, prévision comprise :
+       écrit à côté de « Dépression tropicale », « 185 km/h » se lisait comme le
+       vent d'aujourd'hui — ce qu'il n'est pas. Le chiffre est dans la fiche,
+       avec sa définition. */
+    .bindTooltip(`${esc(nomCl)} ${esc(c.nom)}`,
+      {permanent:true, direction:"bottom", className:"tc-nom", offset:[0,12]})
+    .bindPopup(pop,{maxWidth:mqMobile.matches?262:320})
+    .addTo(g);
+  return g;
+}
+/* De loin, les cinq repères se chevauchaient : on n'en garde qu'un sur deux
+   (+24, +72, +120 h) sous le zoom 6, et aucun sous le zoom 3. */
+function majReperesTc(){
+  const z=map.getZoom(), c=map.getContainer();
+  c.classList.toggle("tc-loin", z<6);
+  c.classList.toggle("tc-tresloin", z<3);
+}
+map.on("zoomend", majReperesTc);
+majReperesTc();
+function retireEonetDoublons(){
+  if(!CYCL) return;
+  for(let i=EONET_TC.length-1;i>=0;i--){
+    const e=EONET_TC[i];
+    if(tcOfficielPour(e.nom, e.ll)){ layers.storms.removeLayer(e.grp); EONET_TC.splice(i,1); }
+  }
+}
+function compteCyclones(){
+  const n=(CYCL?CYCL.length:0)+EONET_TC.length;
+  setC("c-storms",n); setC("ch-storms",n);
+}
+let cyclAt=0;
+async function loadCyclones(){
+  const d=await preload("cyclones", 6*3600e3);
+  if(!d || !Array.isArray(d.c)) return false;
+  CYCL=d.c.filter(c=>Array.isArray(c.pos) && isFinite(c.pos[0]) && isFinite(c.pos[1]));
+  cyclAt=d.t||0;
+  layers.cyclones.clearLayers();
+  /* Les plus faibles d'abord, les plus violents par-dessus. */
+  [...CYCL].sort((a,b)=>(a.rang||1)-(b.rang||1)||(a.vmax||0)-(b.vmax||0))
+    .forEach(c=>layers.cyclones.addLayer(dessineCyclone(c)));
+  retireEonetDoublons();
+  compteCyclones();
+  return true;
+}
+
 function processStorm(ev, pts, ll, when, src){
+  /* Chaque tracé EONET vit dans son propre groupe, pour pouvoir être retiré d'un
+     bloc dès que la version officielle du même cyclone arrive. */
+  const grp=L.layerGroup().addTo(layers.storms);
+  EONET_TC.push({grp, nom:ev.title, ll});
   const track = pts.map(p=>[p.coordinates[1],p.coordinates[0]]);
   if(track.length>1){
-    L.polyline(track,{color:"#03354d",weight:4,opacity:.45,renderer:cnv}).addTo(layers.storms);
-    L.polyline(track,{color:"#00b4e6",weight:2,opacity:.95,renderer:cnv}).addTo(layers.storms);
+    L.polyline(track,{color:"#03354d",weight:4,opacity:.45,renderer:cnv}).addTo(grp);
+    L.polyline(track,{color:"#00b4e6",weight:2,opacity:.95,renderer:cnv}).addTo(grp);
   }
   let spd=null, brg=null, fc=null;
   if(pts.length>1){
@@ -3678,11 +3913,11 @@ function processStorm(ev, pts, ll, when, src){
         const last=fc[fc.length-1], arc=[];
         for(let a=-90;a<=90;a+=18) arc.push(destPoint(last.p[0],last.p[1],brg+a,last.r));
         L.polygon([ll,...left,...arc,...right.reverse()],
-          {color:"#3ce0ff",weight:1,dashArray:"4 5",fillColor:"#3ce0ff",fillOpacity:.07,renderer:cnv}).addTo(layers.storms);
-        L.polyline([ll,...fc.map(f=>f.p)],{color:"#9fe8ff",weight:1.5,dashArray:"2 6",opacity:.85,renderer:cnv}).addTo(layers.storms);
+          {color:"#3ce0ff",weight:1,dashArray:"4 5",fillColor:"#3ce0ff",fillOpacity:.07,renderer:cnv}).addTo(grp);
+        L.polyline([ll,...fc.map(f=>f.p)],{color:"#9fe8ff",weight:1.5,dashArray:"2 6",opacity:.85,renderer:cnv}).addTo(grp);
         [fc[1],fc[2]].forEach(f=>{
           L.circleMarker(f.p,{radius:4,color:"#9fe8ff",weight:1,fillColor:"#0d1830",fillOpacity:1,renderer:cnv})
-            .bindTooltip("+"+f.h+" h",{permanent:true,direction:"top",className:"ttime",offset:[0,-4]}).addTo(layers.storms);
+            .bindTooltip("+"+f.h+" h",{permanent:true,direction:"top",className:"ttime",offset:[0,-4]}).addTo(grp);
         });
       }
     }
@@ -3696,7 +3931,7 @@ function processStorm(ev, pts, ll, when, src){
     <div class="pp-row"><a class="pp-link" href="#" onclick="showNews(${ll[0]},${ll[1]},'storm','Cyclone — actualités');return false">${ic("news","x14")}Actualités : dégâts, évacuations</a></div>
     <div class="pp-warn">Trajectoire prévue par extrapolation automatique — le bulletin officiel fait foi.</div>
     ${src?`<a class="pp-link" href="${esc(src)}" target="_blank" rel="noopener">Bulletin officiel${ic("external","x12 xl")}</a>`:""}`;
-  const m = L.marker(ll,{icon:mkIcon("cyc")}).bindPopup(base,{maxWidth:300}).addTo(layers.storms);
+  const m = L.marker(ll,{icon:mkIcon("cyc")}).bindPopup(base,{maxWidth:300}).addTo(grp);
   let wx=null;
   m.on("popupopen",async ()=>{
     if(wx){ m.getPopup().setContent(base+wx); return; }
@@ -5924,7 +6159,11 @@ async function loadWindBase(){
     if(!d || !Array.isArray(d.cells) || !d.cells.length) return false;
     WBASE.clear();
     wbaseStep=d.step||10;
-    for(const c of d.cells) WBASE.set(c[0]+"|"+c[1], {u:c[2], v:c[3]});
+    /* Température et pression voyagent avec le vent depuis septembre 2026. Un
+       fichier plus ancien n'en a pas : null, et les couches concernées
+       attendent le prochain relevé au lieu d'afficher un zéro. */
+    for(const c of d.cells) WBASE.set(c[0]+"|"+c[1], {u:c[2], v:c[3],
+      t:c.length>4 ? c[4] : null, p:c.length>5 ? c[5] : null});
     wbaseAt=d.t||0;
     return true;
   }catch(e){ return false; }
@@ -5981,9 +6220,9 @@ async function loadWindTC(){
       for(const c of z.cells){
         const iy=Math.round((c[0]-la0)/wtcStep);
         const ix=Math.round(((((c[1]-lo0+540)%360)-180))/wtcStep);
-        m.set(iy*4096+ix, {u:c[2], v:c[3]});
+        m.set(iy*4096+ix, {u:c[2], v:c[3], t:c.length>4 ? c[4] : null, p:c.length>5 ? c[5] : null});
       }
-      WTC.push({nm:z.nm||"Cyclone", la:z.la, lo:z.lo, la0, lo0, m});
+      WTC.push({nm:z.nom||z.nm||"Cyclone", la:z.la, lo:z.lo, la0, lo0, m});
     }
     wtcAt=d.t||0; wtcCharge=true;
     return true;
@@ -6064,6 +6303,465 @@ function sampleUV(la, lo){
   return baseUV(la, lo);
 }
 
+
+/* =====================================================================
+   LA CARTE MÉTÉO : PRESSION ET TEMPÉRATURES
+   =====================================================================
+   Ce qu'on voit au journal télévisé : les isobares, les anticyclones (A) et
+   les dépressions (D), et la carte des températures en couleurs.
+
+   D'OÙ VIENNENT LES VALEURS. Le robot demande température et pression dans
+   LA MÊME requête que le vent : aucune requête de plus, ni pour lui ni pour le
+   visiteur. Le champ est celui du vent — socle mondial à 5°, grilles fines à
+   0,5° autour des cyclones — et il se lit de la même façon : interpolation
+   bilinéaire, et fondu entre les deux grilles sur le dernier degré.
+
+   CE QUE LA CARTE DIT, ET CE QU'ELLE NE DIT PAS. C'est un modèle, relevé
+   toutes les deux heures, sur une grille de cinq degrés : il décrit les
+   grands systèmes — les anticyclones, les dépressions, les fronts de chaleur
+   et de froid — pas la température de votre rue. La légende l'écrit.
+
+   DESSIN. Les deux couches sont des toiles posées DANS la carte, entre
+   l'imagerie et les étiquettes : elles suivent le glissement au doigt sans
+   rien recalculer, et ne sont redessinées qu'à l'arrêt. Au changement de
+   zoom, elles s'effacent puis réapparaissent en fondu, au lieu de s'étirer
+   de travers pendant l'animation. */
+
+/* ---------- Chargement partagé ----------
+   La grille n'était chargée que par la couche Vent, qui s'arrête dès qu'on
+   l'éteint. Pression et températures doivent pouvoir vivre sans elle. */
+let champsEnCours=null;
+function chargeChamps(){
+  if(champsEnCours) return champsEnCours;
+  champsEnCours=(async ()=>{
+    let neuf=false;
+    try{
+      if(!WBASE.size || Date.now()-wbaseAt>3600e3) neuf=(await loadWindBase()) || neuf;
+      if(!wtcCharge || Date.now()-wtcAt>3600e3) neuf=(await loadWindTC()) || neuf;
+    }finally{ champsEnCours=null; }
+    if(neuf) document.dispatchEvent(new Event("champs"));
+    return neuf;
+  })();
+  return champsEnCours;
+}
+
+/* ---------- Interpolation d'une grandeur scalaire ----------
+   k vaut "t" (température, °C) ou "p" (pression, hPa). Une cellule sans valeur
+   est SAUTÉE et le poids des autres renormalisé : jamais un zéro inventé. */
+function grosS(la, lo, k){
+  if(!WBASE.size) return null;
+  const st=wbaseStep;
+  const la0=Math.floor(la/st)*st, lo0=Math.floor(lo/st)*st;
+  const g=(y,x)=>{ const c=WBASE.get(y+"|"+(((x+540)%360)-180)); return c && c[k]!=null ? c[k] : null; };
+  const tx=(lo-lo0)/st, ty=(la-la0)/st;
+  const v00=g(la0,lo0), v10=g(la0,lo0+st), v01=g(la0+st,lo0), v11=g(la0+st,lo0+st);
+  let s=0, w=0;
+  const add=(v,q)=>{ if(v!=null && q>0){ s+=v*q; w+=q; } };
+  add(v00,(1-tx)*(1-ty)); add(v10,tx*(1-ty)); add(v01,(1-tx)*ty); add(v11,tx*ty);
+  /* Moins de la moitié du poids présent : trop peu pour affirmer une valeur. */
+  return w>=0.5 ? s/w : null;
+}
+function finS(la, lo, k){
+  if(!WTC.length) return null;
+  const st=wtcStep, R=wtcRay;
+  let best=null;
+  for(const z of WTC){
+    const dla=la-z.la, dlo=(((lo-z.lo+540)%360)-180);
+    const bord=Math.max(Math.abs(dla), Math.abs(dlo));
+    if(bord>R) continue;
+    const y=(la-z.la0)/st, x=((((lo-z.lo0+540)%360)-180))/st;
+    const iy=Math.floor(y), ix=Math.floor(x);
+    const g=(b2,a2)=>{ const c=z.m.get(b2*4096+a2); return c && c[k]!=null ? c[k] : null; };
+    const tx=x-ix, ty=y-iy;
+    let s=0, w=0;
+    const add=(v,q)=>{ if(v!=null && q>0){ s+=v*q; w+=q; } };
+    add(g(iy,ix),(1-tx)*(1-ty)); add(g(iy,ix+1),tx*(1-ty)); add(g(iy+1,ix),(1-tx)*ty); add(g(iy+1,ix+1),tx*ty);
+    if(w<0.5) continue;
+    let f=bord>R-1 ? (R-bord) : 1;
+    f=f*f*(3-2*f);
+    f=Math.max(0, Math.min(1, Math.min(f, w)));
+    if(!best || f>best.f) best={v:s/w, f};
+  }
+  return best;
+}
+function champS(la, lo, k){
+  const fin=finS(la, lo, k), gros=grosS(la, lo, k);
+  if(!fin) return gros;
+  if(gros==null) return fin.f>0.5 ? fin.v : null;
+  return fin.v*fin.f + gros*(1-fin.f);
+}
+
+/* ---------- Les deux toiles ---------- */
+map.createPane("thermPane");
+map.getPane("thermPane").style.zIndex=235;          /* sous les nuages (240) */
+map.getPane("thermPane").style.pointerEvents="none";
+map.createPane("isobPane");
+map.getPane("isobPane").style.zIndex=245;           /* entre les nuages (240) et les noms (250) */
+map.getPane("isobPane").style.pointerEvents="none";
+function toileMeteo(pane){
+  const c=document.createElement("canvas");
+  c.className="cmeteo";
+  map.getPane(pane).appendChild(c);
+  return c;
+}
+const cvT=toileMeteo("thermPane"), cvP=toileMeteo("isobPane");
+const tmpOn=()=>{ const e=$("#tg-tmap"); return !!(e && e.checked); };
+const isoOn=()=>{ const e=$("#tg-isob"); return !!(e && e.checked); };
+
+/* Cale la toile sur l'écran courant, à la densité de l'appareil. */
+function caleToile(cv){
+  const s=map.getSize(), dpr=Math.min(window.devicePixelRatio||1, LOW?1:2);
+  if(cv.width!==Math.round(s.x*dpr) || cv.height!==Math.round(s.y*dpr)){
+    cv.width=Math.round(s.x*dpr); cv.height=Math.round(s.y*dpr);
+    cv.style.width=s.x+"px"; cv.style.height=s.y+"px";
+  }
+  L.DomUtil.setPosition(cv, map.containerPointToLayerPoint([0,0]));
+  const ctx=cv.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,s.x,s.y);
+  return {ctx, s};
+}
+/* Mercator est séparable : la latitude ne dépend que de la ligne, la longitude
+   que de la colonne. On projette donc nx + ny points, pas nx × ny. */
+function axesEcran(pas, s){
+  const nx=Math.ceil(s.x/pas)+2, ny=Math.ceil(s.y/pas)+2;
+  const lon=new Float64Array(nx), lat=new Float64Array(ny);
+  for(let i=0;i<nx;i++) lon[i]=map.containerPointToLatLng([i*pas,0]).lng;
+  for(let j=0;j<ny;j++) lat[j]=map.containerPointToLatLng([0,j*pas]).lat;
+  for(let i=0;i<nx;i++) lon[i]=((lon[i]+540)%360)-180;
+  return {nx, ny, lon, lat};
+}
+
+/* ---------- La carte des températures ----------
+   Palette des bulletins météo : violet glacial, bleus, vert tendre, jaune,
+   orange, rouge, grenat. Les paliers sont ceux qu'on lit d'un coup d'œil. */
+const PAL_T=[
+  [-40,[ 72, 20,110]], [-30,[ 60, 50,170]], [-20,[ 40, 95,215]], [-10,[ 55,150,235]],
+  [  0,[110,205,245]], [  5,[140,225,210]], [ 10,[150,225,140]], [ 15,[210,235,110]],
+  [ 20,[250,220, 80]], [ 25,[250,170, 55]], [ 30,[240,110, 45]], [ 35,[215, 55, 45]],
+  [ 40,[160, 25, 50]], [ 45,[110, 10, 45]]
+];
+function couleurT(t){
+  const P=PAL_T;
+  if(t<=P[0][0]) return P[0][1];
+  for(let i=1;i<P.length;i++){
+    if(t<P[i][0]){
+      const a=P[i-1], b=P[i], f=(t-a[0])/(b[0]-a[0]);
+      return [a[1][0]+(b[1][0]-a[1][0])*f, a[1][1]+(b[1][1]-a[1][1])*f, a[1][2]+(b[1][2]-a[1][2])*f];
+    }
+  }
+  return P[P.length-1][1];
+}
+const petiteT=document.createElement("canvas");
+function dessineT(){
+  if(!tmpOn() || !WBASE.size){ cvT.classList.remove("vu"); return; }
+  const {ctx, s}=caleToile(cvT);
+  /* Une valeur tous les six pixels, puis agrandie avec lissage : l'œil voit un
+     dégradé continu, et le calcul reste léger même sur un téléphone. */
+  const pas=LOW?10:6;
+  const {nx, ny, lon, lat}=axesEcran(pas, s);
+  petiteT.width=nx; petiteT.height=ny;
+  const pc=petiteT.getContext("2d");
+  const img=pc.createImageData(nx, ny), d=img.data;
+  let tmin=1e9, tmax=-1e9;
+  for(let j=0;j<ny;j++){
+    const la=lat[j];
+    for(let i=0;i<nx;i++){
+      const o=(j*nx+i)*4;
+      const t=Math.abs(la)>82 ? null : champS(la, lon[i], "t");
+      if(t==null){ d[o+3]=0; continue; }
+      if(t<tmin) tmin=t; if(t>tmax) tmax=t;
+      const c=couleurT(t);
+      d[o]=c[0]; d[o+1]=c[1]; d[o+2]=c[2]; d[o+3]=150;
+    }
+  }
+  pc.putImageData(img,0,0);
+  ctx.imageSmoothingEnabled=true;
+  if("imageSmoothingQuality" in ctx) ctx.imageSmoothingQuality="high";
+  ctx.drawImage(petiteT, 0,0,nx,ny, -pas/2,-pas/2, nx*pas, ny*pas);
+  cvT.classList.add("vu");
+  /* Compteur : l'étendue des températures À L'ÉCRAN, pas un nombre d'objets. */
+  if(tmin<=tmax) setC("c-tmap", fmtT(tmin).replace(/\s*°[CF]/,"")+" à "+fmtT(tmax));
+  else setC("c-tmap","–");
+}
+
+/* ---------- Les isobares ----------
+   Une ligne tous les 5 hPa, comme sur les cartes de Météo-France. Tracées par
+   « carrés marchants » sur une grille d'écran, puis lissées : sans lissage,
+   l'interpolation d'une grille de cinq degrés dessine des lignes brisées. */
+function segmentsNiveau(P, nx, ny, pas, v){
+  const seg=[];
+  const pt=(x0,y0,a,x1,y1,b)=>{ const f=(v-a)/(b-a); return [x0+(x1-x0)*f, y0+(y1-y0)*f]; };
+  for(let j=0;j<ny-1;j++){
+    for(let i=0;i<nx-1;i++){
+      const a=P[j*nx+i], b=P[j*nx+i+1], c=P[(j+1)*nx+i+1], d=P[(j+1)*nx+i];
+      if(a!==a || b!==b || c!==c || d!==d) continue;         /* NaN : pas de donnée */
+      let k=0;
+      if(a>=v) k|=8; if(b>=v) k|=4; if(c>=v) k|=2; if(d>=v) k|=1;
+      if(k===0 || k===15) continue;
+      const x=i*pas, y=j*pas, X=x+pas, Y=y+pas;
+      const H=()=>pt(x,y,a,X,y,b), R=()=>pt(X,y,b,X,Y,c), B=()=>pt(x,Y,d,X,Y,c), G=()=>pt(x,y,a,x,Y,d);
+      switch(k){
+        case 1: case 14: seg.push([G(),B()]); break;
+        case 2: case 13: seg.push([B(),R()]); break;
+        case 3: case 12: seg.push([G(),R()]); break;
+        case 4: case 11: seg.push([H(),R()]); break;
+        case 6: case 9:  seg.push([H(),B()]); break;
+        case 7: case 8:  seg.push([G(),H()]); break;
+        case 5: case 10: {
+          /* Col : on tranche par la valeur au centre, sinon deux lignes se croisent. */
+          const m=(a+b+c+d)/4;
+          if((m>=v) === (k===5)){ seg.push([G(),H()]); seg.push([B(),R()]); }
+          else { seg.push([G(),B()]); seg.push([H(),R()]); }
+        }
+      }
+    }
+  }
+  return seg;
+}
+/* Recoud les segments bout à bout en lignes continues. */
+function recoud(seg){
+  const cle=p=>Math.round(p[0]*10)+","+Math.round(p[1]*10);
+  const ext=new Map();
+  seg.forEach((s,i)=>{ for(const e of [0,1]){ const k=cle(s[e]); (ext.get(k)||ext.set(k,[]).get(k)).push(i); } });
+  const pris=new Uint8Array(seg.length), lignes=[];
+  for(let i=0;i<seg.length;i++){
+    if(pris[i]) continue;
+    pris[i]=1;
+    const l=[seg[i][0], seg[i][1]];
+    for(const sens of [1,0]){
+      for(;;){
+        const bout=sens ? l[l.length-1] : l[0];
+        const cand=(ext.get(cle(bout))||[]).find(j=>!pris[j]);
+        if(cand==null) break;
+        pris[cand]=1;
+        const s=seg[cand], suiv=cle(s[0])===cle(bout) ? s[1] : s[0];
+        if(sens) l.push(suiv); else l.unshift(suiv);
+      }
+    }
+    lignes.push(l);
+  }
+  return lignes;
+}
+/* Chaikin : chaque passe arrondit les angles sans déplacer la ligne. */
+function chaikin(l, n){
+  let p=l;
+  for(let k=0;k<n;k++){
+    if(p.length<3) return p;
+    const ferme=Math.hypot(p[0][0]-p[p.length-1][0], p[0][1]-p[p.length-1][1])<0.5;
+    const q=ferme ? [] : [p[0]];
+    for(let i=0;i<p.length-1;i++){
+      const a=p[i], b=p[i+1];
+      q.push([a[0]*0.75+b[0]*0.25, a[1]*0.75+b[1]*0.25], [a[0]*0.25+b[0]*0.75, a[1]*0.25+b[1]*0.75]);
+    }
+    if(ferme) q.push(q[0]); else q.push(p[p.length-1]);
+    p=q;
+  }
+  return p;
+}
+/* Centres d'action, cherchés sur la GRILLE DE DONNÉES et non sur l'écran : ils
+   ne sautent donc pas d'une place à l'autre quand on fait glisser la carte.
+   Seuils du bulletin météo, mesurés sur un relevé réel : avec un relief de
+   2 hPa et sans autre filtre, la planète portait 68 centres — chaque ondulation
+   devenait une « dépression ». On exige désormais un relief de 4 hPa sur dix
+   degrés, une vraie dépression (1 008 hPa au plus) ou un vrai anticyclone
+   (1 020 au moins), et un seul centre de chaque sorte dans un rayon de quinze
+   degrés : il en reste une quarantaine, l'ordre de grandeur d'une carte
+   mondiale. Au-delà de 72° de latitude, Mercator étire trop pour placer un
+   centre honnêtement. */
+function centresAction(){
+  const out=[], st=wbaseStep;
+  const g=(la,lo)=>{ const c=WBASE.get(la+"|"+(((lo+540)%360)-180)); return c && c.p!=null ? c.p : null; };
+  for(const [cle, c] of WBASE){
+    if(c.p==null) continue;
+    const [la, lo]=cle.split("|").map(Number);
+    if(Math.abs(la)>72) continue;
+    let mini=true, maxi=true, ok=true;
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+      if(!dy && !dx) continue;
+      const v=g(la+dy*st, lo+dx*st);
+      if(v==null){ ok=false; continue; }
+      if(v<=c.p) mini=false;
+      if(v>=c.p) maxi=false;
+    }
+    if(!ok || (!mini && !maxi)) continue;
+    let s=0, n=0;
+    for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++){
+      if(Math.max(Math.abs(dy),Math.abs(dx))!==2) continue;
+      const v=g(la+dy*st, lo+dx*st); if(v!=null){ s+=v; n++; }
+    }
+    if(n<8) continue;
+    const relief=s/n-c.p;
+    if(mini && (relief<4 || c.p>1008)) continue;
+    if(maxi && (-relief<4 || c.p<1020)) continue;
+    /* Affinage parabolique : le vrai centre est entre deux mailles. */
+    const aff=(m,z,p)=>{ const den=m-2*z+p; return (m==null||p==null||!den) ? 0 : Math.max(-0.5,Math.min(0.5,(m-p)/(2*den))); };
+    const dLa=aff(g(la-st,lo), c.p, g(la+st,lo))*st, dLo=aff(g(la,lo-st), c.p, g(la,lo+st))*st;
+    out.push({la:la+dLa, lo:lo+dLo, p:c.p, bas:mini, rel:Math.abs(relief)});
+  }
+  /* Un seul centre de chaque sorte par secteur de quinze degrés : le plus marqué. */
+  out.sort((a,b)=>b.rel-a.rel);
+  for(let i=out.length-1;i>=0;i--){
+    const c=out[i];
+    if(out.some((k,j)=>j<i && k.bas===c.bas && Math.abs(k.la-c.la)<15 && Math.abs(((k.lo-c.lo+540)%360)-180)<15)) out.splice(i,1);
+  }
+  /* Les cyclones ont leur propre grille fine : leur centre est cherché dedans,
+     et les centres grossiers voisins sont retirés au profit du fin. */
+  for(const z of WTC){
+    let min=null;
+    for(const [k, c] of z.m){
+      if(c.p==null) continue;
+      if(!min || c.p<min.p) min={k, p:c.p};
+    }
+    if(!min) continue;
+    const iy=Math.floor(min.k/4096), ix=min.k-iy*4096;
+    const la=z.la0+iy*wtcStep, lo=(((z.lo0+ix*wtcStep)+540)%360)-180;
+    for(let i=out.length-1;i>=0;i--)
+      if(Math.abs(out[i].la-la)<7 && Math.abs(((out[i].lo-lo+540)%360)-180)<7) out.splice(i,1);
+    /* Quand la couche Cyclones est allumée, elle montre déjà ce centre, avec son
+       nom officiel et son intensité : un second symbole au même endroit
+       brouillerait la lecture. On retire seulement les centres grossiers. */
+    if(!($("#tg-storms") && $("#tg-storms").checked)) out.push({la, lo, p:min.p, bas:true, cyclone:z.nm});
+  }
+  return out;
+}
+function texteHalo(ctx, txt, x, y, fond, coul){
+  ctx.lineJoin="round";
+  ctx.strokeStyle=fond; ctx.lineWidth=3.2; ctx.strokeText(txt, x, y);
+  ctx.fillStyle=coul; ctx.fillText(txt, x, y);
+}
+function dessineP(){
+  if(!isoOn() || !WBASE.size){ cvP.classList.remove("vu"); return; }
+  const {ctx, s}=caleToile(cvP);
+  const pas=LOW?16:11;
+  const {nx, ny, lon, lat}=axesEcran(pas, s);
+  const P=new Float32Array(nx*ny);
+  let vmin=1e9, vmax=-1e9;
+  for(let j=0;j<ny;j++){
+    const la=lat[j];
+    for(let i=0;i<nx;i++){
+      const v=Math.abs(la)>80 ? null : champS(la, lon[i], "p");
+      P[j*nx+i]=v==null ? NaN : v;
+      if(v!=null){ if(v<vmin) vmin=v; if(v>vmax) vmax=v; }
+    }
+  }
+  if(vmin>vmax){ cvP.classList.remove("vu"); setC("c-isob","–"); return; }
+  let nA=0, nD=0;
+  const place=[];                                  /* boîtes d'étiquettes déjà posées */
+  const libre=(x,y,w,h)=>{
+    if(x<6 || y<10 || x+w>s.x-6 || y+h>s.y-6) return false;
+    for(const b of place) if(x<b[0]+b[2] && x+w>b[0] && y<b[1]+b[3] && y+h>b[1]) return false;
+    place.push([x,y,w,h]); return true;
+  };
+  ctx.font="600 10.5px system-ui,sans-serif";
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  for(let v=Math.ceil(vmin/5)*5; v<=vmax; v+=5){
+    const lignes=recoud(segmentsNiveau(P, nx, ny, pas, v));
+    const fort=v%20===0;
+    for(const l0 of lignes){
+      if(l0.length<3) continue;
+      const l=chaikin(l0, 2);
+      ctx.beginPath();
+      ctx.moveTo(l[0][0], l[0][1]);
+      for(let q=1;q<l.length;q++) ctx.lineTo(l[q][0], l[q][1]);
+      ctx.strokeStyle="rgba(4,10,22,.42)"; ctx.lineWidth=fort?3.4:2.6; ctx.stroke();
+      ctx.strokeStyle=fort?"rgba(255,255,255,.86)":"rgba(236,243,255,.66)"; ctx.lineWidth=fort?1.7:1.15; ctx.stroke();
+      /* Valeur au milieu des lignes assez longues pour la porter. */
+      let long=0; for(let q=1;q<l.length;q++) long+=Math.hypot(l[q][0]-l[q-1][0], l[q][1]-l[q-1][1]);
+      if(long<170) continue;
+      const m=l[Math.floor(l.length/2)], txt=String(v), w=ctx.measureText(txt).width+8;
+      if(!libre(m[0]-w/2, m[1]-8, w, 16)) continue;
+      ctx.fillStyle="rgba(8,16,30,.72)";
+      ctx.fillRect(m[0]-w/2, m[1]-7.5, w, 15);
+      ctx.fillStyle="#eaf2ff"; ctx.fillText(txt, m[0], m[1]+0.5);
+    }
+  }
+  /* A et D par-dessus tout. */
+  const b=map.getBounds().pad(0.05);
+  for(const c of centresAction()){
+    let lo=c.lo;
+    /* La vue peut s'étendre au-delà de ±180 : on ramène le centre dans la copie
+       du monde affichée. */
+    const cLng=map.getCenter().lng;
+    while(lo-cLng>180) lo-=360; while(cLng-lo>180) lo+=360;
+    if(!b.contains([c.la, lo])) continue;
+    const q=map.latLngToContainerPoint([c.la, lo]);
+    const lettre=c.bas?"D":"A", coul=c.bas?"#ff5b5b":"#4ea8ff";
+    const sous=c.cyclone ? c.cyclone : String(Math.round(c.p));
+    ctx.font="800 25px system-ui,sans-serif";
+    if(!libre(q.x-16, q.y-18, 32, 46)) continue;
+    texteHalo(ctx, lettre, q.x, q.y, "rgba(255,255,255,.95)", coul);
+    ctx.font="700 11px system-ui,sans-serif";
+    texteHalo(ctx, sous, q.x, q.y+19, "rgba(6,12,24,.85)", "#f4f8ff");
+    if(c.bas) nD++; else nA++;
+  }
+  cvP.classList.add("vu");
+  setC("c-isob", nA+" A · "+nD+" D");
+}
+
+/* ---------- Légende ----------
+   Une seule vignette, qui ne montre que ce qui est allumé. */
+function majLegendeMeteo(){
+  const el=$("#lgmeteo"); if(!el) return;
+  const t=tmpOn(), p=isoOn();
+  if(!(t||p) || !WBASE.size){ el.hidden=true; return; }
+  const h=wbaseAt ? new Date(wbaseAt).toLocaleTimeString(LANG==="fr"?"fr-FR":LANG,{hour:"2-digit",minute:"2-digit"}) : "";
+  let html="";
+  if(t){
+    /* Sur un petit écran, quatre graduations suffisent à lire l'échelle. */
+    const bornes=mqMobile.matches ? [-20,0,20,40] : [-30,-10,0,10,20,30,40];
+    const deg=bornes.map(v=>`<span>${isImp()?Math.round(v*9/5+32):v}</span>`).join("");
+    const grad=PAL_T.map(([v,c])=>`rgb(${c.map(Math.round).join(",")}) ${Math.round((v+40)/85*100)}%`).join(",");
+    html+=`<div class="lgm-t"><b>Températures</b><i style="background:linear-gradient(90deg,${grad})"></i><div class="lgm-d">${deg}</div></div>`;
+  }
+  if(p) html+=`<div class="lgm-p"><b>Pression</b> <span class="lgm-long">isobares tous les 5 hPa · </span><span class="lgA">A</span> anticyclone · <span class="lgD">D</span> dépression</div>`;
+  html+=`<div class="lgm-s">Modèle Open-Meteo, grille de 5°${h?" · relevé de "+h:""}</div>`;
+  el.innerHTML=html; el.hidden=false;
+  if(typeof traduisDOM==="function" && DICO) traduisDOM(el);
+}
+
+/* ---------- Orchestration ---------- */
+let meteoT=null;
+function redessineMeteo(fondu){
+  clearTimeout(meteoT);
+  meteoT=setTimeout(()=>{
+    if(fondu){ cvT.classList.remove("vu"); cvP.classList.remove("vu"); }
+    /* Une image plus tard, pour que le retrait de la classe soit pris en compte
+       et que le fondu se joue vraiment. */
+    requestAnimationFrame(()=>{ dessineT(); dessineP(); majLegendeMeteo(); });
+  }, 40);
+}
+async function allumeMeteo(){
+  if(!(tmpOn()||isoOn())){ cvT.classList.remove("vu"); cvP.classList.remove("vu"); majLegendeMeteo(); return; }
+  await chargeChamps();
+  redessineMeteo(true);
+}
+map.on("zoomstart", ()=>{ cvT.style.visibility="hidden"; cvP.style.visibility="hidden"; });
+map.on("zoomend", ()=>{ cvT.style.visibility=""; cvP.style.visibility=""; if(tmpOn()||isoOn()) redessineMeteo(true); });
+map.on("moveend", ()=>{ if(tmpOn()||isoOn()) redessineMeteo(false); });
+map.on("resize", ()=>{ if(tmpOn()||isoOn()) redessineMeteo(false); });
+document.addEventListener("champs", ()=>{ if(tmpOn()||isoOn()) redessineMeteo(true); });
+/* Le socle est rafraîchi par le robot toutes les deux heures : on relit sans
+   rien demander de plus que le fichier, et seulement si une couche le montre. */
+setInterval(()=>{ if(tmpOn()||isoOn()) chargeChamps(); }, 15*60e3);
+/* Les bulletins cycloniques paraissent toutes les trois à six heures ; le robot
+   les relaie au quart d'heure. On relit le fichier au même rythme. */
+setInterval(()=>{ if($("#tg-storms") && $("#tg-storms").checked) loadCyclones(); }, 15*60e3);
+
+/* Les cases existent déjà : le panneau des couches est construit plus haut. */
+for(const id of ["#tg-isob","#tg-tmap"]){
+  const e=$(id);
+  if(e) e.addEventListener("change", allumeMeteo);
+}
+/* La vignette de légende vit dans la carte, au-dessus de l'échelle. */
+(function(){
+  const lg=document.createElement("div");
+  lg.id="lgmeteo"; lg.hidden=true;
+  map.getContainer().appendChild(lg);
+  L.DomEvent.disableClickPropagation(lg);
+  L.DomEvent.disableScrollPropagation(lg);
+})();
+
 /* Échelle des services météorologiques : la couleur s’assombrit et vire au rouge
    puis au violet à mesure que le vent forcit. Les paliers suivent l’échelle de
    Beaufort et les seuils de vigilance (50, 80, 100, 120 km/h). */
@@ -6120,15 +6818,12 @@ async function fetchWind(){
   /* Le socle mondial d'abord : il est gratuit pour le visiteur (fichier du CDN)
      et garantit qu'il y a toujours quelque chose à afficher, même si tout le
      reste échoue. On ne le recharge qu'une fois par heure. */
-  if(!WBASE.size || Date.now()-wbaseAt>3600e3){
-    if(await loadWindBase()){
-      updKmPx(); seedParts(false);
-      wind.pause=false; startLoop();
-    }
+  /* Un seul chargement pour le vent, la pression et les températures : les
+     trois lisent la même grille. */
+  if(await chargeChamps()){
+    updKmPx(); seedParts(false);
+    wind.pause=false; startLoop();
   }
-  /* La grille fine des cyclones suit le même rythme. Elle est facultative : si
-     elle manque, l'animation tourne sur le socle comme avant. */
-  if(!wtcCharge || Date.now()-wtcAt>3600e3) await loadWindTC();
   const b=map.getBounds(), z=map.getZoom();
   const st=windStep();
   wind.step=st;
@@ -7364,6 +8059,13 @@ $("#tg-safe").addEventListener("change",ev=>{
   if(ev.target.checked) startSafety(); else stopSafety();
 });
 $("#tg-nuages").addEventListener("change",majNuages);
+/* La couche Cyclones pilote aussi les cyclones officiels ; et la carte de
+   pression retire son « D » de cyclone quand celle-ci le montre déjà. */
+$("#tg-storms").addEventListener("change",ev=>{
+  if(ev.target.checked){ map.addLayer(layers.cyclones); if(!CYCL) loadCyclones(); }
+  else map.removeLayer(layers.cyclones);
+  if(isoOn()) redessineMeteo(false);
+});
 /* Le satellite dépend de l'endroit regardé : changer de continent change
    d'image. Et l'heure avance, donc on rafraîchit aussi toutes les 5 min. */
 /* Le satellite depend de l'endroit regarde : on remet a jour l'etiquette au
@@ -7859,7 +8561,9 @@ const SHARE_KEYS=["tg-fire","tg-burnt","tg-risk",
   /* Ajoutees A LA FIN : les positions precedentes restent valides, donc les
      liens deja partages continuent d'etre lus correctement et la version du
      format n'a pas a changer. */
-  "tg-vigi","tg-orages","tg-nuages"];
+  "tg-vigi","tg-orages","tg-nuages",
+  /* Septembre 2026 : carte météo. Toujours ajoutées À LA FIN. */
+  "tg-isob","tg-tmap"];
 /* Lien court : les couches sont encodées en bits plutôt qu'en noms, ce qui fait
    passer l'adresse de 205 à une soixantaine de caractères. Un lien à rallonge
    inquiète les destinataires, qui le prennent pour une tentative d'arnaque. */
@@ -8226,7 +8930,14 @@ premierChargement.then(()=>{
   window.__appReady=true;
   hideLoader(); setMaj(); syncUI();
   if(!startHash && !startZone) initWelcome();
-  toast("Interface refondue : couches regroupées par thème, icônes vectorielles, rapport texte et °C/°F.");
+  /* Une annonce ne se lit qu'une fois. Celle-ci s'affichait à CHAQUE chargement,
+     des mois après la refonte qu'elle annonçait. */
+  try{
+    if(localStorage.getItem("pedAnnonce")!=="2026-09"){
+      toast("Nouveau : isobares, anticyclones et dépressions, carte des températures et cyclones officiels.", 6500);
+      localStorage.setItem("pedAnnonce","2026-09");
+    }
+  }catch(e){}
   idle(()=>{
     /* Ces couches ont déjà été chargées si le démarrage est passé par un lien de
        partage ou une zone mémorisée : les redemander ne ferait que dupliquer le
@@ -8236,6 +8947,8 @@ premierChargement.then(()=>{
       loadHotspots(); loadAlerts(); loadPerims(); loadCities(); loadEuba();
     }
     fetchWind();
+    allumeMeteo();
+    if($("#tg-storms").checked) loadCyclones();
     if($("#tg-radar").checked) initRadar();
     if($("#tg-aq").checked) loadAQ();
     if($("#tg-flood").checked) loadFlood();
