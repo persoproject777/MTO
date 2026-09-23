@@ -3528,7 +3528,16 @@ const esc = s => String(s==null?"":s).replace(/[<>&"]/g, c => ({"<":"&lt;",">":"
 fillCountries();
 const fmtDate = d => { try { return new Date(d).toLocaleString("fr-FR",{dateStyle:"medium",timeStyle:"short"}); } catch(e){ return String(d); } };
 const fmtShort = d => { try { return new Date(d).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); } catch(e){ return ""; } };
-const compass = d => ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"][Math.round(((d%360)+360)%360/22.5)%16];
+/* La rose des vents suit la langue. « NO » (nord-ouest) se lisait « non » en
+   anglais ; l'allemand écrit O pour Ost, l'est ; le chinois a ses propres noms.
+   L'espagnol, l'italien et le portugais notent l'ouest O, comme le français. */
+const ROSES = {
+  fr:["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"],
+  en:["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"],
+  de:["N","NNO","NO","ONO","O","OSO","SO","SSO","S","SSW","SW","WSW","W","WNW","NW","NNW"],
+  zh:["北","北东北","东北","东东北","东","东东南","东南","南东南","南","南西南","西南","西西南","西","西西北","西北","北西北"]
+};
+const compass = d => (ROSES[typeof LANG!=="undefined" && ROSES[LANG] ? LANG : "fr"])[Math.round(((d%360)+360)%360/22.5)%16];
 const flag = cc => cc ? String.fromCodePoint(...[...cc.toUpperCase()].map(c=>127397+c.charCodeAt(0))) : "";
 const RAD = Math.PI/180;
 function destPoint(lat, lon, brg, km){
@@ -3662,8 +3671,9 @@ async function loadEonet(){
     } else if(catId==="volcanoes"){
       mk.volcanoes.push(L.marker(ll,{icon:mkIcon("volc")}).bindPopup(
         `<div class="pp-t">${ic("volcano","x18")}${esc(ev.title)}</div><div class="pp-cat">Volcan en activité</div>
-         <div class="pp-row">Dernier relevé : <b>${fmtDate(when)}</b></div>
-         <div class="pp-desc">Activité signalée (éruption, cendres, coulées). Les cendres peuvent perturber l’aviation et la respiration loin du volcan.</div>
+         <div class="pp-row">Éruption en cours selon le Smithsonian (Global Volcanism Program), signalée depuis le <b>${fmtDate(first||when)}</b></div>
+         <div class="pp-row" style="color:#8fa4cc;font-size:11.5px">Une éruption dure souvent des mois, parfois des années : la date est celle du début, pas celle du dernier panache.</div>
+         <div class="pp-desc">Activité possible : explosions, cendres, coulées. Les cendres peuvent perturber l’aviation et la respiration loin du volcan.</div>
          ${src?`<a class="pp-link" href="${esc(src)}" target="_blank" rel="noopener">Bulletin officiel${ic("external","x12 xl")}</a>`:""}`,{maxWidth:290}));
       n.volcanoes++;
     } else if(catId==="seaLakeIce"){
@@ -3807,11 +3817,12 @@ function dessineCyclone(c){
       pris.add(best.q);
       L.circleMarker([best.q[0],best.q[1]],{renderer:cnv, radius:4, color:"#eaf2ff", weight:1.4, fillColor:col, fillOpacity:1})
         .bindTooltip("+"+h+" h",{permanent:true, direction:"right", className:"ttime tc-h tc-h"+h, offset:[5,0]})
-        .bindPopup(`<div class="pp-t">${ic("clock","x16")}${esc(c.nom)} — position prévue</div><div class="pp-row"><b>${esc(dateTc(best.q[2]))}</b></div><div class="pp-row" style="color:#8fa4cc;font-size:11.5px">Prévision du bulletin officiel. L'incertitude grandit avec l'échéance : c'est le rôle du cône.</div>`,{maxWidth:260})
+        .bindPopup(()=>`<div class="pp-t">${ic("clock","x16")}${esc(c.nom)} <span>— position prévue</span></div><div class="pp-row"><b>${esc(dateTc(best.q[2]))}</b></div><div class="pp-row" style="color:#8fa4cc;font-size:11.5px">Prévision du bulletin officiel. L'incertitude grandit avec l'échéance : c'est le rôle du cône.</div>`,{maxWidth:260})
         .addTo(g);
     }
   }
   /* Déplacement mesuré sur les deux dernières positions officielles. */
+  const deplacement=()=>{
   let move="Déplacement lent ou indéterminé";
   const T=c.trk||[];
   if(T.length>=2){
@@ -3821,14 +3832,17 @@ function dessineCyclone(c){
       if(v>1 && v<120) move=`Se déplace à <b>${fmtV(v)}</b> vers <b>${compass(bearing([a[0],a[1]],[b[0],b[1]]))}</b>`;
     }
   }
+  return move;
+  };
   const nomCl=nomClasse(c);
+  const fiche=()=>{
   const ageH=c.tpos ? (Date.now()-c.tpos)/36e5 : null;
   const zoneTxt=[120,90,60].filter(s=>c.zones&&c.zones[s]).map(s=>`<span style="color:${zc[s]}">≥ ${fmtV(s)}</span>`).join(" · ");
-  const pop=`<div class="pp-t" style="color:${col}">${ic("cyclone","x18")}${esc(nomCl)} ${esc(c.nom)}</div>
+  const pop=`<div class="pp-t" style="color:${col}">${ic("cyclone","x18")}<span>${esc(nomCl)}</span> ${esc(c.nom)}</div>
     <div class="pp-cat">Cyclone tropical — bulletin officiel via GDACS</div>
     ${c.vmax?`<div class="pp-row">Pic de vent sur la vie du système, <b>observé ou prévu</b> : <b>${fmtV(c.vmax)}</b></div>`:""}
     <div class="pp-row">Position officielle : <b>${c.tpos?esc(dateTc(Math.round(c.tpos/60000))):"—"}</b>${ageH!=null&&ageH>9?` <span style="color:#e0a33c">(bulletin de plus de ${Math.round(ageH)} h)</span>`:""}</div>
-    <div class="pp-row">${move}</div>
+    <div class="pp-row">${deplacement()}</div>
     ${prv.length?`<div class="pp-row">Prévision officielle jusqu'au <b>${esc(dateTc(c.prv[c.prv.length-1][2]))}</b> — pointillés et cône.</div>`:`<div class="pp-row" style="color:#8fa4cc">Plus de prévision publiée : le système s'affaiblit ou se dissipe.</div>`}
     ${zoneTxt?`<div class="pp-row">Couloirs de vent prévus : ${zoneTxt}</div>`:""}
     ${c.co?`<div class="pp-row">Pays concernés : <b>${esc(c.co)}</b></div>`:""}
@@ -3836,15 +3850,17 @@ function dessineCyclone(c){
     ${c.geoAncienne?`<div class="pp-warn">Géométrie du bulletin précédent : le dernier n'a pas pu être lu.</div>`:""}
     <a class="pp-link" href="#" onclick="showNews(${c.pos[0]},${c.pos[1]},'storm','Cyclone — actualités');return false">${ic("news","x14")}Actualités : dégâts, évacuations</a>
     ${c.u?`<br><a class="pp-link" href="${esc(c.u)}" target="_blank" rel="noopener">Bulletin GDACS${ic("external","x12 xl")}</a>`:""}`;
+  return pop;
+  };
   L.marker(c.pos,{icon:icoCyclone(c), zIndexOffset:900, riseOnHover:true})
     /* L'étiquette ne porte QUE la classe actuelle et le nom. Le vent maximal
        publié est le pic de toute la vie du système, prévision comprise :
        écrit à côté de « Dépression tropicale », « 185 km/h » se lisait comme le
        vent d'aujourd'hui — ce qu'il n'est pas. Le chiffre est dans la fiche,
        avec sa définition. */
-    .bindTooltip(`${esc(nomCl)} ${esc(c.nom)}`,
+    .bindTooltip(`<span>${esc(nomCl)}</span> ${esc(c.nom)}`,
       {permanent:true, direction:"bottom", className:"tc-nom", offset:[0,12]})
-    .bindPopup(pop,{maxWidth:mqMobile.matches?262:320})
+    .bindPopup(fiche,{maxWidth:mqMobile.matches?262:320})
     .addTo(g);
   return g;
 }
@@ -4022,7 +4038,16 @@ function drawQuakes(){
   }
   /* Le compteur dit ce qui est montré ET ce qui est masqué, avec le seuil en
      vigueur : sinon on croit que la carte a perdu des données. */
-  setC("c-quakes", n + (masques ? (minM ? " · M≥"+minM.toFixed(1) : " / "+(n+masques)) : ""));
+  /* « 2 · M≥5.5 » se lisait « deux séismes », alors que la semaine en comptait
+     cent neuf : seuls les plus forts sont dessinés de loin. On écrit donc
+     « affichés / total », et la bulle d'aide dit pourquoi. Le nombre reste lisible
+     dans toutes les langues ; l'explication, elle, est traduite. */
+  setC("c-quakes", masques ? n+" / "+(n+masques) : String(n));
+  const cq=$("#c-quakes");
+  if(cq) cq.title = masques
+    ? (minM ? "Affichés / total de la période. De loin, seuls les séismes les plus forts sont dessinés : zoomez pour voir les plus faibles."
+            : "Affichés dans la vue / total de la période.")
+    : "Séismes affichés.";
   setC("ch-quakes", n);
 }
 
@@ -4775,7 +4800,13 @@ function openInfo(latlng, key){
    verse son contenu dans la fiche et on referme le popup aussitôt : il n'a donc
    jamais le temps de déplacer la carte. */
 map.on("popupopen", e=>{
-  const c=e.popup.getContent();
+  /* Un contenu peut être une FONCTION : la fiche est alors fabriquée à
+     l'ouverture, dans la langue du moment et avec des durées à jour. Figée au
+     chargement, elle gardait ses dates en français après un changement de
+     langue, et ses « il y a 3 h » vieillissaient sans bouger. */
+  const c0=e.popup.getContent();
+  let c=c0;
+  if(typeof c0==="function"){ try{ c=c0(e.popup._source); }catch(err){ c=""; } }
   if(typeof c!=="string" || !c) return;
   cardKey="mk"+Date.now();
   cardBody.innerHTML=c;
@@ -5149,7 +5180,10 @@ async function loadVigilance(){
         .addTo(layers.vigi);
       n++;
     }
-    setC("c-vigi", n ? (rouge?rouge+" rouge"+(rouge>1?"s":"")+" · ":"")+(orange?orange+" orange":n+" zones") : 0);
+    /* « 0 » à côté de « Vigilance » se lisait comme un niveau, ou comme une panne.
+       Quand le flux officiel ne porte aucune vigilance en cours — c'est le cas
+       plusieurs jours de suite hors épisode — on l'écrit. */
+    setC("c-vigi", n ? (rouge?rouge+" rouge"+(rouge>1?"s":"")+" · ":"")+(orange?orange+" orange":n+" zones") : "aucune en cours");
   }catch(e){ setC("c-vigi","–"); }
 }
 
@@ -6481,7 +6515,7 @@ function dessineT(){
   ctx.drawImage(petiteT, 0,0,nx,ny, -pas/2,-pas/2, nx*pas, ny*pas);
   cvT.classList.add("vu");
   /* Compteur : l'étendue des températures À L'ÉCRAN, pas un nombre d'objets. */
-  if(tmin<=tmax) setC("c-tmap", fmtT(tmin).replace(/\s*°[CF]/,"")+" à "+fmtT(tmax));
+  if(tmin<=tmax) setC("c-tmap", fmtT(tmin)===fmtT(tmax) ? fmtT(tmin) : fmtT(tmin).replace(/\s*°[CF]/,"")+" – "+fmtT(tmax));
   else setC("c-tmap","–");
 }
 
@@ -6715,7 +6749,7 @@ function majLegendeMeteo(){
     html+=`<div class="lgm-t"><b>Températures</b><i style="background:linear-gradient(90deg,${grad})"></i><div class="lgm-d">${deg}</div></div>`;
   }
   if(p) html+=`<div class="lgm-p"><b>Pression</b> <span class="lgm-long">isobares tous les 5 hPa · </span><span class="lgA">A</span> anticyclone · <span class="lgD">D</span> dépression</div>`;
-  html+=`<div class="lgm-s">Modèle Open-Meteo, grille de 5°${h?" · relevé de "+h:""}</div>`;
+  html+=`<div class="lgm-s"><span>Modèle Open-Meteo, grille de 5°</span>${h?` · <span>relevé de</span> ${h}`:""}</div>`;
   el.innerHTML=html; el.hidden=false;
   if(typeof traduisDOM==="function" && DICO) traduisDOM(el);
 }
