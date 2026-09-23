@@ -6252,8 +6252,37 @@ async function loadWindBase(){
     for(const c of d.cells) WBASE.set(c[0]+"|"+c[1], {u:c[2], v:c[3],
       t:c.length>4 ? c[4] : null, p:c.length>5 ? c[5] : null});
     wbaseAt=d.t||0;
+    indexeSocle();
     return true;
   }catch(e){ return false; }
+}
+/* ACCÈS DIRECT AU SOCLE. Chaque lecture fabriquait une clé texte (« 45|-100 »)
+   pour interroger une table : quatre-vingt-douze mille fois par dessin de la
+   carte météo, et quatre fois par particule de vent à chaque image. On range
+   les MÊMES objets dans un tableau adressé par ligne et colonne : les calculs
+   qui suivent sont inchangés, seule la recherche devient instantanée. Une
+   case absente rend `undefined`, exactement comme la table. */
+let GR=null;
+function indexeSocle(){
+  GR=null;
+  if(!WBASE.size) return;
+  const st=wbaseStep, nlo=Math.round(360/st);
+  if(Math.abs(nlo*st-360)>1e-9) return;                 /* pas qui ne divise pas 360 : on garde la table */
+  let laMin=Infinity, laMax=-Infinity;
+  for(const k of WBASE.keys()){ const la=+k.split("|")[0]; if(la<laMin) laMin=la; if(la>laMax) laMax=la; }
+  const nla=Math.round((laMax-laMin)/st)+1, arr=new Array(nla*nlo);
+  for(const [k,c] of WBASE){
+    const q=k.split("|"), r=Math.round((+q[0]-laMin)/st), col=Math.round((+q[1]+180)/st);
+    if(r>=0 && r<nla && col>=0 && col<nlo) arr[r*nlo+col]=c;
+  }
+  GR={la0:laMin, lo0:-180, st, nla, nlo, arr};
+}
+function cellSocle(y, x){
+  const G=GR;
+  if(!G) return WBASE.get(y+"|"+(((x+540)%360)-180));
+  const r=(y-G.la0)/G.st, c=((((x+540)%360)-180)-G.lo0)/G.st;
+  if(r<0 || r>=G.nla || c<0 || c>=G.nlo || r!==Math.floor(r) || c!==Math.floor(c)) return undefined;
+  return G.arr[r*G.nlo+c];
 }
 /* Interpolation bilinéaire sur le socle, avec repli sur la cellule la plus proche. */
 function grosUV(la, lo){
@@ -6261,7 +6290,7 @@ function grosUV(la, lo){
   const st=wbaseStep;
   const la0=Math.floor(la/st)*st;
   let lo0=Math.floor(lo/st)*st;
-  const g=(y,x)=>WBASE.get(y+"|"+(((x+540)%360)-180));
+  const g=cellSocle;
   const c00=g(la0,lo0), c10=g(la0,lo0+st), c01=g(la0+st,lo0), c11=g(la0+st,lo0+st);
   if(!c00 && !c10 && !c01 && !c11) return null;
   const tx=(lo-lo0)/st, ty=(la-la0)/st;
@@ -6439,7 +6468,7 @@ function grosS(la, lo, k){
   if(!WBASE.size) return null;
   const st=wbaseStep;
   const la0=Math.floor(la/st)*st, lo0=Math.floor(lo/st)*st;
-  const g=(y,x)=>{ const c=WBASE.get(y+"|"+(((x+540)%360)-180)); return c && c[k]!=null ? c[k] : null; };
+  const g=(y,x)=>{ const c=cellSocle(y,x); return c && c[k]!=null ? c[k] : null; };
   const tx=(lo-lo0)/st, ty=(la-la0)/st;
   const v00=g(la0,lo0), v10=g(la0,lo0+st), v01=g(la0+st,lo0), v11=g(la0+st,lo0+st);
   let s=0, w=0;
@@ -6519,6 +6548,55 @@ function axesEcran(pas, s){
   return {nx, ny, lon, lat};
 }
 
+
+/* ---------- Échantillonnage d'un champ sur toute la grille d'écran ----------
+   Mercator est séparable : sur une ligne d'écran la latitude est la même, sur
+   une colonne la longitude aussi. On calcule donc les indices de maille et les
+   poids d'interpolation UNE fois par ligne et UNE fois par colonne, au lieu de
+   les recalculer pour chacun des vingt-sept mille points d'un dessin. Le calcul
+   de chaque point est ensuite exactement celui de grosS — mêmes mailles, mêmes
+   poids, même renormalisation — et les points proches d'un cyclone passent par
+   champS, qui ajoute la grille fine. Le résultat est identique à l'appel point
+   par point ; seul le temps change. */
+function rasterS(k, ax, limLat){
+  const {nx, ny, lon, lat}=ax, out=new Float64Array(nx*ny).fill(NaN);
+  const G=GR;
+  if(!G){
+    for(let j=0;j<ny;j++){ if(Math.abs(lat[j])>limLat) continue;
+      for(let i=0;i<nx;i++){ const v=champS(lat[j], lon[i], k); if(v!=null) out[j*nx+i]=v; } }
+    return out;
+  }
+  const st=G.st, nlo=G.nlo, arr=G.arr;
+  const col=x=>{ const c=((((x+540)%360)-180)-G.lo0)/st; return (c<0 || c>=nlo || c!==Math.floor(c)) ? -1 : c; };
+  const lig=y=>{ const r=(y-G.la0)/st; return (r<0 || r>=G.nla || r!==Math.floor(r)) ? -1 : r; };
+  const cA=new Int32Array(nx), cB=new Int32Array(nx), TX=new Float64Array(nx);
+  for(let i=0;i<nx;i++){ const lo=lon[i], lo0=Math.floor(lo/st)*st; TX[i]=(lo-lo0)/st; cA[i]=col(lo0); cB[i]=col(lo0+st); }
+  const val=(r,c)=>{ if(r<0 || c<0) return null; const q=arr[r*nlo+c]; return q && q[k]!=null ? q[k] : null; };
+  /* Masques des zones fines : un bit par cyclone, par ligne et par colonne. */
+  const Z=WTC.length ? WTC.slice(0,30) : null;
+  const mCol=Z ? new Int32Array(nx) : null;
+  if(Z) for(let i=0;i<nx;i++){ let m=0; Z.forEach((z,b)=>{ if(Math.abs((((lon[i]-z.lo+540)%360)-180))<=wtcRay) m|=1<<b; }); mCol[i]=m; }
+  for(let j=0;j<ny;j++){
+    const la=lat[j];
+    if(Math.abs(la)>limLat) continue;
+    const la0=Math.floor(la/st)*st, ty=(la-la0)/st, rA=lig(la0), rB=lig(la0+st);
+    let mLig=0;
+    if(Z) Z.forEach((z,b)=>{ if(Math.abs(la-z.la)<=wtcRay) mLig|=1<<b; });
+    const o=j*nx;
+    for(let i=0;i<nx;i++){
+      if(mLig && (mLig & mCol[i])){ const v=champS(la, lon[i], k); if(v!=null) out[o+i]=v; continue; }
+      const tx=TX[i];
+      let s2=0, w=0, v, q;
+      v=val(rA,cA[i]); q=(1-tx)*(1-ty); if(v!=null && q>0){ s2+=v*q; w+=q; }
+      v=val(rA,cB[i]); q=tx*(1-ty);     if(v!=null && q>0){ s2+=v*q; w+=q; }
+      v=val(rB,cA[i]); q=(1-tx)*ty;     if(v!=null && q>0){ s2+=v*q; w+=q; }
+      v=val(rB,cB[i]); q=tx*ty;         if(v!=null && q>0){ s2+=v*q; w+=q; }
+      if(w>=0.5) out[o+i]=s2/w;
+    }
+  }
+  return out;
+}
+
 /* ---------- La carte des températures ----------
    Palette des bulletins météo : violet glacial, bleus, vert tendre, jaune,
    orange, rouge, grenat. Les paliers sont ceux qu'on lit d'un coup d'œil. */
@@ -6551,12 +6629,12 @@ function dessineT(){
   const pc=petiteT.getContext("2d");
   const img=pc.createImageData(nx, ny), d=img.data;
   let tmin=1e9, tmax=-1e9;
+  const R=rasterS("t", {nx, ny, lon, lat}, 82);
   for(let j=0;j<ny;j++){
-    const la=lat[j];
     for(let i=0;i<nx;i++){
       const o=(j*nx+i)*4;
-      const t=Math.abs(la)>82 ? null : champS(la, lon[i], "t");
-      if(t==null){ d[o+3]=0; continue; }
+      const t=R[j*nx+i];
+      if(t!==t){ d[o+3]=0; continue; }
       if(t<tmin) tmin=t; if(t>tmax) tmax=t;
       const c=couleurT(t);
       d[o]=c[0]; d[o+1]=c[1]; d[o+2]=c[2]; d[o+3]=150;
@@ -6576,35 +6654,46 @@ function dessineT(){
    Une ligne tous les 5 hPa, comme sur les cartes de Météo-France. Tracées par
    « carrés marchants » sur une grille d'écran, puis lissées : sans lissage,
    l'interpolation d'une grille de cinq degrés dessine des lignes brisées. */
-function segmentsNiveau(P, nx, ny, pas, v){
-  const seg=[];
-  const pt=(x0,y0,a,x1,y1,b)=>{ const f=(v-a)/(b-a); return [x0+(x1-x0)*f, y0+(y1-y0)*f]; };
+/* Tous les niveaux en UN passage. Parcourir la grille entière pour chaque
+   niveau de pression coûtait autant de passages que de niveaux, alors qu'une
+   maille n'est traversée que par un ou deux d'entre eux. Chaque maille ne
+   traite ici que les niveaux strictement compris entre son minimum et son
+   maximum — les seuls qui la coupent. Les segments de chaque niveau sortent
+   dans le même ordre qu'avant, par la même règle : le tracé est identique. */
+function segmentsTous(P, nx, ny, pas, v0, dv, nv){
+  const parNiveau=Array.from({length:nv}, ()=>[]);
   for(let j=0;j<ny-1;j++){
     for(let i=0;i<nx-1;i++){
       const a=P[j*nx+i], b=P[j*nx+i+1], c=P[(j+1)*nx+i+1], d=P[(j+1)*nx+i];
-      if(a!==a || b!==b || c!==c || d!==d) continue;         /* NaN : pas de donnée */
-      let k=0;
-      if(a>=v) k|=8; if(b>=v) k|=4; if(c>=v) k|=2; if(d>=v) k|=1;
-      if(k===0 || k===15) continue;
-      const x=i*pas, y=j*pas, X=x+pas, Y=y+pas;
-      const H=()=>pt(x,y,a,X,y,b), R=()=>pt(X,y,b,X,Y,c), B=()=>pt(x,Y,d,X,Y,c), G=()=>pt(x,y,a,x,Y,d);
-      switch(k){
-        case 1: case 14: seg.push([G(),B()]); break;
-        case 2: case 13: seg.push([B(),R()]); break;
-        case 3: case 12: seg.push([G(),R()]); break;
-        case 4: case 11: seg.push([H(),R()]); break;
-        case 6: case 9:  seg.push([H(),B()]); break;
-        case 7: case 8:  seg.push([G(),H()]); break;
-        case 5: case 10: {
-          /* Col : on tranche par la valeur au centre, sinon deux lignes se croisent. */
-          const m=(a+b+c+d)/4;
-          if((m>=v) === (k===5)){ seg.push([G(),H()]); seg.push([B(),R()]); }
-          else { seg.push([G(),B()]); seg.push([H(),R()]); }
+      if(a!==a || b!==b || c!==c || d!==d) continue;
+      const mn=Math.min(a,b,c,d), mx=Math.max(a,b,c,d);
+      let q0=Math.ceil((mn-v0)/dv); if(v0+q0*dv<=mn) q0++;
+      const q1=Math.min(nv-1, Math.floor((mx-v0)/dv));
+      for(let q=Math.max(0,q0); q<=q1; q++){
+        const v=v0+q*dv, seg=parNiveau[q];
+        const pt=(x0,y0,A,x1,y1,B)=>{ const f=(v-A)/(B-A); return [x0+(x1-x0)*f, y0+(y1-y0)*f]; };
+        let k=0;
+        if(a>=v) k|=8; if(b>=v) k|=4; if(c>=v) k|=2; if(d>=v) k|=1;
+        if(k===0 || k===15) continue;
+        const x=i*pas, y=j*pas, X=x+pas, Y=y+pas;
+        const H=()=>pt(x,y,a,X,y,b), R=()=>pt(X,y,b,X,Y,c), B=()=>pt(x,Y,d,X,Y,c), G=()=>pt(x,y,a,x,Y,d);
+        switch(k){
+          case 1: case 14: seg.push([G(),B()]); break;
+          case 2: case 13: seg.push([B(),R()]); break;
+          case 3: case 12: seg.push([G(),R()]); break;
+          case 4: case 11: seg.push([H(),R()]); break;
+          case 6: case 9:  seg.push([H(),B()]); break;
+          case 7: case 8:  seg.push([G(),H()]); break;
+          case 5: case 10: {
+            const m=(a+b+c+d)/4;
+            if((m>=v) === (k===5)){ seg.push([G(),H()]); seg.push([B(),R()]); }
+            else { seg.push([G(),B()]); seg.push([H(),R()]); }
+          }
         }
       }
     }
   }
-  return seg;
+  return parNiveau;
 }
 /* Recoud les segments bout à bout en lignes continues. */
 function recoud(seg){
@@ -6656,9 +6745,18 @@ function chaikin(l, n){
    degrés : il en reste une quarantaine, l'ordre de grandeur d'une carte
    mondiale. Au-delà de 72° de latitude, Mercator étire trop pour placer un
    centre honnêtement. */
+/* Les centres ne dépendent que des données, pas de la vue : on les calcule
+   une fois par relevé, au lieu d'à chaque glissement de la carte. */
+let centresMemo=null, centresCle="";
 function centresAction(){
+  const cle=wbaseAt+"|"+wtcAt+"|"+WTC.length+"|"+!!($("#tg-storms") && $("#tg-storms").checked);
+  if(centresMemo && cle===centresCle) return centresMemo;
+  centresCle=cle;
+  return (centresMemo=centresCalcul());
+}
+function centresCalcul(){
   const out=[], st=wbaseStep;
-  const g=(la,lo)=>{ const c=WBASE.get(la+"|"+(((lo+540)%360)-180)); return c && c.p!=null ? c.p : null; };
+  const g=(la,lo)=>{ const c=cellSocle(la,lo); return c && c.p!=null ? c.p : null; };
   for(const [cle, c] of WBASE){
     if(c.p==null) continue;
     const [la, lo]=cle.split("|").map(Number);
@@ -6722,16 +6820,9 @@ function dessineP(){
   const {ctx, s}=caleToile(cvP);
   const pas=LOW?16:11;
   const {nx, ny, lon, lat}=axesEcran(pas, s);
-  const P=new Float32Array(nx*ny);
+  const P=rasterS("p", {nx, ny, lon, lat}, 80);
   let vmin=1e9, vmax=-1e9;
-  for(let j=0;j<ny;j++){
-    const la=lat[j];
-    for(let i=0;i<nx;i++){
-      const v=Math.abs(la)>80 ? null : champS(la, lon[i], "p");
-      P[j*nx+i]=v==null ? NaN : v;
-      if(v!=null){ if(v<vmin) vmin=v; if(v>vmax) vmax=v; }
-    }
-  }
+  for(let q=0;q<P.length;q++){ const v=P[q]; if(v===v){ if(v<vmin) vmin=v; if(v>vmax) vmax=v; } }
   if(vmin>vmax){ cvP.classList.remove("vu"); setC("c-isob","–"); return; }
   let nA=0, nD=0;
   const place=[];                                  /* boîtes d'étiquettes déjà posées */
@@ -6742,8 +6833,11 @@ function dessineP(){
   };
   ctx.font="600 10.5px system-ui,sans-serif";
   ctx.textAlign="center"; ctx.textBaseline="middle";
-  for(let v=Math.ceil(vmin/5)*5; v<=vmax; v+=5){
-    const lignes=recoud(segmentsNiveau(P, nx, ny, pas, v));
+  const v0=Math.ceil(vmin/5)*5, nv=Math.max(0, Math.floor((vmax-v0)/5)+1);
+  const SEG=segmentsTous(P, nx, ny, pas, v0, 5, nv);
+  for(let q=0;q<nv;q++){
+    const v=v0+q*5;
+    const lignes=recoud(SEG[q]);
     const fort=v%20===0;
     for(const l0 of lignes){
       if(l0.length<3) continue;
