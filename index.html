@@ -2427,12 +2427,58 @@ let PRE = {ok:false, age:null, seen:false, seenAge:0};
 /* On sonde UNE seule fois si le dossier data/ existe. S'il est absent (robot
    GitHub jamais lancé, ou fichier ouvert seul), on n'essaie plus du tout :
    inutile de multiplier les 404 dans le journal. */
-let PRE_AVAIL = null, PRE_FILES = null, PRE_VU = null;
+let PRE_AVAIL = null, PRE_FILES = null, PRE_VU = null, PRE_CH = null;
+
+/* ---------- COPIES LOCALES, INDEXÉES PAR VERSION DE CONTENU ----------
+   GitHub Pages change l'empreinte (ETag) de tous les fichiers à chaque
+   publication du robot, soit toutes les quinze minutes : pour le navigateur,
+   un fichier inchangé depuis des semaines est un fichier nouveau, et il le
+   retélécharge en entier. Les frontières (215 ko) repartaient ainsi à chaque
+   visite.
+
+   Le robot publie désormais, dans meta.json, la VERSION de contenu de chaque
+   fichier — la date de son dernier changement. La page garde sa propre copie
+   de chaque fichier, rangée sous sa version : tant que la version annoncée
+   est la même, la copie sert, et le réseau n'est pas touché. Un fichier ne
+   coûte donc plus rien tant qu'il n'a pas changé.
+
+   Pas de service worker : il aurait fallu qu'il gère aussi la page elle-même,
+   et une page servie en cache retarde d'une visite chaque correction publiée.
+   L'API Cache s'utilise très bien depuis la page. Sans elle (contexte non
+   sécurisé, navigation privée stricte), tout fonctionne comme avant. */
+const CACHE_LOCAL = "mto-donnees-1";
+const CL_OK = (()=>{ try{ return typeof caches!=="undefined" && !!window.isSecureContext; }catch(e){ return false; } })();
+const CL_STAT = {lus:0, telecharges:0, octetsEvites:0};
+window.__cacheLocal = () => CL_STAT;
+async function copieLue(url){
+  if(!CL_OK) return null;
+  try{
+    const c=await caches.open(CACHE_LOCAL);
+    const r=await c.match(url);
+    if(!r) return null;
+    const txt=await r.text();
+    CL_STAT.lus++; CL_STAT.octetsEvites+=txt.length;
+    return JSON.parse(txt);
+  }catch(e){ return null; }
+}
+/* On range la nouvelle version et on retire les anciennes du même fichier :
+   le cache ne grossit jamais au-delà d'une copie par fichier. */
+async function copieEcrite(prefixe, url, data){
+  if(!CL_OK) return;
+  try{
+    const c=await caches.open(CACHE_LOCAL);
+    for(const k of await c.keys()) if(k.url.indexOf(prefixe)>=0 && k.url.indexOf(url.split("/").pop())<0) await c.delete(k);
+    await c.put(url, new Response(JSON.stringify(data), {headers:{"Content-Type":"application/json"}}));
+  }catch(e){}
+}
 async function preAvailable(){
   if(PRE_AVAIL!==null) return PRE_AVAIL;
   try{ if(location.protocol==="content:"||location.protocol==="file:"){ PRE_AVAIL=false; return false; } }catch(e){}
   try{
-    const r=await fetch(DATA_BASE+"meta.json?probe="+Math.floor(Date.now()/600000));
+    /* Deux minutes et non plus dix : meta.json (1,5 ko) annonce les versions de
+       tous les autres fichiers, il doit être frais pour que les copies locales
+       ne servent jamais une version dépassée. */
+    const r=await fetch(DATA_BASE+"meta.json?probe="+Math.floor(Date.now()/120000));
     PRE_AVAIL = r.ok;
     if(r.ok){
       const m=await r.json();
@@ -2443,6 +2489,7 @@ async function preAvailable(){
          inscrite dans son fichier : une donnée inchangée n'est pas une donnée
          périmée. Voir le commentaire de VU dans le robot. */
       PRE_VU = (m.vu && typeof m.vu === "object") ? m.vu : null;
+      PRE_CH = (m.ch && typeof m.ch === "object") ? m.ch : null;
     }
   }catch(e){ PRE_AVAIL=false; }
   if(!PRE_AVAIL && window.__diagPush)
@@ -2485,7 +2532,13 @@ async function preload(name, maxAgeMs){
   const miss=PRE_MISS.get(name);
   if(miss && Date.now()-miss < PRE_MISS_TTL) return null;
   try{
-    const d = await fetchJSON(DATA_BASE+name+".json?v="+Math.floor(Date.now()/300000), null, 240000, 12000);
+    const ver = PRE_CH && PRE_CH[name];
+    const url = DATA_BASE+name+".json?v="+(ver || Math.floor(Date.now()/300000));
+    let d = ver ? await copieLue(url) : null;
+    if(!d){
+      d = await fetchJSON(url, null, 240000, 12000);
+      if(d){ CL_STAT.telecharges++; if(ver) copieEcrite("/data/"+name+".json?", url, d); }
+    }
     if(!d) return null;
     if(d.t){ PRE.seen=true; PRE.seenAge=Date.now()-d.t; }
     /* On juge sur la dernière VÉRIFICATION, pas sur le dernier CHANGEMENT.
@@ -9021,17 +9074,26 @@ setTimeout(hideLoader,9000);
    LE TEXTE D'ORIGINE EST CONSERVÉ sur chaque nœud, sinon changer deux fois de
    langue traduirait une traduction. */
 
+/* Version des dictionnaires : à changer à chaque modification des fichiers
+   data/i18n/*.json. Elle sert de clé à la copie locale ; sans elle, un
+   visiteur garderait des traductions périmées, ou retéléchargerait à chaque
+   visite un fichier de 150 ko qui n'a pas changé. */
+const I18N_VER = "2026-09-23b";
 async function chargeDico(lg){
   if(lg === "fr") return null;
   if(dicoCache.has(lg)) return dicoCache.get(lg);
+  const url = new URL("data/i18n/" + lg + ".json?v=" + I18N_VER, location.href).href;
+  const loc = await copieLue(url);
+  if(loc){ dicoCache.set(lg, loc); return loc; }
   try{
         /* Pas de « force-cache » : le navigateur revaliderait mal un dictionnaire
        mis a jour, et l'on servirait une version perimee sans le savoir. Le
        cache HTTP normal suffit — ces fichiers sont statiques. */
-    const r = await fetch("data/i18n/" + lg + ".json");
+    const r = await fetch(url);
     if(!r.ok) throw new Error("HTTP " + r.status);
     const d = await r.json();
     dicoCache.set(lg, d);
+    copieEcrite("/data/i18n/" + lg + ".json?", url, d);
     return d;
   }catch(e){
     if(window.__diagPush) window.__diagPush("RÉSEAU", "Dictionnaire « " + lg + " » indisponible : " + e.message);

@@ -1514,6 +1514,21 @@ async function effis() {
   /* On reporte les dates de dernière vérification des sources non interrogées
      ce tour-ci : elles restent vraies, seules celles du tour changent. */
   const vu = Object.assign({}, prev.vu || {}, VU);
+  /* VERSION DE CONTENU de chaque fichier : la date de son dernier CHANGEMENT,
+     lue dans le fichier lui-même. GitHub Pages change l'empreinte (ETag) de
+     TOUS les fichiers à chaque publication, donc toutes les quinze minutes : le
+     cache du navigateur ne servait à rien, et un fichier inchangé depuis
+     cinquante-cinq jours — les frontières, 215 ko — était retéléchargé à
+     chaque visite. Avec cette version, la page garde sa propre copie et ne
+     redemande un fichier que s'il a réellement changé. */
+  const ch = {};
+  for (const f of files) {
+    try {
+      const t = JSON.parse(fs.readFileSync(path.join(OUT, f + ".json"), "utf8")).t;
+      if (t) ch[f] = t;
+    } catch (e) { /* illisible : pas de version, la page le téléchargera */ }
+  }
+  const chChanged = JSON.stringify(prev.ch || {}) !== JSON.stringify(ch);
   const listChanged = JSON.stringify(prev.files || []) !== JSON.stringify(files);
   const triedChanged = (prev.effisTried || 0) !== effisTried || (prev.windAt || 0) !== windAt
     || (prev.tcAt || 0) !== tcAt;
@@ -1521,9 +1536,9 @@ async function effis() {
      précisément l'information qui manquait au navigateur. On ne republie que si
      l'écart dépasse le quart d'heure, pour ne pas commiter à chaque tour. */
   const vuChanged = Object.keys(vu).some(k => (vu[k] || 0) - ((prev.vu || {})[k] || 0) > 14 * 60e3);
-  if (WROTE.length || listChanged || triedChanged || vuChanged) {
+  if (WROTE.length || listChanged || triedChanged || vuChanged || chChanged) {
     fs.writeFileSync(path.join(OUT, "meta.json"), JSON.stringify({
-      built: now, builtISO: new Date(now).toISOString(), kind: only, files, vu, effisTried, windAt, tcAt
+      built: now, builtISO: new Date(now).toISOString(), kind: only, files, vu, ch, effisTried, windAt, tcAt
     }));
     console.log("  +  meta.json      " + files.length + " fichiers : " + files.join(", "));
   } else {
