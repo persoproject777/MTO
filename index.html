@@ -31,12 +31,19 @@
   --bg:#060c18; --panel:rgba(10,17,32,.97); --card:#0b1428; --line:#1d2b49;
   --txt:#e9f0ff; --mut:#8fa4cc;
   --cyan:#3ce0ff; --ember:#ff7a3c; --alert:#ff2e63; --amber:#ffc46b; --ok:#4be3a4; --org:#ff9f43;
-  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,Menlo,monospace;
+  /* Police d'interface : celle du système, la plus nette et la plus rapide
+     (aucun téléchargement). Segoe UI Variable sous Windows 11, SF Pro sous
+     macOS et iOS, Roboto sous Android. */
+  --ui:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",-apple-system,BlinkMacSystemFont,"SF Pro Text",Roboto,"Helvetica Neue",Arial,sans-serif;
+  /* Les chiffres étaient composés en police à chasse fixe, celle des terminaux :
+     c'est ce qui donnait à la carte son air de console. La même police que le
+     texte, avec des chiffres de largeur égale, aligne aussi bien les colonnes. */
+  --mono:var(--ui);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--txt);
-  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif;
+  font-family:var(--ui),"Segoe UI",Roboto,Ubuntu,sans-serif;
   display:flex;flex-direction:column;height:100dvh;overflow:hidden;touch-action:manipulation}
 
 /* ================= SOCLE GRAPHIQUE =================
@@ -58,8 +65,9 @@ body{margin:0;background:var(--bg);color:var(--txt);
   --acc-sf:#16233a;/* fond d'état actif */
   --focus:#6fc7f5; /* anneau de focus, contraste AA */
   --t1:#e9f0ff;    /* texte principal */
-  --t2:#93a5c4;    /* texte secondaire */
-  --t3:#6b7d9d;    /* texte tertiaire */
+  --t2:#b6c3d8;    /* texte secondaire — contraste relevé, il se lisait mal */
+  --t3:#8f9db4;    /* texte tertiaire */
+  --acc2:#4ea3ff;  /* accent d'interface : états actifs, liens */
 }
 
 /* ---------- Icônes ----------
@@ -100,20 +108,20 @@ header{display:flex;align-items:center;gap:8px;padding:0 10px;height:46px;
 .bmark svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;
   stroke-linecap:round;stroke-linejoin:round}
 .bwords{display:flex;flex-direction:column;min-width:0}
-.brand .t{font:700 12.5px/1.25 system-ui,sans-serif;letter-spacing:.13em;text-transform:uppercase;
+.brand .t{font:700 13.5px/1.25 var(--ui);letter-spacing:.13em;text-transform:uppercase;
   color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.brand .s{font-size:10px;line-height:1.3;color:var(--t3);
+.brand .s{font-size:11.5px;line-height:1.3;color:var(--t3);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .spacer{flex:1 1 auto;min-width:0}
 
 /* Témoin de fraîcheur : un point discret et l'heure réelle du dernier cycle */
 .livepill{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 10px;flex:0 0 auto;
-  border:1px solid var(--bd2);border-radius:5px;font-size:11px;color:var(--t2)}
+  border:1px solid var(--bd2);border-radius:5px;font-size:12.5px;color:var(--t2)}
 .pulse{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:0 0 auto;
   animation:live 2.8s ease-in-out infinite}
 @keyframes live{0%,100%{opacity:1}50%{opacity:.3}}
 #diagdot{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;border-radius:8px;
-  background:var(--alert);color:#fff;font:700 9px/16px var(--mono);display:none;padding:0 3px;
+  background:var(--alert);color:#fff;font:700 11px/16px var(--mono);display:none;padding:0 3px;
   border:1.5px solid var(--sf0);text-align:center}
 #diagdot.on{display:block}
 
@@ -143,7 +151,7 @@ header{display:flex;align-items:center;gap:8px;padding:0 10px;height:46px;
 body.pan-open #pgrab{opacity:0;pointer-events:none}
 .ptop{display:flex!important;align-items:center;gap:10px;height:44px;
   padding:0 10px 0 14px;border-bottom:1px solid var(--bd);flex:0 0 auto}
-.ptop b{flex:1;font:600 10.5px/1 system-ui,sans-serif;letter-spacing:.14em;
+.ptop b{flex:1;font:600 12px/1 var(--ui);letter-spacing:.14em;
   text-transform:uppercase;color:var(--t3)}
 .pclose{display:grid;place-items:center;width:30px;height:30px;border-radius:5px;
   border:1px solid var(--bd2);background:transparent;color:var(--t2);cursor:pointer;flex:0 0 auto}
@@ -158,17 +166,17 @@ body.pan-open #pgrab{opacity:0;pointer-events:none}
 /* ---------- Blocs et titres du panneau ---------- */
 .pgrp{padding-bottom:14px;border-bottom:1px solid var(--bd);margin-bottom:2px}
 .pgrp:last-of-type{border-bottom:none}
-.sec{font:600 10.5px/1 system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;
+.sec{font:600 12px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;
   color:var(--t3);margin:16px 0 8px}
 .sechead{display:flex;align-items:center;gap:10px}
 .sechead .sec{flex:1;margin-bottom:8px}
-.hint{font-size:11.5px;color:var(--t3);line-height:1.5;margin:8px 2px 0}
+.hint{font-size:13px;color:var(--t3);line-height:1.5;margin:8px 2px 0}
 
 /* Bouton discret, en tête de section */
 /* Hauteur minimale de 30 px : au doigt, un bouton de 24 px se rate. */
 .btnq{display:inline-flex;align-items:center;justify-content:center;gap:5px;background:transparent;
   border:1px solid var(--bd2);color:var(--t2);border-radius:5px;padding:0 10px;min-height:30px;
-  font:600 10.5px/1 system-ui,sans-serif;cursor:pointer;margin-top:6px}
+  font:600 12px/1 var(--ui);cursor:pointer;margin-top:6px}
 .btnq:hover{background:var(--sf3);color:var(--t1);border-color:var(--acc-bd)}
 .btnq:active{background:var(--sf4)}
 
@@ -191,7 +199,7 @@ body.pan-open #pgrab{opacity:0;pointer-events:none}
 #results{margin-top:6px;border:1px solid var(--bd2);border-radius:5px;overflow:hidden;
   background:var(--sf2);display:none}
 .res{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;cursor:pointer;
-  border-bottom:1px solid var(--bd);font-size:13.5px}
+  border-bottom:1px solid var(--bd);font-size:14.5px}
 .res .resi{color:var(--t3);flex:0 0 auto;padding-top:2px}
 .res .rest{flex:1;min-width:0}
 .res:last-child{border-bottom:none}
@@ -204,11 +212,11 @@ body.pan-open #pgrab{opacity:0;pointer-events:none}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--bd);
   border:1px solid var(--bd);border-radius:5px;overflow:hidden}
 .stat{background:var(--sf2);padding:8px 4px 7px;text-align:center;min-width:0}
-.stat .k{display:block;font:600 10px/1 system-ui,sans-serif;letter-spacing:.05em;
+.stat .k{display:block;font:600 11.5px/1 var(--ui);letter-spacing:.05em;
   text-transform:uppercase;color:var(--t3);margin-bottom:5px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stat b{font-size:15px;font-weight:700;color:var(--t1)}
-.maj{font-size:11px;color:var(--t3);margin:10px 2px 0}
+.maj{font-size:12.5px;color:var(--t3);margin:10px 2px 0}
 .maj b{color:var(--t2);font-weight:600;margin-left:4px}
 
 /* ---------- Rangée de couche ----------
@@ -220,9 +228,9 @@ body.pan-open #pgrab{opacity:0;pointer-events:none}
   cursor:pointer;text-align:left;font:inherit;position:relative}
 .row:hover{background:var(--sf2);border-color:var(--bd)}
 .row .ri{color:var(--t3);flex:0 0 auto}
-.row .rn{flex:1;min-width:0;font-size:12.5px;line-height:1.35}
-.row .rn em{font-style:normal;color:var(--t3);font-size:10.5px}
-.row .rc{font-size:11px;color:var(--t3);flex:0 0 auto}
+.row .rn{flex:1;min-width:0;font-size:13.5px;line-height:1.35}
+.row .rn em{font-style:normal;color:var(--t3);font-size:12px}
+.row .rc{font-size:12.5px;color:var(--t3);flex:0 0 auto}
 .row.on{color:var(--t1)}
 .row.on .ri{color:var(--c,var(--acc))}
 .row.on .rc{color:var(--t2)}
@@ -242,7 +250,7 @@ body.pan-open #pgrab{opacity:0;pointer-events:none}
 
 /* ---------- Segments ---------- */
 .segs{display:flex;margin:0 0 6px;border:1px solid var(--bd2);border-radius:5px;overflow:hidden}
-.segs button{flex:1;min-width:0;padding:8px 6px;font:600 11px/1.25 system-ui,sans-serif;
+.segs button{flex:1;min-width:0;padding:8px 6px;font:600 12.5px/1.25 var(--ui);
   border:none;border-left:1px solid var(--bd2);background:var(--sf2);color:var(--t2);cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
 .segs button:first-child{border-left:none}
@@ -252,14 +260,14 @@ body.pan-open #pgrab{opacity:0;pointer-events:none}
 /* ---------- Légendes ---------- */
 .lg{margin-bottom:13px}
 .lg:last-child{margin-bottom:2px}
-.lg-t{display:block;font:600 10px/1 system-ui,sans-serif;letter-spacing:.08em;
+.lg-t{display:block;font:600 11.5px/1 var(--ui);letter-spacing:.08em;
   text-transform:uppercase;color:var(--t3);margin-bottom:7px}
 .scale{display:flex;border-radius:2px;overflow:hidden;height:8px}
 .scale i{flex:1}
-.scale-l{display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-top:5px}
+.scale-l{display:flex;justify-content:space-between;font-size:11.5px;color:var(--t3);margin-top:5px}
 /* Légende de FORMES : reproduit exactement ce qui est dessiné sur la carte,
    pour qu'on puisse comparer sans deviner. */
-.lgshapes{display:flex;flex-direction:column;gap:7px;font-size:10.5px;color:var(--t2);line-height:1.35}
+.lgshapes{display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--t2);line-height:1.35}
 .lgshapes span{display:flex;align-items:center;gap:9px}
 .lgshapes b{color:var(--t1);font-weight:600}
 .lgs{position:relative;width:17px;height:17px;flex:0 0 auto;background:rgba(9,14,24,.88);
@@ -269,9 +277,9 @@ body.pan-open #pgrab{opacity:0;pointer-events:none}
 .lgs.alRouge{--c:#ff2e63;background:#ff2e63}
 .lgs.alOrange{--c:#ff9f43;background:#ff9f43}
 .lgs.alClos{--c:#8494ad;background:transparent;border-style:dashed;border-width:1.6px}
-.lghint{font-size:10px;color:var(--t3);line-height:1.5;margin:8px 0 0}
+.lghint{font-size:11.5px;color:var(--t3);line-height:1.5;margin:8px 0 0}
 
-.wlegend{display:flex;align-items:center;gap:5px 13px;font-size:10.5px;color:var(--t3);flex-wrap:wrap}
+.wlegend{display:flex;align-items:center;gap:5px 13px;font-size:12px;color:var(--t3);flex-wrap:wrap}
 .wlegend span{display:inline-flex;align-items:center;gap:5px}
 .wlegend i{width:14px;height:4px;border-radius:2px;display:inline-block;flex:0 0 auto}
 
@@ -283,7 +291,7 @@ body.pan-open #pgrab{opacity:0;pointer-events:none}
    sur téléphone modeste. */
 details{border:1px solid var(--bd);border-radius:5px;background:var(--sf2);margin:0 0 5px;padding:0;
   content-visibility:auto;contain-intrinsic-size:auto 44px}
-details summary{cursor:pointer;font:600 12.5px/1.35 system-ui,sans-serif;color:var(--t1);
+details summary{cursor:pointer;font:600 13.5px/1.35 var(--ui);color:var(--t1);
   list-style:none;padding:10px 34px 10px 11px;position:relative;
   display:flex;align-items:center;gap:9px}
 summary::-webkit-details-marker{display:none}
@@ -295,13 +303,13 @@ details[open] summary{border-bottom:1px solid var(--bd)}
 details summary .ic{color:var(--t3);flex:0 0 auto}
 details[open] summary .ic{color:var(--acc)}
 details summary>span{flex:1;min-width:0}
-details p{color:var(--t2);font-size:12.5px;line-height:1.6;margin:0;padding:10px 12px}
+details p{color:var(--t2);font-size:13.5px;line-height:1.6;margin:0;padding:10px 12px}
 details p+p{padding-top:0}
 details p b{color:var(--t1);font-weight:600}
 details a{color:#7fc4ea;text-decoration:none;border-bottom:1px solid rgba(127,196,234,.32)}
 details a:hover{border-bottom-color:#7fc4ea}
 .note{border-left:2px solid var(--amber);background:var(--sf2);border-radius:0 5px 5px 0;
-  padding:11px 13px;font-size:12px;color:#d9cdb2;line-height:1.55;margin-top:14px}
+  padding:11px 13px;font-size:13px;color:#d9cdb2;line-height:1.55;margin-top:14px}
 
 /* ================= MARQUEURS ================= */
 .evt{width:24px;height:24px;display:grid;place-items:center;font-size:17px;cursor:pointer;
@@ -310,7 +318,7 @@ details a:hover{border-bottom-color:#7fc4ea}
   outline:1px solid rgba(255,255,255,.22);color:var(--c,#888);
   display:flex;align-items:center;justify-content:center;gap:3px;
   box-shadow:0 2px 6px rgba(0,0,0,.55)}
-.cl b{font:700 11px var(--mono);font-variant-numeric:tabular-nums;color:#fff}
+.cl b{font:700 12.5px var(--mono);font-variant-numeric:tabular-nums;color:#fff}
 .cl .mic{width:14px;height:14px;filter:none}
 .cl.hot{border-width:3px}
 .mk{width:26px;height:26px;display:grid;place-items:center;cursor:pointer;color:var(--mc,#cfe0ff)}
@@ -350,7 +358,7 @@ details a:hover{border-bottom-color:#7fc4ea}
 .tc-svg{animation:tcpulse 3.4s ease-in-out infinite;will-change:opacity}
 @keyframes tcpulse{0%,100%{opacity:.62}50%{opacity:1}}
 .leaflet-tooltip.tc-nom{background:rgba(8,14,26,.84);border:1px solid rgba(255,255,255,.2);color:#fff;
-  font:700 11px/1.2 system-ui,sans-serif;padding:3px 8px;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.4);white-space:nowrap}
+  font:700 12.5px/1.2 var(--ui);padding:3px 8px;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.4);white-space:nowrap}
 .leaflet-tooltip.tc-nom:before{display:none}
 @media (prefers-reduced-motion:reduce){.tc-ic svg,.tc-svg{animation:none}}
 /* Carte météo : les toiles apparaissent en fondu, comme au bulletin. */
@@ -359,28 +367,28 @@ details a:hover{border-bottom-color:#7fc4ea}
 @media (prefers-reduced-motion:reduce){.cmeteo{transition:none}}
 #lgmeteo{position:absolute;left:10px;bottom:30px;z-index:810;max-width:min(300px,calc(100% - 90px));
   padding:7px 10px 6px;border-radius:8px;background:rgba(8,14,26,.84);border:1px solid rgba(160,190,230,.18);
-  color:#dfe8f6;font:500 10.5px/1.35 system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.35);backdrop-filter:blur(4px)}
+  color:#dfe8f6;font:500 12px/1.35 var(--ui);box-shadow:0 2px 10px rgba(0,0,0,.35);backdrop-filter:blur(4px)}
 #lgmeteo b{font-weight:700;color:#fff;margin-right:4px}
 #lgmeteo .lgm-t i{display:block;height:8px;border-radius:4px;margin:4px 0 2px}
-#lgmeteo .lgm-d{display:flex;justify-content:space-between;color:#aebdd4;font-size:9.5px}
+#lgmeteo .lgm-d{display:flex;justify-content:space-between;color:#aebdd4;font-size:11px}
 #lgmeteo .lgm-p{margin-top:5px}
 #lgmeteo .lgA{color:#4ea8ff;font-weight:800}
 #lgmeteo .lgD{color:#ff5b5b;font-weight:800}
-#lgmeteo .lgm-s{margin-top:4px;color:#8ea2bd;font-size:9.5px}
+#lgmeteo .lgm-s{margin-top:4px;color:#8ea2bd;font-size:11px}
 /* Petit écran : la légende ne doit jamais manger la carte. Une vignette de
    190 px au plus, sans la ligne de source ni le détail des isobares. */
 @media (max-width:899px),(max-height:500px){
-  #lgmeteo{left:8px;bottom:26px;padding:4px 7px 3px;font-size:9px;width:190px;max-width:calc(100% - 110px)}
+  #lgmeteo{left:8px;bottom:26px;padding:4px 7px 3px;font-size:11px;width:190px;max-width:calc(100% - 110px)}
   #lgmeteo .lgm-t i{height:6px;margin:3px 0 1px}
-  #lgmeteo .lgm-d{font-size:8.5px}
+  #lgmeteo .lgm-d{font-size:10px}
   #lgmeteo .lgm-p{margin-top:3px}
   #lgmeteo .lgm-s,#lgmeteo .lgm-long{display:none}
 }
 /* Repères de prévision des cyclones : discrets, et moins nombreux de loin. */
-.leaflet-tooltip.tc-h{font-size:9.5px;padding:0 5px;line-height:15px}
+.leaflet-tooltip.tc-h{font-size:11px;padding:0 5px;line-height:15px}
 .tc-loin .leaflet-tooltip.tc-h48,.tc-loin .leaflet-tooltip.tc-h96,.tc-tresloin .leaflet-tooltip.tc-h{display:none}
 .thr{width:24px;height:24px;border-radius:50%;background:var(--c,#ff1744);color:#fff;
-  display:grid;place-items:center;font:800 15px/1 system-ui,sans-serif;cursor:pointer;
+  display:grid;place-items:center;font:800 15px/1 var(--ui);cursor:pointer;
   border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.6)}
 .thr.r3{animation:thrb 1.1s ease-in-out infinite}
 .thr.r2{animation:thrb 2.2s ease-in-out infinite}
@@ -390,7 +398,7 @@ details a:hover{border-bottom-color:#7fc4ea}
 .wx-line{display:flex;flex-wrap:wrap;gap:4px 12px;font:600 12.3px var(--mono);color:#dbe7ff;margin:2px 0}
 .wx-line i{font-style:normal;color:var(--mut);font-weight:500}
 .citychip{background:rgba(13,24,46,.94);border:1px solid #27406b;border-radius:999px;
-  padding:2px 7px;font:500 10.5px/1.7 var(--mono);color:#c6d6f5;white-space:nowrap;
+  padding:2px 7px;font:500 12px/1.7 var(--mono);color:#c6d6f5;white-space:nowrap;
   cursor:pointer;display:inline-flex;gap:5px;align-items:center}
 .citychip b{color:#fff;font-weight:700}
 .citychip em{font-style:normal;color:#9fd8ff}
@@ -405,11 +413,11 @@ details a:hover{border-bottom-color:#7fc4ea}
 #groups::-webkit-scrollbar{display:none}
 .grp{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;padding:0 11px;
   border:none;background:transparent;color:var(--t3);cursor:pointer;
-  font:600 11.5px/1 system-ui,sans-serif;white-space:nowrap;
+  font:600 13px/1 var(--ui);white-space:nowrap;
   box-shadow:inset 0 -2px 0 transparent;transition:color .12s linear,background .12s linear}
 .grp:hover{color:var(--t1);background:var(--sf2)}
 .grp.has{color:var(--t2)}
-.grp .gc{min-width:16px;text-align:center;font-size:9.5px;font-weight:700;
+.grp .gc{min-width:16px;text-align:center;font-size:11px;font-weight:700;
   color:var(--t2);background:var(--sf3);border-radius:3px;padding:2px 4px}
 .grp .gc:empty{display:none}
 .grp.act{color:var(--acc-str);background:var(--acc-sf);box-shadow:inset 0 -2px 0 var(--acc-bd)}
@@ -428,67 +436,67 @@ details a:hover{border-bottom-color:#7fc4ea}
 .tref{grid-column:1/-1;margin-top:7px}
 .tile{display:flex;align-items:center;gap:8px;min-height:38px;padding:0 9px;
   border:1px solid var(--bd);border-radius:5px;background:var(--sf2);color:var(--t2);
-  cursor:pointer;font:600 11.5px/1.2 system-ui,sans-serif;text-align:left;
+  cursor:pointer;font:600 13px/1.2 var(--ui);text-align:left;
   transition:background .12s linear,border-color .12s linear,color .12s linear}
 .tile:hover{background:var(--sf3);color:var(--t1)}
 .tile .te{color:var(--t3);flex:0 0 auto}
 .tile .tl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tile .tl em{display:block;font-style:normal;font-size:8.5px;color:var(--t3);font-weight:500;margin-top:1px}
-.tile .tc{font-size:9.5px;color:var(--t3);flex:0 0 auto}
+.tile .tl em{display:block;font-style:normal;font-size:10px;color:var(--t3);font-weight:500;margin-top:1px}
+.tile .tc{font-size:11px;color:var(--t3);flex:0 0 auto}
 .tile.on{background:var(--acc-sf);border-color:var(--c,var(--acc-bd));color:var(--t1)}
 .tile.on .te{color:var(--c,var(--acc))}
 .tile.on .tc{color:var(--t2)}
 .tile.out{opacity:.42}
 .tile:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
-.dhint{font-size:10.5px;color:var(--t3);margin:10px 2px 0;line-height:1.5}
+.dhint{font-size:12px;color:var(--t3);margin:10px 2px 0;line-height:1.5}
 /* Icône alignée dans un message éphémère */
 .tmsg{display:inline-flex;align-items:center;gap:7px;justify-content:center}
 
 
-.plabel{font:700 10px/1.25 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;color:#f4f8ff;
+.plabel{font:700 11.5px/1.25 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;color:#f4f8ff;
   text-shadow:0 1px 2px #000,0 0 4px #000,0 0 8px rgba(0,0,0,.7);
   white-space:nowrap;cursor:pointer;display:flex;gap:4px;align-items:baseline;justify-content:center}
-.plabel .nm{font-weight:600;font-size:10px;letter-spacing:-.1px;color:#dce8ff}
-.plabel b{font:700 10.5px var(--mono);color:#fff}
+.plabel .nm{font-weight:600;font-size:11.5px;letter-spacing:-.1px;color:#dce8ff}
+.plabel b{font:700 12px var(--mono);color:#fff}
 .plabel .arr{display:inline-block;color:#57e6ff;line-height:0}
 .plabel .arr .mic{width:8px;height:8px;filter:drop-shadow(0 0 1px rgba(0,0,0,.9))}
 .citychip .arr .mic{width:8px;height:8px}
 .leaflet-tooltip.ttime{background:#0d1830;border:1px solid #2c5c96;color:#9fd8ff;
-  font:11px var(--mono);padding:1px 6px;border-radius:6px;box-shadow:none}
+  font:12.5px var(--mono);padding:1px 6px;border-radius:6px;box-shadow:none}
 .leaflet-tooltip-top.ttime::before{border-top-color:#2c5c96}
 
 /* ================= POPUPS ================= */
 .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#0d1830;color:var(--txt);
   box-shadow:0 10px 30px rgba(0,0,0,.65);border:1px solid #22345c}
-.leaflet-popup-content{margin:12px 14px;font-size:13.5px;line-height:1.5;min-width:215px}
+.leaflet-popup-content{margin:12px 14px;font-size:14.5px;line-height:1.5;min-width:215px}
 .leaflet-container a.leaflet-popup-close-button{color:#8fa4cc;font-size:20px;padding:6px 8px 0 0}
 .pp-t{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14.5px;margin-bottom:3px}
 .pp-t .ic{flex:0 0 auto}
-.pp-cat{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
-.pp-row{font-size:12.8px;margin:3px 0}
-.pp-desc{color:#b9c8e8;font-size:12.5px;margin-top:7px;line-height:1.5}
+.pp-cat{font-size:12.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+.pp-row{font-size:13.5px;margin:3px 0}
+.pp-desc{color:#b9c8e8;font-size:13.5px;margin-top:7px;line-height:1.5}
 .pp-link{display:inline-flex;align-items:center;gap:6px;margin-top:8px;color:#7fc4ea;
-  text-decoration:none;font-size:12.5px}
+  text-decoration:none;font-size:13.5px}
 .pp-link:hover{color:#a8dbf5}
 /* Petite flèche des liens sortants : dessinée, jamais un caractère de police */
 .ic.xl{width:11px;height:11px;stroke-width:2.1;opacity:.7;margin-left:1px}
-.pp-coords{font-family:var(--mono);font-size:11px;color:var(--mut);margin-bottom:8px}
+.pp-coords{font-family:var(--mono);font-size:12.5px;color:var(--mut);margin-bottom:8px}
 /* ÉTIQUETTES DE PAYS. Halo sombre plutôt que fond plein : sur l'imagerie
    satellite un cartouche opaque masque le terrain, un contour ne masque rien.
    Les capitales, elles, restent portées par la couche des villes. */
 .pnom{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;
-  font:600 11px/1 system-ui,sans-serif;letter-spacing:.06em;color:#e6eefc;
+  font:600 12.5px/1 var(--ui);letter-spacing:.06em;color:#e6eefc;
   text-transform:uppercase;pointer-events:none;
   text-shadow:0 0 3px rgba(4,8,16,.95),0 0 6px rgba(4,8,16,.85),0 1px 2px rgba(4,8,16,.9)}
-.pnom.pt{font-size:9.5px;letter-spacing:.09em;opacity:.86}
-@media (max-width:899px),(max-height:500px){ .pnom{font-size:11px} .pnom.pt{font-size:10px} }
+.pnom.pt{font-size:11px;letter-spacing:.09em;opacity:.86}
+@media (max-width:899px),(max-height:500px){ .pnom{font-size:12.5px} .pnom.pt{font-size:11.5px} }
 
-.pp-warn{margin-top:8px;font-size:11.5px;color:#ffd9a0;background:#1c1526;border-radius:8px;padding:7px 9px;line-height:1.45}
+.pp-warn{margin-top:8px;font-size:13px;color:#ffd9a0;background:#1c1526;border-radius:8px;padding:7px 9px;line-height:1.45}
 /* Bloc « précision ». Il répond à une question et une seule : ce que le repère
    désigne exactement, et ce qu'il ne désigne pas. Volontairement froid et
    neutre — ce n'est pas une alerte, c'est une mise au point. Il ne doit jamais
    ressembler au bandeau ambre d'avertissement, sinon les deux se confondent. */
-.pp-prec{margin-top:8px;font-size:11.3px;color:#aabcdd;background:#0e1729;border-left:2px solid #40597f;border-radius:0 8px 8px 0;padding:7px 9px;line-height:1.45}
+.pp-prec{margin-top:8px;font-size:12.5px;color:#aabcdd;background:#0e1729;border-left:2px solid #40597f;border-radius:0 8px 8px 0;padding:7px 9px;line-height:1.45}
 .pp-prec b{color:#d8e3f6;font-weight:600}
 .pp-prec .ic{vertical-align:-2px;margin-right:4px;color:#7e95c2}
 /* Unité d'une mesure : jamais mise en capitales par un parent. « 375 m » qui
@@ -498,38 +506,38 @@ details a:hover{border-bottom-color:#7fc4ea}
 .wx-main{display:flex;align-items:center;gap:10px;margin:4px 0 10px}
 .wx-main .big{font:700 30px/1 var(--mono)}
 .wx-main .wxi{width:30px;height:30px;color:var(--t2);flex:0 0 auto}
-.wx-main .dsc{color:#b9c8e8;font-size:12.5px}
-.wx-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;font-size:12.5px}
+.wx-main .dsc{color:#b9c8e8;font-size:13.5px}
+.wx-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;font-size:13.5px}
 .wx-grid span{color:var(--mut)}
 .wx-grid b{font-family:var(--mono);font-weight:600}
-.pp-foot{margin-top:10px;font-size:11px;color:#6b80ab}
-.nw-s{font:600 10px var(--mono);letter-spacing:.09em;text-transform:uppercase;
+.pp-foot{margin-top:10px;font-size:12.5px;color:#6b80ab}
+.nw-s{font:600 11.5px var(--mono);letter-spacing:.09em;text-transform:uppercase;
   color:var(--mut);margin:12px 0 6px;border-top:1px solid var(--line);padding-top:8px}
 .nw-a{display:block;background:var(--card);border:1px solid var(--line);border-radius:9px;
   padding:8px 10px;margin-bottom:5px;text-decoration:none}
 .nw-a b{display:block;font-size:12.3px;color:#dce8ff;line-height:1.35;font-weight:600}
-.nw-a span{display:block;font:10.5px var(--mono);color:#7f95bd;margin-top:4px}
+.nw-a span{display:block;font:12px var(--mono);color:#7f95bd;margin-top:4px}
 .nw-a:active{background:#132445}
 .nw-w{background:var(--card);border-left:3px solid var(--cyan);border-radius:0 9px 9px 0;padding:9px 11px}
-.nw-w b{font-size:12.5px;color:#dce8ff}
-.nw-w p{font-size:11.8px;color:var(--mut);line-height:1.55;margin:6px 0 8px}
-.nw-w a{color:var(--cyan);text-decoration:none;font-size:12px}
-.nw-d{display:block;font:10px var(--mono);color:#6b80ab;margin-top:5px}
-.fc-t{margin-top:10px;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--mut)}
+.nw-w b{font-size:13.5px;color:#dce8ff}
+.nw-w p{font-size:13px;color:var(--mut);line-height:1.55;margin:6px 0 8px}
+.nw-w a{color:var(--cyan);text-decoration:none;font-size:13px}
+.nw-d{display:block;font:11.5px var(--mono);color:#6b80ab;margin-top:5px}
+.fc-t{margin-top:10px;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--mut)}
 .fc{display:flex;gap:4px;margin-top:5px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
 .fc-d{flex:0 0 auto;min-width:41px;background:#0a1326;border:1px solid var(--line);border-radius:8px;
   padding:5px 4px;display:flex;flex-direction:column;align-items:center;gap:1px}
-.fc-d span{font-size:10px;color:var(--mut);text-transform:capitalize}
+.fc-d span{font-size:11.5px;color:var(--mut);text-transform:capitalize}
 .fc-d .ic{color:var(--t2);margin:1px 0}
-.fc-d b{font:700 11.5px var(--mono);color:#ffd9a0}
-.fc-d u{text-decoration:none;font:600 10.5px var(--mono);color:#9fd8ff}
-.fc-d s{text-decoration:none;font:10px var(--mono);color:#6b80ab;min-height:11px}
-.chk{display:flex;align-items:center;gap:8px;font-size:12.5px;margin:4px 0}
+.fc-d b{font:700 13px var(--mono);color:#ffd9a0}
+.fc-d u{text-decoration:none;font:600 12px var(--mono);color:#9fd8ff}
+.fc-d s{text-decoration:none;font:11.5px var(--mono);color:#6b80ab;min-height:11px}
+.chk{display:flex;align-items:center;gap:8px;font-size:13.5px;margin:4px 0}
 .chk span{flex:1;min-width:0}
 .chk b{font-family:var(--mono);font-weight:600;flex:0 0 auto}
 .chk.y .ic{color:var(--ok)}
 .chk.n .ic{color:var(--t3)}
-.badge{display:inline-block;border-radius:8px;padding:4px 10px;font:700 12px var(--mono);
+.badge{display:inline-block;border-radius:8px;padding:4px 10px;font:700 13px var(--mono);
   color:#0a0f1c;background:var(--b,#ffc46b);margin:7px 0 2px}
 /* Repère de sinistre : remplace l'ancien contour d'enveloppe. Il porte la
    surface réellement brûlée et son état par la couleur ; un anneau plein pour
@@ -550,17 +558,17 @@ details a:hover{border-bottom-color:#7fc4ea}
   background:rgba(9,14,24,.88);border:2px solid var(--c,#888);color:var(--c,#888);
   box-shadow:0 1px 5px rgba(0,0,0,.6);cursor:pointer;line-height:1;position:absolute}
 .fbadge.big{width:42px;height:42px;border-width:2.5px}
-.fbadge b{font:700 11px/1 var(--mono);color:#fff;font-variant-numeric:tabular-nums}
-.fbadge.big b{font-size:13px}
+.fbadge b{font:700 12.5px/1 var(--mono);color:#fff;font-variant-numeric:tabular-nums}
+.fbadge.big b{font-size:14px}
 /* « ha max » et non « ha » : le nombre est une somme de pixels satellites, donc
    un majorant de la surface touchée. Le dire sur la pastille elle-même, pas
    seulement dans la fiche — c'est la pastille qu'on lit d'un coup d'œil, et
    c'est elle qui trompait. Interlettrage resserré pour tenir dans 34 px. */
 /* 8 px et non 7 : c'est le plancher de lisibilite, y compris a la souris.
    L'interlettrage nul suffit a faire tenir « ha max » dans les 30 px utiles. */
-.fbadge i{font:500 8px/1 system-ui,sans-serif;font-style:normal;letter-spacing:0;
+.fbadge i{font:500 10px/1 var(--ui);font-style:normal;letter-spacing:0;
   margin-top:1px;opacity:.85;white-space:nowrap}
-.fbadge.big i{font-size:9px}
+.fbadge.big i{font-size:11px}
 
 /* Symbole de sinistre : un point, taille = puissance, couleur = état.
    L'onde d'un feu actif est animée en TRANSFORMATION et en OPACITÉ seulement,
@@ -573,7 +581,7 @@ details a:hover{border-bottom-color:#7fc4ea}
 @keyframes fonde{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.3);opacity:0}}
 .fsym.zombie{background:rgba(20,26,38,.75);border:1.5px dashed #9aa6b8}
 .leaflet-tooltip.fsym-t{background:rgba(10,15,25,.86);border:none;border-radius:4px;color:#f1f4f9;
-  font:600 11.5px/1.2 system-ui,sans-serif;padding:2px 6px;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+  font:600 13px/1.2 var(--ui);padding:2px 6px;box-shadow:0 1px 4px rgba(0,0,0,.4)}
 .leaflet-tooltip.fsym-t:before{display:none}
 @media (prefers-reduced-motion:reduce){.fsym.actif::after{animation:none}}
 /* EN COURS — rond plein qui respire */
@@ -595,7 +603,7 @@ details a:hover{border-bottom-color:#7fc4ea}
 /* État d'un sinistre : plaque franche, lisible avant même de lire la phrase */
 .stbadge{display:inline-block;margin:4px 0 6px;padding:3px 9px;border-radius:3px;
   border:1px solid var(--c,#888);color:var(--c,#888);
-  font:700 9.5px/1.4 system-ui,sans-serif;letter-spacing:.11em}
+  font:700 11px/1.4 var(--ui);letter-spacing:.11em}
 
 /* ================= DIVERS ================= */
 #card{position:absolute;left:0;right:0;bottom:0;z-index:1215;background:var(--panel);
@@ -634,38 +642,38 @@ details a:hover{border-bottom-color:#7fc4ea}
 }
 #diagbtn{position:relative}
 #diagdot{position:absolute;top:3px;right:3px;min-width:15px;height:15px;border-radius:9px;
-  background:var(--alert);color:#fff;font:700 9px/15px var(--mono);display:none;padding:0 3px}
+  background:var(--alert);color:#fff;font:700 11px/15px var(--mono);display:none;padding:0 3px}
 #diagdot.on{display:block}
 #diag{position:fixed;inset:0;z-index:2000;background:#070d1a;display:none;flex-direction:column}
 #diag.open{display:flex}
 .dg-top{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line);flex:0 0 auto}
-.dg-top b{flex:1;font-size:13px}
+.dg-top b{flex:1;font-size:14px}
 .dg-b{display:inline-flex;align-items:center;gap:6px;background:transparent;
   border:1px solid var(--bd2);color:var(--t2);border-radius:5px;
-  padding:6px 9px;font-size:11.5px;cursor:pointer;flex:0 0 auto}
+  padding:6px 9px;font-size:13px;cursor:pointer;flex:0 0 auto}
 .dg-b:hover{background:var(--sf3);color:var(--t1);border-color:var(--acc-bd)}
 .dg-b:active{background:var(--sf4)}
 .dg-body{flex:1;overflow-y:auto;padding:10px 12px calc(20px + env(safe-area-inset-bottom))}
-.dg-sec{font:600 10.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+.dg-sec{font:600 12px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
   color:var(--mut);margin:14px 0 7px}
 .dg-sec:first-child{margin-top:0}
-.dg-src div{display:flex;align-items:center;gap:7px;font:12px var(--mono);padding:5px 8px;
+.dg-src div{display:flex;align-items:center;gap:7px;font:13px var(--mono);padding:5px 8px;
   border:1px solid var(--line);border-radius:8px;margin-bottom:4px;background:var(--card)}
 .dg-src i{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
 .dg-src span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cfe0ff}
-.dg-src b{font-size:11px;color:var(--mut)}
+.dg-src b{font-size:12.5px;color:var(--mut)}
 .dg-e{border-left:3px solid var(--line);background:var(--card);border-radius:7px;
-  padding:7px 9px;margin-bottom:5px;font:11.5px/1.45 var(--mono);word-break:break-word}
+  padding:7px 9px;margin-bottom:5px;font:13px/1.45 var(--mono);word-break:break-word}
 .dg-e.ERREUR{border-left-color:var(--alert)}
 .dg-e.PROMESSE{border-left-color:#ff6d00}
 .dg-e.RÉSEAU{border-left-color:var(--amber)}
 .dg-e.CONSOLE{border-left-color:#e63946}
 .dg-e.ALERTE{border-left-color:#ffc46b}
-.dg-e u{text-decoration:none;color:var(--mut);font-size:10px;margin-right:6px}
-.dg-n{display:inline-block;margin-left:6px;padding:0 5px;border-radius:8px;background:#22303f;color:#9fb3cc;font:700 10px/16px system-ui,sans-serif;vertical-align:1px}
+.dg-e u{text-decoration:none;color:var(--mut);font-size:11.5px;margin-right:6px}
+.dg-n{display:inline-block;margin-left:6px;padding:0 5px;border-radius:8px;background:#22303f;color:#9fb3cc;font:700 11.5px/16px var(--ui);vertical-align:1px}
 .dg-e k{color:#ff9f9f;font-weight:700;margin-right:5px}
-.dg-empty{color:var(--ok);font-size:12.5px;padding:8px 2px}
-#dgenv{font:11px/1.5 var(--mono);color:var(--mut);white-space:pre-wrap;margin:0;
+.dg-empty{color:var(--ok);font-size:13.5px;padding:8px 2px}
+#dgenv{font:12.5px/1.5 var(--mono);color:var(--mut);white-space:pre-wrap;margin:0;
   background:var(--card);border:1px solid var(--line);border-radius:8px;padding:9px}
 #welcome{position:absolute;inset:0;z-index:1450;background:rgba(6,12,24,.96);
   display:none;align-items:center;justify-content:center;padding:16px;
@@ -674,26 +682,26 @@ details a:hover{border-bottom-color:#7fc4ea}
 .wbox{width:100%;max-width:400px;background:var(--card);border:1px solid #2c5c96;
   border-radius:16px;padding:18px;box-shadow:0 14px 44px rgba(0,0,0,.6)}
 .wtitle{font-size:17px;font-weight:800;margin-bottom:8px;color:#fff}
-.wsub{font-size:12.8px;color:var(--mut);line-height:1.55;margin:0 0 14px}
+.wsub{font-size:13.5px;color:var(--mut);line-height:1.55;margin:0 0 14px}
 .wsub b{color:#cddcff}
 #wcountry{width:100%;padding:13px;border-radius:11px;border:1px solid #2c5c96;
   background:#0e1f3a;color:var(--txt);font-size:15px;margin-bottom:10px}
 .wgo{width:100%;padding:13px;border-radius:11px;border:1px solid #3ce0ff;
   background:#14375e;color:#fff;font-size:14.5px;font-weight:700;cursor:pointer}
 .wworld{width:100%;padding:11px;margin-top:8px;border-radius:11px;border:1px solid var(--line);
-  background:#0d1729;color:var(--mut);font-size:13px;cursor:pointer}
-.wnote{font-size:11.5px;color:#7f95bd;line-height:1.5;margin:14px 0 0;
+  background:#0d1729;color:var(--mut);font-size:14px;cursor:pointer}
+.wnote{font-size:13px;color:#7f95bd;line-height:1.5;margin:14px 0 0;
   border-left:3px solid #3ce0ff;padding-left:10px}
 .wnote b{color:#9fe8ff}
 #blocked{position:absolute;left:10px;right:10px;top:10px;z-index:1400;display:none;
   background:#1a1224;border:1px solid #7c3aed;border-radius:14px;padding:14px;
   box-shadow:0 10px 34px rgba(0,0,0,.6);max-height:80%;overflow-y:auto}
 #blocked.on{display:block}
-#blocked b{color:#e9d5ff;font-size:13.5px;display:flex;align-items:center;gap:8px;margin-bottom:8px}
-#blocked p{color:#cbb9e8;font-size:12.5px;line-height:1.55;margin:7px 0}
-#blocked p b{display:inline;color:#fff;font-size:12.5px}
+#blocked b{color:#e9d5ff;font-size:14.5px;display:flex;align-items:center;gap:8px;margin-bottom:8px}
+#blocked p{color:#cbb9e8;font-size:13.5px;line-height:1.55;margin:7px 0}
+#blocked p b{display:inline;color:#fff;font-size:13.5px}
 #blocked button{width:100%;margin-top:10px;padding:11px;border-radius:10px;border:1px solid #7c3aed;
-  background:#2e1065;color:#fff;font-size:13px;cursor:pointer}
+  background:#2e1065;color:#fff;font-size:14px;cursor:pointer}
 #safebtn{position:absolute;right:10px;bottom:164px;z-index:1155;width:34px;height:34px;
   border-radius:9px;border:1px solid var(--line);background:rgba(10,17,32,.9);
   color:#dbe7ff;font-size:15px;line-height:1;cursor:pointer;display:grid;place-items:center}
@@ -708,22 +716,22 @@ details a:hover{border-bottom-color:#7fc4ea}
   position:sticky;top:0;background:var(--panel);border-radius:14px 14px 0 0}
 .sf-h b{font-size:14px;letter-spacing:.04em}
 .sf-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
-.sf-sub{font-size:10.5px;color:var(--mut);flex:1}
+.sf-sub{font-size:12px;color:var(--mut);flex:1}
 .sf-x{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);
-  background:#101c33;color:var(--txt);font-size:13px;cursor:pointer;flex:0 0 auto}
-.sf-w{font:600 11.5px var(--mono);color:#9fd8ff;padding:8px 12px 4px}
+  background:#101c33;color:var(--txt);font-size:14px;cursor:pointer;flex:0 0 auto}
+.sf-w{font:600 13px var(--mono);color:#9fd8ff;padding:8px 12px 4px}
 .sf-r{display:flex;gap:9px;padding:9px 12px;border-left:3px solid var(--c,#888);
   margin:5px 8px;background:var(--card);border-radius:0 10px 10px 0;cursor:pointer}
 .sf-r:active{background:#132445}
 .sf-i{flex:0 0 auto;color:var(--c,#888);display:grid;place-items:center;padding-top:1px}
-.sf-r b{font-size:12.8px;color:#e9f0ff}
-.sf-r span{font-size:11.5px;color:var(--mut);line-height:1.45}
-.sf-ok{padding:14px 12px;font-size:12.5px;color:var(--ok);line-height:1.55}
-.sf-ok span{color:var(--mut);font-size:11.5px}
-.sf-f{display:flex;align-items:center;gap:6px;padding:8px 12px 2px;font-size:10.5px;color:#6b80ab}
+.sf-r b{font-size:13.5px;color:#e9f0ff}
+.sf-r span{font-size:13px;color:var(--mut);line-height:1.45}
+.sf-ok{padding:14px 12px;font-size:13.5px;color:var(--ok);line-height:1.55}
+.sf-ok span{color:var(--mut);font-size:13px}
+.sf-f{display:flex;align-items:center;gap:6px;padding:8px 12px 2px;font-size:12px;color:#6b80ab}
 .sf-b{display:inline-flex;align-items:center;gap:5px;background:transparent;
   border:1px solid var(--bd2);color:var(--t2);border-radius:5px;
-  padding:5px 8px;font-size:10.5px;cursor:pointer;flex:0 0 auto;margin-left:6px}
+  padding:5px 8px;font-size:12px;cursor:pointer;flex:0 0 auto;margin-left:6px}
 .sf-b:first-of-type{margin-left:auto}
 .sf-b:hover{background:var(--sf3);color:var(--t1);border-color:var(--acc-bd)}
 @media (min-width:900px){#safe{left:auto;right:14px;width:380px;bottom:14px}}
@@ -734,7 +742,7 @@ details a:hover{border-bottom-color:#7fc4ea}
 #geoloc:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 #fresh{position:absolute;top:8px;left:8px;z-index:1160;display:none;
   background:rgba(9,15,29,.92);border:1px solid var(--line);border-radius:9px;
-  padding:5px 9px;font:600 10.5px/1.3 var(--mono);color:#cfe0ff;pointer-events:none;
+  padding:5px 9px;font:600 12px/1.3 var(--mono);color:#cfe0ff;pointer-events:none;
   box-shadow:0 3px 12px rgba(0,0,0,.45);max-width:62vw}
 #fresh.on{display:block}
 #fresh i{font-style:normal;display:inline-block;width:7px;height:7px;border-radius:50%;
@@ -746,7 +754,7 @@ details a:hover{border-bottom-color:#7fc4ea}
 #tl.open{display:flex}
 .tl-top{display:flex;align-items:center;gap:6px}
 #tl button{display:inline-grid;place-items:center;height:34px;min-width:34px;padding:0 8px;border-radius:5px;border:1px solid var(--bd2);
-  background:#101c33;color:var(--txt);font:600 12px/1 var(--mono);cursor:pointer;flex:0 0 auto}
+  background:#101c33;color:var(--txt);font:600 13px/1 var(--mono);cursor:pointer;flex:0 0 auto}
 #tl button:active{background:#1b3157}
 #tlminus,#tlplus{min-width:44px}
 /* Barre épaissie et curseur large : sélectionnable au doigt sans viser */
@@ -762,55 +770,55 @@ details a:hover{border-bottom-color:#7fc4ea}
   border:3px solid #ff7a3c;box-shadow:0 2px 8px rgba(0,0,0,.5);cursor:grab}
 #tl.fut #tlr::-webkit-slider-thumb{border-color:#38bdf8}
 #tl.fut #tlr::-moz-range-thumb{border-color:#38bdf8}
-.tl-sc{display:flex;justify-content:space-between;font:9.5px var(--mono);color:#6b80ab;padding:0 2px 2px}
+.tl-sc{display:flex;justify-content:space-between;font:11px var(--mono);color:#6b80ab;padding:0 2px 2px}
 .tl-sc .nowmark{color:#9fe8ff}
 #tl.fut #tlr{accent-color:#38bdf8}
 #tl.fut{border-color:#2563eb}
-#tlv{font:700 12px var(--mono);color:#ffc46b;flex:1;text-align:center;
+#tlv{font:700 13px var(--mono);color:#ffc46b;flex:1;text-align:center;
   background:#0d1729;border-radius:8px;padding:8px 4px;border:1px solid var(--line)}
 @media (min-width:900px){#tl{left:auto;right:14px;width:420px;bottom:14px}}
 #toast{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);
   background:rgba(13,24,46,.96);border:1px solid var(--line);border-radius:14px;
   /* Au-dessus du globe (1350) : une notification émise pendant que la planète
      est ouverte doit rester lisible. */
-  padding:10px 15px;font-size:12.5px;z-index:1360;max-width:90vw;text-align:center;
+  padding:10px 15px;font-size:13.5px;z-index:1360;max-width:90vw;text-align:center;
   box-shadow:0 10px 30px rgba(0,0,0,.5);transition:opacity .5s;pointer-events:none}
 #loader{position:absolute;inset:0;background:rgba(6,12,24,.88);z-index:1400;
   display:grid;place-items:center;transition:opacity .4s}
 .spin{width:40px;height:40px;border-radius:50%;border:3px solid #1d2b49;
   border-top-color:var(--cyan);animation:rot 1s linear infinite;margin:0 auto 12px}
 @keyframes rot{to{transform:rotate(360deg)}}
-#loader .lt{text-align:center;color:var(--mut);font-size:13px}
-.leaflet-control-attribution{background:rgba(8,15,29,.8)!important;color:#7286ad!important;font-size:10px!important}
+#loader .lt{text-align:center;color:var(--mut);font-size:14px}
+.leaflet-control-attribution{background:rgba(8,15,29,.8)!important;color:#7286ad!important;font-size:11.5px!important}
 .leaflet-control-attribution a{color:#9db4dd!important}
 .leaflet-bar a{background:rgba(16,28,51,.94)!important;color:#e9f0ff!important;border-color:#1d2b49!important;
   width:30px!important;height:30px!important;line-height:30px!important;font-size:15px!important}
 .leaflet-control-zoom{margin:0 8px 8px 0!important}
 .leaflet-control-scale{margin:0 0 6px 8px!important}
 .leaflet-control-scale-line{background:rgba(9,15,29,.7)!important;border-color:#2c5c96!important;
-  color:#cfe0ff!important;font:10px var(--mono)!important;padding:1px 5px!important}
+  color:#cfe0ff!important;font:11.5px var(--mono)!important;padding:1px 5px!important}
 @media (prefers-reduced-motion:reduce){#panel,.spin,.mk svg,.cl{transition:none;animation:none!important}#windcv{display:none}}
 @media (max-width:899px){
-  .leaflet-popup-content{font-size:11.8px;margin:9px 10px;min-width:150px;max-height:36vh;overflow-y:auto}
+  .leaflet-popup-content{font-size:13px;margin:9px 10px;min-width:150px;max-height:36vh;overflow-y:auto}
   .leaflet-popup-content-wrapper{max-width:74vw}
-  .pp-row{font-size:11.8px;margin:2px 0}
-  .wx-line{font-size:11.3px;gap:2px 9px}
+  .pp-row{font-size:13px;margin:2px 0}
+  .wx-line{font-size:12.5px;gap:2px 9px}
   .brand .s{display:none}
-  .brand .t{font-size:12px}
+  .brand .t{font-size:13px}
   .wx-main{margin:2px 0 6px}
   .wx-main .big{font-size:23px}
   .wx-main .wxi{width:24px;height:24px}
-  .pp-t{font-size:13.5px}
-  .pp-desc,.pp-warn{font-size:11.3px}
+  .pp-t{font-size:14.5px}
+  .pp-desc,.pp-warn{font-size:12.5px}
   .fc-d{min-width:37px;padding:4px 3px}
-  .fc-d b{font-size:10.5px}
+  .fc-d b{font-size:12px}
 }
 
 /* ============ ADAPTATION PAR TAILLE D'ÉCRAN ============ */
 /* ---------- CHOIX DE LA LANGUE ---------- */
 .langwrap{position:relative;flex:0 0 auto}
 #langbtn{width:auto;padding:0 7px;gap:5px;display:inline-flex;align-items:center}
-#langbtn .lgcode{font:600 10px/1 var(--mono);letter-spacing:.06em;color:var(--t2)}
+#langbtn .lgcode{font:600 11.5px/1 var(--mono);letter-spacing:.06em;color:var(--t2)}
 #langbtn.busy{opacity:.55;pointer-events:none}
 #langmenu{position:absolute;top:calc(100% + 6px);right:0;z-index:1320;display:none;
   min-width:168px;padding:5px;background:var(--sf1);border:1px solid var(--bd2);
@@ -818,10 +826,10 @@ details a:hover{border-bottom-color:#7fc4ea}
 #langmenu.open{display:block}
 #langmenu button{display:flex;align-items:center;gap:9px;width:100%;min-height:34px;
   padding:0 9px;background:transparent;border:none;border-radius:6px;
-  color:var(--t2);font:500 12.5px/1 system-ui,sans-serif;cursor:pointer;text-align:left}
+  color:var(--t2);font:500 13.5px/1 var(--ui);cursor:pointer;text-align:left}
 #langmenu button:hover{background:var(--sf3);color:var(--t1)}
 #langmenu button.on{color:var(--acc);background:var(--sf2)}
-#langmenu .lgc{font:600 9.5px/1 var(--mono);letter-spacing:.06em;opacity:.7;
+#langmenu .lgc{font:600 11px/1 var(--mono);letter-spacing:.06em;opacity:.7;
   min-width:20px;flex:0 0 auto}
 @media (hover:none) and (pointer:coarse),(max-width:899px),(max-height:500px){
   #langmenu button{min-height:42px}
@@ -862,7 +870,7 @@ details a:hover{border-bottom-color:#7fc4ea}
 #gl-canvas canvas{outline:none}
 
 #gl-charge{position:absolute;inset:0;display:none;flex-direction:column;gap:13px;
-  align-items:center;justify-content:center;color:var(--t2);font-size:12.5px;letter-spacing:.02em}
+  align-items:center;justify-content:center;color:var(--t2);font-size:13.5px;letter-spacing:.02em}
 #globe.load #gl-charge{display:flex}
 .gl-spin{width:26px;height:26px;border:2px solid rgba(150,170,196,.22);
   border-top-color:#96aac4;border-radius:50%;animation:glturn .9s linear infinite}
@@ -875,7 +883,7 @@ details a:hover{border-bottom-color:#7fc4ea}
 .gl-sp{flex:1}
 .gl-b{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 11px;
   background:rgba(10,17,30,.80);border:1px solid rgba(150,170,196,.20);border-radius:8px;
-  color:var(--t2);font:500 11.5px/1 system-ui,sans-serif;cursor:pointer;
+  color:var(--t2);font:500 13px/1 var(--ui);cursor:pointer;
   backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .gl-b:hover{border-color:rgba(150,170,196,.42);color:var(--t1)}
 .gl-b[aria-pressed="true"]{border-color:rgba(150,170,196,.55);color:#dce6f6;
@@ -884,7 +892,7 @@ details a:hover{border-bottom-color:#7fc4ea}
 
 .gl-info{position:absolute;left:12px;bottom:12px;max-width:min(340px,calc(100% - 24px));
   padding:9px 11px;background:rgba(8,13,24,.88);border:1px solid rgba(150,170,196,.18);
-  border-radius:9px;color:var(--t2);font-size:11.5px;line-height:1.5;display:none;
+  border-radius:9px;color:var(--t2);font-size:13px;line-height:1.5;display:none;
   backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .gl-info.on{display:block}
 .gl-info b{color:#dce6f6}
@@ -894,7 +902,7 @@ details a:hover{border-bottom-color:#7fc4ea}
   text-decoration:underline;text-underline-offset:2px}
 
 .gl-hint{position:absolute;right:12px;bottom:12px;max-width:min(300px,calc(100% - 24px));
-  color:var(--t3);font-size:10.5px;line-height:1.5;text-align:right;pointer-events:none}
+  color:var(--t3);font-size:12px;line-height:1.5;text-align:right;pointer-events:none}
 @media (max-width:640px){
   .gl-hint{display:none}
   .gl-lb{display:none}
@@ -948,21 +956,21 @@ details a:hover{border-bottom-color:#7fc4ea}
    deviné — et sur une carte de catastrophes, deviner n'est pas acceptable.
    On ne touche PAS aux grands écrans, où ces tailles sont un choix de densité. */
 @media (max-width:899px), (max-height:500px){
-  .stat .k{font-size:10px;letter-spacing:.04em}
+  .stat .k{font-size:11.5px;letter-spacing:.04em}
   /* Pastille agrandie plutot que texte retreci : « ha max » doit rester lisible
      ET la pastille reste un objet qu'on vise du doigt pour ouvrir la fiche. */
   .fbadge{width:40px;height:40px}
   .fbadge.big{width:48px;height:48px}
-  .fbadge i{font-size:9.5px}
-  .fbadge.big i{font-size:10px}
-  .fbadge b{font-size:12px}
+  .fbadge i{font-size:11px}
+  .fbadge.big i{font-size:11.5px}
+  .fbadge b{font-size:13px}
   .fbadge.big b{font-size:14px}
-  .plabel .nm,.plabel b{font-size:11px}
-  .sec{font-size:11px}
-  .row .rn em{font-size:11px}
-  .lg-t,.lghint,.lghint b,.scale-l span{font-size:11px}
-  .pp-foot{font-size:11px}
-  .leaflet-control-scale-line{font-size:11px}
+  .plabel .nm,.plabel b{font-size:12.5px}
+  .sec{font-size:12.5px}
+  .row .rn em{font-size:12.5px}
+  .lg-t,.lghint,.lghint b,.scale-l span{font-size:12.5px}
+  .pp-foot{font-size:12.5px}
+  .leaflet-control-scale-line{font-size:12.5px}
 }
 @media (max-width:420px){
   .tiles{grid-template-columns:repeat(2,1fr)}
@@ -973,7 +981,7 @@ details a:hover{border-bottom-color:#7fc4ea}
      media plus etroit vient APRES dans la feuille, il gagne. 10 px est le
      plancher lisible, et l'interlettrage resserre suffit a faire tenir
      « CYCLONES » dans la case. */
-  .stat .k{font-size:10px;letter-spacing:.02em}
+  .stat .k{font-size:11.5px;letter-spacing:.02em}
 }
 /* ECRAN COURT : l'entete et la bande d'onglets mangeaient 84 px sur 390, soit
    un cinquieme de la hauteur utile. On les resserre pour rendre de la carte,
@@ -1011,15 +1019,167 @@ details a:hover{border-bottom-color:#7fc4ea}
   #pgrab{display:grid}
   #drawer{left:auto;right:0;width:452px;border-left:1px solid var(--bd2);border-radius:0 0 0 8px}
   .tiles{grid-template-columns:repeat(3,1fr)}
-  #toast{bottom:26px;font-size:12.5px}
-  .brand .t{font-size:13px}
-  .brand .s{font-size:10.5px}
+  #toast{bottom:26px;font-size:13.5px}
+  .brand .t{font-size:14px}
+  .brand .s{font-size:12px}
   /* Sur écran large, la rangée de couche gagne en confort de survol */
   .row{padding:8px 10px}
 }
 @media (min-width:1500px){
   #panel{flex-basis:376px;width:376px}
 }
+
+/* =====================================================================
+   REFONTE — septembre 2026
+   =====================================================================
+   Objectif : l'allure d'un service météo professionnel. Une seule police,
+   des tailles qui se lisent sans effort, un contraste suffisant, des formes
+   simples sur la carte, et un ton calme. Ces règles viennent en dernier :
+   elles priment sur l'habillage d'origine, qui reste en place dessous. */
+body{font-family:var(--ui);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.num{font-family:var(--ui);font-variant-numeric:tabular-nums}
+
+/* ---------- En-tête ---------- */
+header{height:52px;padding:0 12px;gap:10px;background:rgba(8,13,24,.96);
+  border-bottom:1px solid rgba(255,255,255,.07)}
+.brand .t{font:700 16px/1.2 var(--ui);letter-spacing:-.005em;text-transform:none;color:#fff}
+.brand .s{display:none}
+.hbtn{width:36px;height:36px;border-radius:8px}
+.livepill{font:600 12.5px/1 var(--ui)!important;letter-spacing:0}
+
+/* ---------- Barre des catégories ---------- */
+#groups{height:44px;gap:2px;padding:0 10px;background:rgba(10,16,29,.96);border-bottom:1px solid rgba(255,255,255,.06)}
+.grp{font:600 13.5px/1 var(--ui);padding:0 14px;gap:8px;color:var(--t2);border-radius:0}
+.grp:hover{color:#fff;background:rgba(255,255,255,.04)}
+.grp.act{color:#fff;background:rgba(78,163,255,.1);box-shadow:inset 0 -2px 0 var(--acc2)}
+/* Les chiffres à côté des catégories (« Feux 3 ») comptaient des couches
+   allumées : personne ne savait ce qu'ils voulaient dire. */
+.grp .gc{display:none}
+
+/* ---------- Panneau latéral ---------- */
+.ptop b,.sec{font:650 13.5px/1.2 var(--ui);letter-spacing:0;text-transform:none;color:#e8eef8}
+.sec{margin:18px 0 9px}
+.hint{font-size:13px;line-height:1.55;color:var(--t2)}
+.row .rn{font-size:14px}
+.row .rn em{font-size:12.5px;color:var(--t3)}
+.row .rc{font-size:12.5px}
+.stat .k{font:600 11.5px/1.2 var(--ui);letter-spacing:.02em}
+.stat b{font-size:17px}
+
+/* ---------- Fiche d'information ---------- */
+#card{background:rgba(11,17,30,.97);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+@media (min-width:900px){
+  #card{width:400px;padding:8px 22px 24px;border-left:1px solid rgba(255,255,255,.08)}
+}
+#card .pp-t,.leaflet-popup-content .pp-t{font:700 18px/1.3 var(--ui);gap:0;margin:10px 0 4px;letter-spacing:-.005em}
+/* Plus de pictogramme devant le titre : la couleur et le libellé suffisent. */
+#card .pp-t > svg.ic,.leaflet-popup-content .pp-t > svg.ic{display:none}
+#card .pp-cat{font:600 12px/1.3 var(--ui);letter-spacing:.05em;color:var(--t3);margin-bottom:10px}
+#card .pp-row{font-size:14px;line-height:1.55;margin:6px 0;color:#dfe6f2}
+#card .pp-row b{color:#fff;font-weight:650}
+#card .pp-desc{font-size:14px;line-height:1.6;color:var(--t2)}
+#card .pp-link{font-size:14px;color:var(--acc2);margin-top:10px}
+#card .pp-link:hover{color:#8cc4ff}
+/* Encadrés : un ton neutre, plus le jaune d'alarme. Ils nuancent, ils
+   n'alertent pas. */
+#card .pp-warn{background:rgba(255,255,255,.04);color:#c9d3e3;border-left:3px solid #5d6f8f;
+  border-radius:6px;font-size:13px;line-height:1.55;padding:9px 12px;margin-top:12px}
+.stbadge{font:700 12px/1 var(--ui)!important;letter-spacing:.04em;padding:5px 10px!important;border-radius:999px!important}
+.cclose{width:34px;height:34px;border-radius:8px;top:10px;right:12px}
+
+/* ---------- Symboles de carte ---------- */
+.mk{width:18px;height:18px;display:grid;place-items:center;color:var(--mc,#cfe0ff)}
+.mk svg{width:16px;height:16px;display:block;overflow:visible}
+.mk svg *{fill:currentColor;stroke:#fff;stroke-width:1.5;stroke-linejoin:round;
+  filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.55))}
+.mk svg .vide{fill:none;stroke:currentColor;stroke-width:2.6}
+.mk.volc svg{width:17px;height:17px}
+.cl{width:var(--s,30px);height:var(--s,30px);border-radius:50%;display:grid;place-items:center;
+  background:var(--c);border:2px solid rgba(255,255,255,.92);box-shadow:0 1px 6px rgba(0,0,0,.45);gap:0}
+.cl b{font:700 12.5px/1 var(--ui);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4);letter-spacing:0}
+.cl .mic{display:none}
+
+/* ---------- Bandeau du dernier passage satellite ---------- */
+#fresh{font:600 12.5px/1.35 var(--ui);background:rgba(10,16,28,.86);border:1px solid rgba(255,255,255,.08);
+  border-radius:8px;padding:6px 11px;color:#e3eaf5;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+
+/* ---------- Bulles d'information et étiquettes ---------- */
+.leaflet-tooltip{font-family:var(--ui)}
+.leaflet-control-attribution{font:11px/1.4 var(--ui)!important}
+
+/* ---------- Tiroir des couches ----------
+   Deux lignes par tuile : le nom, puis l'indication utile dessous. Sur une
+   seule ligne, l'indication rognait le nom (« Pressi… »). Et plus aucun chiffre
+   technique : le vent affichait « 2220 km », la résolution de sa grille. */
+@media (min-width:900px){ #drawer{width:540px;padding:14px;border-radius:0 0 0 12px} }
+.tiles{gap:6px}
+.tile{display:grid!important;grid-template-columns:auto 1fr;column-gap:10px;row-gap:1px;align-items:center;
+  min-height:54px;padding:8px 12px!important;border-radius:9px}
+.tile .te{grid-row:1 / span 2}
+.tile .tl{grid-column:2;font:600 13.5px/1.25 var(--ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .tl em{font-size:11.5px}
+.tile .tc{grid-column:2;font:500 12px/1.25 var(--ui);color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .tc:empty{display:none}
+.dhint{font-size:13px!important;line-height:1.5;color:var(--t2)!important}
+
+/* Titre de fiche en bloc : en boîte flexible, l'espace entre la classe et le
+   nom (« Ouragan » · « Polo ») était supprimé — on lisait « OuraganPolo ». */
+#card .pp-t,.leaflet-popup-content .pp-t{display:block}
+/* Fiche ouverte sur grand écran : le tiroir des couches et les commandes de
+   la carte se décalent à sa gauche au lieu de passer dessous. */
+@media (min-width:900px){
+  body.fiche-ouverte #drawer{right:400px;border-radius:0 0 12px 12px}
+  body.fiche-ouverte .leaflet-right{right:400px}
+  body.fiche-ouverte #lgmeteo{max-width:calc(100% - 520px)}
+}
+
+/* ---------- Situation ici ----------
+   Un encadré sobre : une pastille de couleur, un verdict en clair, puis les
+   faits. Aucun clignotement : le calme fait partie de l'information. */
+.si{margin:12px 0 16px;padding:12px 14px 12px;border-radius:10px;background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.07);border-left:4px solid var(--c)}
+.si-h{display:flex;align-items:center;gap:9px;font:700 15.5px/1.3 var(--ui);color:#fff}
+.si-p{width:10px;height:10px;border-radius:50%;background:var(--c);flex:0 0 auto}
+.si-it{margin-top:10px;padding-left:11px;border-left:2px solid var(--c)}
+.si-tt{font:600 14px/1.4 var(--ui);color:#eef3fb}
+.si-dd{font:400 13px/1.45 var(--ui);color:var(--t2);margin-top:1px}
+.si-dd a{color:var(--acc2);text-decoration:none}
+.si-dd a:hover{text-decoration:underline}
+.si-n{margin-top:10px;font:400 13px/1.5 var(--ui);color:var(--t2)}
+
+/* ---------- Fiche météo d'un lieu ----------
+   Les détails en grille, avec des libellés entiers : « ress. », « hum. »,
+   « raf. » faisaient brouillon. */
+.wx-main .big{font:700 34px/1 var(--ui);letter-spacing:-.02em}
+.wx-main .dsc{font-size:15px;color:#dfe6f2}
+.wx-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(255,255,255,.06);
+  border-radius:9px;overflow:hidden;margin:8px 0 12px}
+.wx-grid > div{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+  padding:8px 11px;background:rgba(11,17,30,.97)}
+.wx-grid i{font:500 13px/1.3 var(--ui);font-style:normal;color:var(--t3)}
+.wx-grid b{font:600 13.5px/1.3 var(--ui);color:#f2f6fc;text-align:right;white-space:nowrap}
+.fc-t{font:600 12px/1.3 var(--ui)!important;letter-spacing:.05em!important;color:var(--t3)!important}
+.pp-foot{font-size:12.5px!important;color:var(--t3)!important;line-height:1.5}
+/* Réglette temporelle : à gauche de la fiche quand celle-ci est ouverte. */
+@media (min-width:900px){ body.fiche-ouverte #tl{right:408px} }
+
+/* Action secondaire dans un tiroir (« Rejouer les dernières 48 h ») */
+.dact{display:flex;align-items:center;gap:9px;width:100%;margin-top:10px;padding:11px 13px;border-radius:9px;
+  border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#e8eef8;font:600 13.5px/1.3 var(--ui);cursor:pointer;text-align:left}
+.dact:hover{background:rgba(78,163,255,.1);border-color:rgba(78,163,255,.4)}
+.dact[disabled]{cursor:default;color:var(--t3);background:transparent}
+
+/* En-tête sur petit écran : sept boutons ne tiennent pas sur 375 px, le
+   dernier sortait de l'écran. Le diagnostic et l'actualisation manuelle
+   (les données se renouvellent seules) quittent la barre. */
+@media (max-width:520px){
+  #diagbtn,#reload{display:none!important}
+  header{gap:6px;padding:0 8px}
+  #fresh{font-size:12px;padding:5px 9px;max-width:calc(100% - 20px)}
+}
+
+/* Sous 420 px, le logo seul : un nom tronqué (« Planèt… ») fait négligé. */
+@media (max-width:420px){ .brand .bwords{display:none} }
 </style>
 </head>
 <body>
@@ -1785,7 +1945,7 @@ details a:hover{border-bottom-color:#7fc4ea}
       <button id="tlminus" aria-label="Reculer d’une heure">−1 h</button>
       <span id="tlv">maintenant</span>
       <button id="tlplus" aria-label="Avancer d’une heure">+1 h</button>
-      <button id="tlnow" aria-label="Revenir à maintenant">⦿</button>
+      <button id="tlnow" aria-label="Revenir à maintenant"><svg class="ic x16" aria-hidden="true"><use href="#i-clock"/></svg></button>
       <button id="tlx" type="button" aria-label="Fermer la chronologie"><svg class="ic x14" aria-hidden="true"><use href="#i-cross"/></svg></button>
     </div>
     <input id="tlr" type="range" min="0" max="60" value="48" step="1" aria-label="Choisir l’heure">
@@ -2102,9 +2262,8 @@ const CAT = [
   {id:"alertes", icon:"siren",    nm:"Alertes",
    hint:"Alertes graduées GDACS (ONU et Commission européenne) et bulletins des météorologues d'État américains, consignes comprises."},
   {id:"fond",    icon:"layers",   nm:"Repères", kind:"base",
-   hint:"L'imagerie satellite n'affiche aucun nom : les frontières et les noms de lieux se superposent par-dessus."},
-  {id:"zone",    icon:"target",   nm:"Zone",    kind:"country",
-   hint:"Cibler une zone recentre la carte et ne charge que ses données : plus rapide, et beaucoup plus détaillé."}
+   hint:"L'imagerie satellite n'affiche aucun nom : les frontières et les noms de lieux se superposent par-dessus."}
+
 ];
 
 /* Emprises réelles des sources régionales, nommées une fois. */
@@ -3049,9 +3208,11 @@ function clusterGroup(color, sym, dz){
   return L.markerClusterGroup({chunkedLoading:true, animate:false, animateAddingMarkers:false,
     maxClusterRadius:50, spiderfyOnMaxZoom:true, showCoverageOnHover:false,
     disableClusteringAtZoom:dz||8,
-    iconCreateFunction:c=>{const n=c.getChildCount();
-      return L.divIcon({html:`<div class="cl ${n>150?"hot":""}" style="--c:${color}">${sym}<b class="num">${n}</b></div>`,
-        className:"", iconSize:[38,38], iconAnchor:[19,19]});}});
+    /* Grappe : un disque plein et un nombre, sans pictogramme. Sa taille suit le
+       nombre d'éléments regroupés. */
+    iconCreateFunction:c=>{const n=c.getChildCount(), t=n<10?26:n<100?32:38;
+      return L.divIcon({html:`<div class="cl" style="--c:${color};--s:${t}px"><b class="num">${n}</b></div>`,
+        className:"", iconSize:[t,t], iconAnchor:[t/2,t/2]});}});
 }
 /* Les symboles de carte viennent du sprite : une référence de 40 caractères
    au lieu du tracé complet recopié pour chaque marqueur. La teinte est portée
@@ -3063,9 +3224,22 @@ const SVG = {
   warn: mic("warning"),
   ice:  mic("ice")
 };
+/* SYMBOLES DE CARTE : des FORMES, plus des pictogrammes. Une flamme, un volcan
+   ou une sirène dessinés dans une bulle donnaient à la carte un air d'emoji.
+   Les cartes professionnelles utilisent des formes simples, reconnaissables
+   de loin et en noir et blanc : rond (feu), triangle (volcan), losange
+   (autre événement), carré (glace), anneau (tempête). La couleur dit
+   l'état, la forme dit la nature. */
+const FORMES = {
+  fire:`<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.2"/></svg>`,
+  volc:`<svg viewBox="0 0 16 16"><path d="M8 2.2 14.6 13.6H1.4Z"/></svg>`,
+  warn:`<svg viewBox="0 0 16 16"><path d="M8 1.6 14.4 8 8 14.4 1.6 8Z"/></svg>`,
+  ice: `<svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10" rx="1.5"/></svg>`,
+  cyc: `<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.6" class="vide"/></svg>`
+};
 const mkIcon = (k, cls) => L.divIcon({className:"",
-  html:`<div class="mk ${k}${cls?" "+cls:""}">${SVG[k]}</div>`,
-  iconSize:[26,26], iconAnchor:[13,13]});
+  html:`<div class="mk ${k}${cls?" "+cls:""}">${FORMES[k]||FORMES.fire}</div>`,
+  iconSize:[18,18], iconAnchor:[9,9]});
 const layers = {
   fwi: L.layerGroup(),
   forecast: L.layerGroup().addTo(map),
@@ -3727,7 +3901,7 @@ async function loadEonet(){
       m.bindPopup(`<div class="pp-t" style="color:${col}">${ic("engine","x18")}${esc(ev.title)}</div>
         <div class="pp-cat">Incendie référencé · NASA EONET</div>
         <div class="stbadge" style="--c:${col}">${etat.toUpperCase()}</div>
-        <div class="pp-row" style="color:#8fa4cc;font-size:11.5px">${why}</div>
+        <div class="pp-row" style="color:#8fa4cc;font-size:13px">${why}</div>
         <div class="pp-row">Dernier relevé du référentiel : <b>${fmtDate(when)}</b></div>
         <a class="pp-link" href="#" onclick="fireAnalysis(${ll[0]},${ll[1]},${JSON.stringify(String(ev.title)).replace(/"/g,"&quot;")},${first||null},${JSON.stringify(when)});return false">${ic("projection","x14")}Analyser l’activité réelle sur place</a><br>
         <a class="pp-link" href="#" onclick="showNews(${ll[0]},${ll[1]},'fire','Incendie — actualités');return false">${ic("news","x14")}Actualités du secteur</a>
@@ -3742,7 +3916,7 @@ async function loadEonet(){
       mk.volcanoes.push(L.marker(ll,{icon:mkIcon("volc")}).bindPopup(
         `<div class="pp-t">${ic("volcano","x18")}${esc(ev.title)}</div><div class="pp-cat">Volcan en activité</div>
          <div class="pp-row">Éruption en cours selon le Smithsonian (Global Volcanism Program), signalée depuis le <b>${fmtDate(first||when)}</b></div>
-         <div class="pp-row" style="color:#8fa4cc;font-size:11.5px">Une éruption dure souvent des mois, parfois des années : la date est celle du début, pas celle du dernier panache.</div>
+         <div class="pp-row" style="color:#8fa4cc;font-size:13px">Une éruption dure souvent des mois, parfois des années : la date est celle du début, pas celle du dernier panache.</div>
          <div class="pp-desc">Activité possible : explosions, cendres, coulées. Les cendres peuvent perturber l’aviation et la respiration loin du volcan.</div>
          ${src?`<a class="pp-link" href="${esc(src)}" target="_blank" rel="noopener">Bulletin officiel${ic("external","x12 xl")}</a>`:""}`,{maxWidth:290}));
       n.volcanoes++;
@@ -3888,7 +4062,7 @@ function dessineCyclone(c){
       pris.add(best.q);
       L.circleMarker([best.q[0],best.q[1]],{renderer:cnv, radius:4, color:"#eaf2ff", weight:1.4, fillColor:col, fillOpacity:1})
         .bindTooltip("+"+h+" h",{permanent:true, direction:"right", className:"ttime tc-h tc-h"+h, offset:[5,0]})
-        .bindPopup(()=>`<div class="pp-t">${ic("clock","x16")}${esc(c.nom)} <span>— position prévue</span></div><div class="pp-row"><b>${esc(dateTc(best.q[2]))}</b></div><div class="pp-row" style="color:#8fa4cc;font-size:11.5px">Prévision du bulletin officiel. L'incertitude grandit avec l'échéance : c'est le rôle du cône.</div>`,{maxWidth:260})
+        .bindPopup(()=>`<div class="pp-t">${ic("clock","x16")}${esc(c.nom)} <span>— position prévue</span></div><div class="pp-row"><b>${esc(dateTc(best.q[2]))}</b></div><div class="pp-row" style="color:#8fa4cc;font-size:13px">Prévision du bulletin officiel. L'incertitude grandit avec l'échéance : c'est le rôle du cône.</div>`,{maxWidth:260})
         .addTo(g);
     }
   }
@@ -3909,15 +4083,18 @@ function dessineCyclone(c){
   const fiche=()=>{
   const ageH=c.tpos ? (Date.now()-c.tpos)/36e5 : null;
   const zoneTxt=[120,90,60].filter(s=>c.zones&&c.zones[s]).map(s=>`<span style="color:${zc[s]}">≥ ${fmtV(s)}</span>`).join(" · ");
+  /* Première échéance où le vent atteint chaque seuil, d'après le bulletin. */
+  const pic=[120,90].map(s=>{ const z=(c.prev&&c.prev[s])||[]; return z.length ? `<span style="color:${zc[s]}">≥ ${fmtV(s)}</span> jusqu'au <b>${esc(dateTc(z[z.length-1][0]))}</b>` : ""; }).filter(Boolean)[0]||"";
   const pop=`<div class="pp-t" style="color:${col}">${ic("cyclone","x18")}<span>${esc(nomCl)}</span> ${esc(c.nom)}</div>
     <div class="pp-cat">Cyclone tropical — bulletin officiel via GDACS</div>
     ${c.vmax?`<div class="pp-row">Pic de vent sur la vie du système, <b>observé ou prévu</b> : <b>${fmtV(c.vmax)}</b></div>`:""}
     <div class="pp-row">Position officielle : <b>${c.tpos?esc(dateTc(Math.round(c.tpos/60000))):"—"}</b>${ageH!=null&&ageH>9?` <span style="color:#e0a33c">(bulletin de plus de ${Math.round(ageH)} h)</span>`:""}</div>
     <div class="pp-row">${deplacement()}</div>
     ${prv.length?`<div class="pp-row">Prévision officielle jusqu'au <b>${esc(dateTc(c.prv[c.prv.length-1][2]))}</b> — pointillés et cône.</div>`:`<div class="pp-row" style="color:#8fa4cc">Plus de prévision publiée : le système s'affaiblit ou se dissipe.</div>`}
-    ${zoneTxt?`<div class="pp-row">Couloirs de vent prévus : ${zoneTxt}</div>`:""}
-    ${c.co?`<div class="pp-row">Pays concernés : <b>${esc(c.co)}</b></div>`:""}
-    <div class="pp-row" style="color:#8fa4cc;font-size:11.5px">Disques pleins : le vent maintenant. Zones teintées : là où il soufflera au passage du cyclone. Activez « Vent » pour voir la rotation, « Pression » pour la dépression.</div>
+    ${zoneTxt?`<div class="pp-row">Zones de vent fort, trajectoire passée et prévue : ${zoneTxt}</div>`:""}
+    ${pic?`<div class="pp-row">Vent le plus fort prévu : ${pic}</div>`:""}
+    ${c.co?`<div class="pp-row">Pays concernés : <b>${esc(paysFR(c.co)||c.co)}</b></div>`:""}
+    <div class="pp-row" style="color:#8fa4cc;font-size:13px">Disques pleins : le vent maintenant. Zones teintées : là où le vent a soufflé et soufflera au passage du cyclone. Activez « Vent » pour voir la rotation, « Pression » pour la dépression.</div>
     ${c.geoAncienne?`<div class="pp-warn">Géométrie du bulletin précédent : le dernier n'a pas pu être lu.</div>`:""}
     <a class="pp-link" href="#" onclick="showNews(${c.pos[0]},${c.pos[1]},'storm','Cyclone — actualités');return false">${ic("news","x14")}Actualités : dégâts, évacuations</a>
     ${c.u?`<br><a class="pp-link" href="${esc(c.u)}" target="_blank" rel="noopener">Bulletin GDACS${ic("external","x12 xl")}</a>`:""}`;
@@ -4143,7 +4320,7 @@ async function loadPerims(){
         const ha = p.poly_GISAcres ? Math.round(p.poly_GISAcres*0.4047).toLocaleString("fr-FR") : null;
         l.bindPopup(`<div class="pp-t" style="color:#c79a76">${ic("polygon","x18")}${esc(p.poly_IncidentName||"Incendie")}</div>
           <div class="stbadge" style="--c:#b08560">SURFACE BRÛLÉE</div>
-          <div class="pp-row" style="color:#8fa4cc;font-size:11.5px">Périmètre <b>relevé sur le terrain</b> par les agences fédérales américaines. Il délimite ce qui a brûlé, et non le front actif.</div>
+          <div class="pp-row" style="color:#8fa4cc;font-size:13px">Périmètre <b>relevé sur le terrain</b> par les agences fédérales américaines. Il délimite ce qui a brûlé, et non le front actif.</div>
           <div class="pp-cat">Périmètre brûlé — relevé officiel de terrain</div>
           ${ha?`<div class="pp-row">Superficie touchée : <b>${ha} hectares</b></div>`:""}
           ${p.poly_DateCurrent?`<div class="pp-row">Relevé : <b>${fmtDate(p.poly_DateCurrent)}</b></div>`:""}
@@ -4262,10 +4439,10 @@ async function loadAlerts(){
                  inventer une traduction serait pire que de l'assumer. */
               if(fr) return `<div class="pp-row" style="color:#b9c8e8">${fr}</div>`;
               if(x.s && x.s!==x.n) return `<div class="pp-row" style="color:#b9c8e8">${esc(x.s)}`
-                + `<br><span style="color:#7e95c2;font-size:11px">texte d’origine du bulletin, en anglais</span></div>`;
+                + `<br><span style="color:#7e95c2;font-size:12.5px">texte d’origine du bulletin, en anglais</span></div>`;
               return ""; })()}
             ${x.d?`<div class="pp-row">Depuis le <b>${fmtDate(x.d)}</b>${x.cur?"":" · <span style=\"color:#8fa4cc\">événement clos</span>"}</div>`:""}
-            <div class="pp-row" style="color:#8fa4cc;font-size:11.5px">${clos
+            <div class="pp-row" style="color:#8fa4cc;font-size:13px">${clos
               ? "Niveau atteint pendant l’épisode : <b>"+lvl+"</b>. L’événement est terminé."
               : grave
               ? "Alerte <b>officielle et EN COURS</b>, graduée par l’ONU et la Commission européenne selon l’impact humanitaire estimé. C’est une catastrophe confirmée, actuellement active."
@@ -4824,7 +5001,7 @@ async function loadEuba(){
         const ha=p.AREA_HA!=null?Number(p.AREA_HA):null;
         l.bindPopup(`<div class="pp-t" style="color:#c79a76">${ic("perimeter","x18")}Surface déjà brûlée — ${esc(p.COMMUNE||p.PROVINCE||"périmètre")}</div>
           <div class="stbadge" style="--c:#9c7355">FEU PASSÉ</div>
-          <div class="pp-row" style="color:#8fa4cc;font-size:11.5px">Ce contour délimite une surface <b>qui a brûlé</b>, relevée par satellite. Ce n’est pas un feu en cours : pour l’activité actuelle, utilisez la couche « Foyers » ou « Incendies ».</div>
+          <div class="pp-row" style="color:#8fa4cc;font-size:13px">Ce contour délimite une surface <b>qui a brûlé</b>, relevée par satellite. Ce n’est pas un feu en cours : pour l’activité actuelle, utilisez la couche « Foyers » ou « Incendies ».</div>
           <div class="pp-cat">Contour officiel Copernicus (UE)</div>
           ${ha!=null?`<div class="pp-row">Superficie brûlée : <b>${fmtA(ha)}</b>${ha>100?` (~${nf(ha/100,1)}${NB}km²)`:""}</div>`:""}
           ${p.PROVINCE?`<div class="pp-row">${esc(p.PROVINCE)}${p.COUNTRY?" · "+esc(p.COUNTRY):""}</div>`:""}
@@ -4862,7 +5039,7 @@ map.on("moveend",()=>{
 /* ===== FICHE D’INFO : ancrée en bas sur mobile, bulle sur ordinateur ===== */
 let cardKey="";
 const cardEl=$("#card"), cardBody=$("#cardbody");
-function closeCard(){ cardEl.classList.remove("open"); cardKey=""; layers.analysis.clearLayers(); }
+function closeCard(){ cardEl.classList.remove("open"); document.body.classList.remove("fiche-ouverte"); cardKey=""; layers.analysis.clearLayers(); }
 $("#cclose").onclick=closeCard;
 /* Une seule et même fiche, sur tous les écrans. Plus aucun popup flottant :
    il déplaçait la carte en s'ouvrant, ce qui provoquait sa propre destruction. */
@@ -4870,7 +5047,7 @@ function openInfo(latlng, key){
   cardKey=key||String(Date.now());
   const myKey=cardKey;
   cardBody.innerHTML="";
-  cardEl.classList.add("open");
+  cardEl.classList.add("open"); document.body.classList.add("fiche-ouverte");
   return {
     setContent(h){ if(cardKey===myKey) cardBody.innerHTML=h; },
     key:myKey,
@@ -4893,7 +5070,7 @@ map.on("popupopen", e=>{
   if(typeof c!=="string" || !c) return;
   cardKey="mk"+Date.now();
   cardBody.innerHTML=c;
-  cardEl.classList.add("open");
+  cardEl.classList.add("open"); document.body.classList.add("fiche-ouverte");
   map.closePopup(e.popup);
 });
 
@@ -5123,7 +5300,7 @@ function localitesHTML(c){
      + L.menacees.slice(0,6).map(x=>ligne(x)+` <span style="color:#8fa4cc">(${x.off}° de l’axe)</span>`).join(" · ")
      + `</div>`;
   }
-  h+=`<div class="pp-row" style="color:#8fa4cc;font-size:11px">Croisement calculé entre les détections satellites et les lieux chargés à l’écran. `
+  h+=`<div class="pp-row" style="color:#8fa4cc;font-size:12.5px">Croisement calculé entre les détections satellites et les lieux chargés à l’écran. `
    + `Ce n’est <b>pas</b> un bilan officiel : aucun service public ne diffuse d’évaluation de dégâts en temps réel. `
    + `Une distance faible signifie que le feu est passé près, pas que la localité a été détruite.</div>`;
   return h;
@@ -5196,7 +5373,7 @@ function drawComplexes(){
       <div class="pp-cat">Foyers regroupés · analyse automatique</div>
       <div class="stbadge" style="--c:${col}">${bk.nm}${bk.k!=="zombie"?" · "+st.nm:""}</div>
       <div class="pp-row" style="color:${col};font-weight:600">${st.label}</div>
-      <div class="pp-row" style="color:#8fa4cc;font-size:11.5px">${st.why}</div>
+      <div class="pp-row" style="color:#8fa4cc;font-size:13px">${st.why}</div>
       ${bk.k==="zombie"?`<div class="pp-warn">${ZOMBIE_WHY}</div>`:""}
       <div class="pp-row"><span class="fresh" style="background:${c.fresh<6?"#4be3a4":c.fresh<24?"#ffc46b":"#8fa4cc"}"></span>Détection la plus récente : il y a <b>${c.fresh<1?"moins d’1 h":Math.round(c.fresh)+" h"}</b></div>
       <div class="pp-row">Surface touchée : <b>au plus ${fmtA(c.burned*100)}</b><br><span style="color:#8fa4cc">somme des <b>pixels satellites</b> en alerte thermique, recouvrements retirés. C’est un <b>majorant, pas une mesure</b> : un front de flammes de 50 m qui traverse un pixel de 375 m fait compter le pixel entier, soit 14 ha. La surface réellement brûlée est plus petite, souvent de moitié.</span></div>
@@ -5660,14 +5837,19 @@ function updFresh(){
   if(hotFresh==null || !$("#tg-hotspots").checked){ el.classList.remove("on"); return; }
   const h=hotFresh;
   const col=h<2?"#4be3a4":h<5?"#a3e635":h<9?"#ffc46b":"#ff9f43";
-  const txt=h<1 ? "il y a "+Math.max(1,Math.round(h*60))+" min" : "il y a "+h.toFixed(1)+" h";
+  /* « il y a 2.1 h » : une décimale d'heure ne se lit pas, et le point est
+     anglais. On écrit des heures et des minutes. */
+  const hh=Math.floor(h), mm=Math.round((h-hh)*60);
+  const txt=h<1 ? "il y a "+Math.max(1,Math.round(h*60))+" min"
+    : "il y a "+hh+" h"+(mm&&hh<10?" "+String(mm).padStart(2,"0"):"");
   /* Les satellites d’observation sont en orbite polaire : ils repassent au-dessus
      d’un point donné 4 à 6 fois par jour. Un chiffre élevé ne veut pas dire
      que la carte est en retard, mais qu’aucun survol n’a eu lieu depuis. */
   const note = h>=5
-    ? "<br><span style='opacity:.75;font-size:9.5px'>prochain survol attendu sous ~"+Math.max(1,Math.round(6-h%6))+" h · la météo, elle, est à jour</span>"
+    ? "<br><span style='opacity:.75;font-size:11px'>prochain survol attendu sous ~"+Math.max(1,Math.round(6-h%6))+" h · la météo, elle, est à jour</span>"
     : "";
-  el.innerHTML=`<i style="background:${col}"></i>Survol satellite de cette zone : <b>${txt}</b>${note}`;
+  /* Sur téléphone, une seule ligne : le libellé court suffit. */
+  el.innerHTML=`<i style="background:${col}"></i>${mqMobile.matches?"Satellite":"Dernier passage satellite"} : <b>${txt}</b>${mqMobile.matches?"":note}`;
   el.classList.add("on");
 }
 
@@ -5958,7 +6140,7 @@ function dessineAirSocle(z){
         <div class="pp-cat">Indice européen · grille mondiale ${abaseStep}°</div>
         <div class="pp-row">Indice : <b>${c.aqi}</b> / 100+</div>
         <div class="pp-row">Particules fines PM2.5 : <b>${c.pm} µg/m³</b></div>
-        <div class="pp-row" style="color:#8fa4cc;font-size:11.5px">Mesure de grande échelle, pré-calculée. Approchez pour obtenir le relevé fin de la zone.</div>
+        <div class="pp-row" style="color:#8fa4cc;font-size:13px">Mesure de grande échelle, pré-calculée. Approchez pour obtenir le relevé fin de la zone.</div>
         <div class="pp-foot">Open-Meteo / CAMS Copernicus${abaseAt?" · relevé il y a "+Math.round((Date.now()-abaseAt)/60000)+" min":""}</div>`,
         {maxWidth:mqMobile.matches?250:300})
       .addTo(layers.aq);
@@ -6072,7 +6254,7 @@ async function fireAnalysis(lat, lon, title, first, when, src){
     pop.setContent(`<div class="pp-t">${ic("flame","x18")}${esc(title)}</div>
       <div class="pp-cat">Analyse en direct du foyer</div>
       <div class="pp-row"><span class="fresh" style="background:${hrs<6?"#4be3a4":hrs<24?"#ffc46b":"#8fa4cc"}"></span>Relevé satellite : <b>${fmtShort(when)}</b>${days>=1?` · actif ≈ <b>${Math.round(days)} j</b>`:""}</div>
-      <div style="margin-top:6px;font-weight:600;font-size:12.5px">Règle des 30 — conditions actuelles :</div>
+      <div style="margin-top:6px;font-weight:600;font-size:13.5px">Règle des 30 — conditions actuelles :</div>
       ${/* La « règle des 30 » est un moyen mnémotechnique métrique : 30 °C, 30 %,
             30 km/h. En lecture impériale les trois seuils ne tombent plus sur 30
             (86 °F, 30 %, 19 mph) — on garde le nom, qui est celui de la règle,
@@ -6096,6 +6278,170 @@ async function fireAnalysis(lat, lon, title, first, when, src){
 }
 
 /* ================= Météo d’un point quelconque ================= */
+
+/* =====================================================================
+   SITUATION ICI — « y a-t-il un danger là où je regarde ? »
+   =====================================================================
+   S'affiche en tête de la fiche d'un lieu, qu'on l'ait touché sur la carte ou
+   trouvé par la recherche. Aucune requête de plus : tout vient des fichiers
+   officiels déjà chargés (et gardés en copie locale).
+
+   DES FAITS, PAS DES IMPRESSIONS. Chaque ligne nomme sa source et ses limites :
+   une vigilance Météo-France ou une alerte du service météo américain qui
+   COUVRE le point, le couloir de vent officiel d'un cyclone avec l'heure
+   d'arrivée prévue, un incendie actif et sa distance, un séisme récent, un
+   volcan en éruption. Rien n'est extrapolé.
+
+   UN TON CALME. Quatre niveaux, pas de clignotement ni de majuscules : un fait
+   à surveiller n'est pas un danger, et « aucune alerte » se dit aussi
+   clairement qu'une alerte. Les vigilances NATIONALES ne sont relayées que pour
+   la France et les États-Unis : ailleurs, la fiche le dit, plutôt que de
+   laisser croire à une absence de risque. */
+const SI_NIV = [
+  {nm:"Aucune alerte en cours ici", c:"#3fb68b"},
+  {nm:"À surveiller",               c:"#d9b340"},
+  {nm:"Vigilance",                  c:"#f0883e"},
+  {nm:"Danger",                     c:"#e5534b"}
+];
+/* Test « point dans un polygone » par lancer de rayon, sur un anneau GeoJSON
+   [lon, lat]. Les trous (îles, enclaves) sont respectés. */
+function dansAnneau(la, lo, r){
+  let d=false;
+  for(let i=0, j=r.length-1; i<r.length; j=i++){
+    const xi=r[i][0], yi=r[i][1], xj=r[j][0], yj=r[j][1];
+    if(((yi>la)!==(yj>la)) && (lo < (xj-xi)*(la-yi)/((yj-yi)||1e-12)+xi)) d=!d;
+  }
+  return d;
+}
+function dansGeo(la, lo, g){
+  if(!g) return false;
+  const poly=p=>Array.isArray(p) && p.length && dansAnneau(la, lo, p[0]) && !p.slice(1).some(h=>dansAnneau(la, lo, h));
+  if(g.type==="Polygon") return poly(g.coordinates);
+  if(g.type==="MultiPolygon") return (g.coordinates||[]).some(poly);
+  if(g.type==="GeometryCollection") return (g.geometries||[]).some(x=>dansGeo(la, lo, x));
+  if(g.type==="Feature") return dansGeo(la, lo, g.geometry);
+  return false;
+}
+/* Anneaux des cyclones : publiés en [lat, lon], l'ordre de Leaflet. */
+const dansAnneauTc=(la, lo, r)=>Array.isArray(r) && r.length>3 && dansAnneau(la, lo, r.map(q=>[q[1], q[0]]));
+const SI_DIR = d => ({N:"au nord",NNE:"au nord-nord-est",NE:"au nord-est",ENE:"à l'est-nord-est",E:"à l'est",ESE:"à l'est-sud-est",SE:"au sud-est",SSE:"au sud-sud-est",
+  S:"au sud",SSO:"au sud-sud-ouest",SO:"au sud-ouest",OSO:"à l'ouest-sud-ouest",O:"à l'ouest",ONO:"à l'ouest-nord-ouest",NO:"au nord-ouest",NNO:"au nord-nord-ouest"})[
+  ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"][Math.round(((d%360)+360)%360/22.5)%16]];
+
+async function situationIci(la, lo, cc, cur){
+  lo=((lo+540)%360)-180;
+  const items=[];
+  const ajoute=(niv, titre, detail, lien)=>items.push({niv, titre, detail, lien});
+  const [ma, nws, gg, eo, cy]=await Promise.all([
+    preload("meteoalarm", 12*3600e3), preload("nws", 6*3600e3),
+    preload("gdacsgeo", 24*3600e3), preload("eonet", 24*3600e3),
+    CYCL ? Promise.resolve({c:CYCL}) : preload("cyclones", 6*3600e3)
+  ].map(p=>Promise.resolve(p).catch(()=>null)));
+
+  /* 1. Vigilance Météo-France (département qui contient le point) */
+  for(const z of (ma && ma.f) || []){
+    if(!dansGeo(la, lo, z.g)) continue;
+    const niv=z.niv>=4 ? 3 : z.niv>=3 ? 2 : 1;
+    ajoute(niv, `Vigilance ${z.nivn||""} ${z.typn||""}`.replace(/\s+/g," ").trim(),
+      `Météo-France${z.d1?" · jusqu'au "+fmtWhen(z.d1):""}`, "https://vigilance.meteofrance.fr/fr");
+  }
+  /* 2. Alertes du service météo américain (polygone qui contient le point) */
+  const vus=new Set();
+  for(const f of (nws && nws.features) || []){
+    const p=f.properties||{};
+    if(!f.geometry || !dansGeo(la, lo, f.geometry)) continue;
+    const cle=p.event+"|"+p.expires; if(vus.has(cle)) continue; vus.add(cle);
+    const niv=p.severity==="Extreme" ? 3 : 2;
+    ajoute(niv, ORAGE_FR[p.event] || p.event || "Alerte météo",
+      `National Weather Service${p.expires?" · jusqu'au "+fmtWhen(p.expires):""}`, p.web || "https://www.weather.gov/");
+  }
+  /* 3. Contours d'alerte GDACS (inondation, sécheresse, incendie) */
+  for(const x of (gg && gg.f) || []){
+    if(!dansGeo(la, lo, x.g)) continue;
+    const niv=x.a==="Red" ? 3 : x.a==="Orange" ? 2 : 1;
+    ajoute(niv, `${GTYPE[x.t]||"Événement"} — alerte ${x.a==="Red"?"rouge":x.a==="Orange"?"orange":"verte"}`,
+      "GDACS (Nations unies · Commission européenne)", "https://www.gdacs.org/");
+  }
+  /* 4. Cyclones : vent actuel, couloir prévu, cône, proximité */
+  for(const c of (cy && cy.c) || []){
+    if(!Array.isArray(c.pos)) continue;
+    const nom=`${nomClasse(c)} ${c.nom}`;
+    const d=distKm([la,lo], c.pos);
+    let fait=false;
+    for(const s of [120,90,60]){
+      if(c.rayons && dansAnneauTc(la, lo, c.rayons[s])){
+        ajoute(s>=120?3:2, `${nom} : vent de plus de ${fmtV(s)} en ce moment`,
+          `Bulletin officiel · centre à ${fmtD(d)} ${SI_DIR(bearing([la,lo], c.pos))}`, c.u||null);
+        fait=true; break;
+      }
+    }
+    if(fait) continue;
+    /* Prévision : uniquement les zones de vent des ÉCHÉANCES FUTURES, chacune
+       datée. L'enveloppe « zones » couvre aussi le passé du cyclone : l'utiliser
+       ici annonçait du vent « prévu » sur Tokyo pour un typhon passé au large des
+       jours plus tôt. L'heure donnée est celle de la première échéance qui
+       atteint le lieu. */
+    for(const s of [120,90,60]){
+      const zs=(c.prev && c.prev[s]) || [];
+      let t=null;
+      for(const [tm, ring] of zs) if(tm*60000>Date.now() && dansAnneauTc(la, lo, ring) && (t===null || tm<t)) t=tm;
+      if(t!==null){
+        ajoute(s>=90?2:1, `${nom} : vent de plus de ${fmtV(s)} prévu`,
+          `Bulletin officiel · à partir de ${fmtWhen(t*60000)} environ`, c.u||null);
+        fait=true; break;
+      }
+    }
+    if(fait) continue;
+    if(c.cone && dansAnneauTc(la, lo, c.cone)){ ajoute(1, `Dans le cône de prévision de ${nom}`, `Trajectoire incertaine · centre à ${fmtD(d)}`, c.u||null); continue; }
+    if(d<700) ajoute(1, `${nom} à ${fmtD(d)} ${SI_DIR(bearing([la,lo], c.pos))}`, "Bulletin officiel via GDACS", c.u||null);
+  }
+  /* 5. Incendies actifs détectés par satellite */
+  if(hotRaw.length){
+    let best=null;
+    for(const f of sinistresCalcules()){
+      if(!f.st || (FIRE_BUCKET[f.st.key]||{}).k==="zombie") continue;
+      const d=distKm([la,lo], f.c);
+      if(d<30 && (!best || d<best.d)) best={f, d};
+    }
+    if(best) ajoute(best.d<10 ? 2 : 1, `Incendie actif à ${fmtD(best.d)} ${SI_DIR(bearing([la,lo], best.f.c))}`,
+      `Détecté par satellite il y a ${best.f.fresh<1?"moins d'une heure":Math.round(best.f.fresh)+" h"} · les services de secours font foi`, null);
+  }
+  /* 6. Séismes récents ressentis à cette distance */
+  let sq=null;
+  for(const f of qRaw){
+    const p=f.properties||{}, g=f.geometry&&f.geometry.coordinates;
+    if(!g || p.mag==null || p.mag<4.5 || Date.now()-p.time>48*3600e3) continue;
+    const d=distKm([la,lo],[g[1],g[0]]), portee=Math.min(600, 100*Math.pow(2, p.mag-4.5));
+    if(d<=portee && (!sq || p.mag>sq.m)) sq={m:p.mag, d, t:p.time};
+  }
+  if(sq) ajoute(sq.m>=6.5 && sq.d<200 ? 2 : 1, `Séisme de magnitude ${nf(sq.m,1)} à ${fmtD(sq.d)}`,
+    `USGS · il y a ${Math.max(1,Math.round((Date.now()-sq.t)/36e5))} h`, "https://earthquake.usgs.gov/earthquakes/map/");
+  /* 7. Volcans en éruption à proximité */
+  for(const v of (eo && eo.events) || []){
+    if(v.c!=="volcanoes" || !v.g || !v.g.length) continue;
+    const p=v.g[v.g.length-1], d=distKm([la,lo],[p[0],p[1]]);
+    if(d<40) ajoute(1, `${String(v.t).replace(/ Volcano.*$/,"")} : volcan en éruption à ${fmtD(d)}`, "Smithsonian (Global Volcanism Program)", v.s||null);
+  }
+  /* 8. Vent et chaleur mesurés par le modèle, au-delà de seuils nets */
+  if(cur){
+    if(cur.wind_gusts_10m>=100) ajoute(2, `Rafales de ${fmtV(cur.wind_gusts_10m)}`, "Valeur du modèle météo pour ce lieu, maintenant", null);
+    else if(cur.wind_gusts_10m>=80) ajoute(1, `Rafales de ${fmtV(cur.wind_gusts_10m)}`, "Valeur du modèle météo pour ce lieu, maintenant", null);
+    if(cur.apparent_temperature>=40) ajoute(1, `Chaleur : ressenti ${fmtT(cur.apparent_temperature)}`, "Valeur du modèle météo pour ce lieu, maintenant", null);
+    else if(cur.apparent_temperature<=-25) ajoute(1, `Grand froid : ressenti ${fmtT(cur.apparent_temperature)}`, "Valeur du modèle météo pour ce lieu, maintenant", null);
+  }
+
+  items.sort((a,b)=>b.niv-a.niv);
+  const niv=items.length ? items[0].niv : 0, N=SI_NIV[niv];
+  const couvert = cc==="FR" || cc==="US";
+  const lignes=items.slice(0,5).map(it=>
+    `<div class="si-it" style="--c:${SI_NIV[it.niv].c}"><div class="si-tt">${esc(it.titre)}</div>`
+    + `<div class="si-dd">${esc(it.detail)}${it.lien?` · <a href="${esc(it.lien)}" target="_blank" rel="noopener">source</a>`:""}</div></div>`).join("");
+  const note = niv>=2 ? `<div class="si-n">Suivez les consignes des autorités locales.</div>`
+    : !couvert ? `<div class="si-n">Les vigilances nationales sont relayées pour la France et les États-Unis. Ici, consultez le service météorologique du pays.</div>`
+    : "";
+  return `<div class="si" style="--c:${N.c}"><div class="si-h"><span class="si-p"></span>${N.nm}</div>${lignes}${note}</div>`;
+}
+
 async function showWeather(lat, lon, presetName){
   const pop = openInfo([lat,lon],"wx"+lat.toFixed(2)+lon.toFixed(2));
   pop.setContent('<div class="pp-t">Météo locale…</div><div class="pp-desc">Interrogation des modèles météo</div>');
@@ -6119,6 +6465,10 @@ async function showWeather(lat, lon, presetName){
       airHtml=`<div class="pp-row" style="margin-top:8px">Air : <b style="color:${inf[1]}">${inf[2]}</b> (indice ${Math.round(air.current.european_aqi)} · PM2.5 ${air.current.pm2_5} µg/m³)${air.current.european_aqi>60?" — <b>fumées possibles</b>":""}</div>`;
     }
     const cc=(gp&&gp.countrycode)||"";
+    /* La situation passe AVANT la météo : c'est la question qu'on se pose en
+       touchant un lieu. Si l'analyse échoue, la fiche s'affiche sans elle. */
+    let siHtml="";
+    try{ siHtml=await situationIci(lat, lon, cc, w.current); }catch(e){ siHtml=""; }
     let vigHtml="";
     if(cc==="FR") vigHtml=`<a class="pp-link" href="https://vigilance.meteofrance.fr/fr" target="_blank" rel="noopener">${ic("siren","x14")}Vigilance officielle Météo-France${ic("external","x12 xl")}</a>`;
     else if(cc) vigHtml=`<a class="pp-link" href="https://www.meteoalarm.org/en/live/" target="_blank" rel="noopener">${ic("siren","x14")}Vigilances officielles européennes${ic("external","x12 xl")}</a>`;
@@ -6133,15 +6483,17 @@ async function showWeather(lat, lon, presetName){
     }
     pop.setContent(`<div class="pp-t">${ic("pin","x18")}${esc(name)}</div>
       <div class="pp-coords">${lat.toFixed(3)}, ${lon.toFixed(3)}</div>
+      ${siHtml}
       <div class="wx-main">${ic(em,"x28 wxi")}<span class="big">${fmtT(c.temperature_2m)}</span><span class="dsc">${dsc}</span></div>
-      <div class="wx-line">
-        <span><i>ress.</i> ${fmtTs(c.apparent_temperature)}</span>
-        <span><i>hum.</i> ${c.relative_humidity_2m}%</span>
-        <span><i>vent</i> ${fmtV(c.wind_speed_10m)} <i>du</i> ${compass(c.wind_direction_10m)} <i>(${windLabel(c.wind_speed_10m)})</i></span>
-        <span><i>raf.</i> ${fmtVs(c.wind_gusts_10m)}</span>
-        <span><i>pluie</i> ${c.precipitation}mm</span>
-        <span><i>nuages</i> ${c.cloud_cover}%</span>
-        <span>${Math.round(c.pressure_msl)}hPa</span>
+      <div class="wx-grid">
+        <div><i>Ressenti</i><b>${fmtT(c.apparent_temperature)}</b></div>
+        <div><i>Humidité</i><b>${c.relative_humidity_2m} %</b></div>
+        <div><i>Vent</i><b>${fmtV(c.wind_speed_10m)} ${compass(c.wind_direction_10m)}</b></div>
+        <div><i>Rafales</i><b>${fmtV(c.wind_gusts_10m)}</b></div>
+        <div><i>Pluie (1 h)</i><b>${nf(c.precipitation,1)} mm</b></div>
+        <div><i>Nuages</i><b>${c.cloud_cover} %</b></div>
+        <div><i>Pression</i><b>${Math.round(c.pressure_msl)} hPa</b></div>
+        <div><i>Vent ressenti</i><b>${windLabel(c.wind_speed_10m)}</b></div>
       </div>
       ${fcHtml}${airHtml}${vigHtml}
       <div class="pp-foot">Relevé de ${c.time?String(c.time).slice(11,16):"—"} (heure locale du lieu) · Open-Meteo, modèles météo officiels actualisés chaque heure</div>`);
@@ -6891,7 +7243,7 @@ function dessineP(){
     for(const b of place) if(x<b[0]+b[2] && x+w>b[0] && y<b[1]+b[3] && y+h>b[1]) return false;
     place.push([x,y,w,h]); return true;
   };
-  ctx.font="600 10.5px system-ui,sans-serif";
+  ctx.font="600 12px system-ui,sans-serif";
   ctx.textAlign="center"; ctx.textBaseline="middle";
   /* Écart entre isobares : 5 hPa, comme les cartes de Météo-France, mais
      10 hPa à l'échelle du globe — celui des cartes à grande échelle. À 5 hPa,
@@ -6942,7 +7294,7 @@ function dessineP(){
     ctx.font="800 25px system-ui,sans-serif";
     if(!libre(q.x-16, q.y-18, 32, 46)) continue;
     texteHalo(ctx, lettre, q.x, q.y, "rgba(255,255,255,.95)", coul);
-    ctx.font="700 11px system-ui,sans-serif";
+    ctx.font="700 12.5px system-ui,sans-serif";
     texteHalo(ctx, sous, q.x, q.y+19, "rgba(6,12,24,.85)", "#f4f8ff");
     if(c.bas) nD++; else nA++;
     nPoses++;
@@ -7096,7 +7448,7 @@ async function fetchWind(){
   const total=Math.max(1,Math.round((n0-s0)/st+1)*Math.round((e-w)/st+1));
   const resKm=Math.round(st*111);
   if(!need.length){
-    setC("c-wind", resKm+" km");
+    setC("c-wind", "");
     startLoop();
     wind.pause=false;
     return;
@@ -7108,7 +7460,7 @@ async function fetchWind(){
   const reste=Math.max(0, OM_LIMIT-omUsed());
   const batch=need.slice(0, Math.min(380, PERF.windCells+40, reste));
   if(batch.length<50 && WBASE.size){
-    setC("c-wind", "mondial " + wbaseStep + "°");
+    setC("c-wind", "");
     updKmPx(); seedParts(false); wind.pause=false; startLoop();
     return;
   }
@@ -7131,7 +7483,7 @@ async function fetchWind(){
     });
     if(WCELL.size>2600){ const it=WCELL.keys(); for(let i=0;i<600;i++) WCELL.delete(it.next().value); }
     wcellSave();
-    setC("c-wind", resKm+" km");
+    setC("c-wind", "");
     updKmPx(); wResize(); wReposition(); seedParts(false);
     wind.pause=false;
     startLoop();
@@ -7150,7 +7502,7 @@ async function fetchWind(){
          il y a un champ de vent complet à l'écran. */
       /* On annonce le pas RÉEL du socle, pas une valeur écrite en dur : il est
          passé de 10° à 5° et l'étiquette mentait depuis. */
-      setC("c-wind", "mondial " + wbaseStep + "°");
+      setC("c-wind", "");
       updKmPx(); seedParts(false);
       wind.pause=false; startLoop();
     }else if(WCELL.size){
@@ -7471,7 +7823,7 @@ function aFrame(){
   const sz=map.getSize(), z=map.getZoom();
   aClear();
   const showLbl=z>=8.5;
-  actx.font='600 9.5px ui-monospace,monospace';
+  actx.font='600 11px ui-monospace,monospace';
   actx.textAlign="center";
   for(const a of AIR.list){
     /* Position estimée entre deux relevés, d’après cap et vitesse réels */
@@ -7543,12 +7895,12 @@ function aFrame(){
       const nom=a.flight||a.reg||a.hex;
       actx.fillText(nom, q.x, q.y+size+12);
       if(showLbl && a.role){
-        actx.font='500 9px system-ui,sans-serif';
+        actx.font='500 11px system-ui,sans-serif';
         actx.fillStyle = "#a9bcd8";
         actx.fillText(a.role, q.x, q.y+size+23);
       }
       actx.shadowBlur=0;
-      actx.font='600 9.5px ui-monospace,monospace';
+      actx.font='600 11px ui-monospace,monospace';
     }
   }
 }
@@ -8496,7 +8848,12 @@ function buildDrawer(c){
         + `><svg class="ic x18 te" aria-hidden="true"><use href="#i-${l.icon}"/></svg>`
         + `<span class="tl">${l.nm}${hors?"<em>hors zone</em>":""}</span>`
         + `<span class="tc num" data-tc="${l.id}"></span></button>`;
-    }).join("")}</div><p class="dhint">${c.hint}</p>`;
+    }).join("")}</div><p class="dhint">${c.hint}</p>`
+    + (c.id==="feux" ? `<button type="button" class="dact" id="btn-tl"${tlPossible()?"":" disabled"}>`
+        + `<svg class="ic x16" aria-hidden="true"><use href="#i-clock"/></svg>`
+        + `<span>${tlPossible()?"Rejouer les dernières 48 h":"Zoomez sur un incendie pour rejouer ses 48 dernières heures"}</span></button>` : "");
+  const btl=$("#btn-tl");
+  if(btl) btl.onclick=()=>{ if(tlPossible()){ tlToggle(true); closeGroup(); } };
   dEl.querySelectorAll("[data-t]").forEach(btn=>{
     btn.onclick=()=>{
       const l=LAYER_BY_ID.get(btn.dataset.t), cb=$("#"+btn.dataset.t);
@@ -8731,15 +9088,15 @@ function tlSet(v){
 $("#tlr").addEventListener("input",e=>tlSet(+e.target.value));
 $("#tlminus").onclick=()=>tlSet(tlH-1);
 $("#tlplus").onclick=()=>tlSet(tlH+1);
-$("#tlnow").onclick=()=>{ tlSet(48); toast("⦿ Retour à l’instant présent",2500); };
+$("#tlnow").onclick=()=>{ tlSet(48); toast("Retour à l’instant présent",2500); };
 $("#tlplay").onclick=tlPlay;
 $("#tlx").onclick=()=>tlToggle(false);
-/* La chronologie apparaît dès qu’il y a des foyers à rejouer */
-setInterval(()=>{
-  const want=$("#tg-hotspots").checked && hotRaw.length>25 && map.getZoom()>=6;
-  if(want && !tlOn) tlToggle(true);
-  else if(!want && tlOn) tlToggle(false);
-},4000);
+/* LA CHRONOLOGIE NE S'OUVRE PLUS D'ELLE-MÊME. Une minuterie la rouvrait toutes
+   les quatre secondes dès qu'on approchait d'un incendie — y compris juste
+   après qu'on l'avait fermée : la croix ne servait à rien. On l'ouvre depuis le
+   tiroir « Feux » ; elle se referme seule quand il n'y a plus rien à rejouer. */
+function tlPossible(){ return $("#tg-hotspots").checked && hotRaw.length>25 && map.getZoom()>=6; }
+setInterval(()=>{ if(tlOn && !tlPossible()) tlToggle(false); },4000);
 $("#q").addEventListener("focus",()=>{ if(mqMobile.matches) openPanel(true); });
 mqMobile.addEventListener("change",()=>{
   panel.classList.remove("open","hidden");
@@ -9181,7 +9538,9 @@ if(startHash && applyShareURL()){
 premierChargement.then(()=>{
   window.__appReady=true;
   hideLoader(); setMaj(); syncUI();
-  if(!startHash && !startZone) initWelcome();
+  /* Plus de fenêtre d'accueil. Elle bloquait la carte à chaque première visite
+     pour demander une « zone ciblée » et parlait de volume de données. Un
+     service météo ouvre sur la carte ; on cherche un lieu dans la barre du haut. */
   /* Une annonce ne se lit qu'une fois. Celle-ci s'affichait à CHAQUE chargement,
      des mois après la refonte qu'elle annonçait. */
   try{
@@ -9243,7 +9602,7 @@ setTimeout(hideLoader,9000);
    data/i18n/*.json. Elle sert de clé à la copie locale ; sans elle, un
    visiteur garderait des traductions périmées, ou retéléchargerait à chaque
    visite un fichier de 150 ko qui n'a pas changé. */
-const I18N_VER = "2026-09-24a";
+const I18N_VER = "2026-09-24c";
 async function chargeDico(lg){
   if(lg === "fr") return null;
   if(dicoCache.has(lg)) return dicoCache.get(lg);

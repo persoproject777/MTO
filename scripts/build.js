@@ -532,7 +532,12 @@ async function cyclones() {
        qui suit est la prévision officielle. */
     const obs = pts.filter(q => q.t <= now + 30 * 60e3), prv = pts.filter(q => q.t > now + 30 * 60e3);
     const dernier = obs.length ? obs[obs.length - 1] : null;
-    const zones = {}, rayons = {};
+    /* `zones` : l'enveloppe GDACS étiquetée « 60 km/h » couvre TOUTE la vie du
+       cyclone, passé compris — Tokyo s'y trouvait pour Dujuan, passé au large
+       des jours plus tôt. Ce n'est donc pas une prévision. `prev` garde, pour
+       chaque seuil, les zones de vent des ÉCHÉANCES FUTURES, chacune avec sa
+       date : c'est elle qui dit si, et quand, le vent arrive quelque part. */
+    const zones = {}, rayons = {}, prev = {60: [], 90: [], 120: []};
     let cone = null;
     for (const g of feats) {
       const cl = String(g.properties && g.properties.Class || ""), lab = String(g.properties.polygonlabel || "");
@@ -546,6 +551,8 @@ async function cyclones() {
       const t = Date.parse(String(g.properties.polygondate || "") + "Z");
       if (dernier && isFinite(t) && Math.abs(t - dernier.t) < 30 * 60e3) {
         const z = anneau(g.geometry.coordinates, 0.02); if (z) rayons[seuil] = z;
+      } else if (isFinite(t) && t > (dernier ? dernier.t : now) + 30 * 60e3) {
+        const z = anneau(g.geometry.coordinates, 0.05); if (z) prev[seuil].push([Math.round(t / 60000), z]);
       }
     }
     out.push(Object.assign(base, {
@@ -553,7 +560,7 @@ async function cyclones() {
       tpos: dernier ? dernier.t : null,
       trk: obs.map(q => [q.c[0], q.c[1], Math.round(q.t / 60000)]),
       prv: prv.map(q => [q.c[0], q.c[1], Math.round(q.t / 60000)]),
-      cone, zones, rayons
+      cone, zones, rayons, prev
     }));
   }
   out.sort((a, b) => scoreTc(b) - scoreTc(a));
