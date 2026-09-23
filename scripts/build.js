@@ -114,8 +114,20 @@ async function eonet() {
   const events = (d.events || []).map(ev => {
     const g = (ev.geometry || []).filter(x => x.type === "Point" && Array.isArray(x.coordinates));
     if (!g.length) return null;
-    if (now - Date.parse(g[g.length - 1].date) > MAX) return null;
     const cat = (ev.categories && ev.categories[0] && ev.categories[0].id) || "";
+    const age = now - Date.parse(g[g.length - 1].date);
+    /* UNE RÈGLE D'ÂGE PAR CATÉGORIE, pas une pour toutes.
+       — Volcans : EONET les tient du Smithsonian (GVP), qui ne publie qu'UN point,
+         daté du début de l'éruption, et ferme l'événement quand l'éruption
+         s'arrête. Tant qu'il est ouvert, l'éruption continue — Sakurajima ou
+         Dukono durent des années. La règle des 90 jours, faite pour les feux,
+         les jetait tous : la couche « Volcans » affichait zéro, alors que trente-
+         deux éruptions étaient en cours. On les garde jusqu'à cinq ans.
+       — Incendies : le navigateur écarte déjà tout ce qui dépasse huit jours ;
+         les publier quand même, c'était 378 événements morts sur 382, téléchargés
+         par chaque visiteur pour être jetés aussitôt. */
+    const LIMITE = cat === "volcanoes" ? 5 * 365 * 864e5 : cat === "wildfires" ? 8.5 * 864e5 : MAX;
+    if (age > LIMITE) return null;
     const keep = cat === "severeStorms"
       ? (g.length > 20 ? g.slice(-20) : g)
       : [g[0], g[g.length - 1]];
@@ -127,7 +139,10 @@ async function eonet() {
       g: uniq.map(x => [p3(x.coordinates[1]), p3(x.coordinates[0]), Math.round(Date.parse(x.date) / 60000)])
     };
   }).filter(Boolean).sort(byKey(e => e.t + "|" + e.c));
-  write("eonet.json", { t: now, events }, events.length + " événements (90 j)");
+  const parCat = {};
+  events.forEach(e => { parCat[e.c] = (parCat[e.c] || 0) + 1; });
+  write("eonet.json", { t: now, events }, events.length + " événements — "
+    + Object.entries(parCat).map(([k, v]) => k + " " + v).join(", "));
 }
 
 /* ---------- Alertes officielles ONU / Commission européenne (GDACS) ----------
@@ -890,6 +905,72 @@ function circulation(cells, cla, clo) {
   return n ? som / n : 0;
 }
 
+/* ---------- INTENSITÉ RÉELLE D'UN CYCLONE ----------
+   GDACS note presque tous les cyclones « Green », catégorie 1 : sur le relevé
+   du 23 septembre, les sept cyclones actifs avaient exactement la même note,
+   et le tri gardait donc les trois premiers de la liste — une dépression
+   plutôt que l'ouragan Polo à 287 km/h, le plus violent de la planète ce
+   jour-là. La vraie intensité est pourtant publiée, dans la phrase de
+   synthèse : « a Hurricane/Typhoon > 74 mph (maximum wind speed of 287 km/h) ».
+   On la lit.
+
+   Deux informations, qui ne disent pas la même chose :
+   — la CLASSE ACTUELLE (« a Tropical Depression ») : où en est le système ;
+   — le VENT MAXIMAL : le pic sur toute la vie du système, PRÉVISION COMPRISE.
+     Surigae, né le jour même et encore dépression, affichait 204 km/h : c'est
+     l'intensité annoncée, pas l'actuelle.
+   Le rang combine les deux (60 points par classe, un point par km/h) : un
+   ouragan en cours passe devant, mais un système promis à devenir un typhon
+   majeur passe devant une petite tempête. Classé sur la seule classe, il
+   restait derrière elle.
+
+   La classe vient de la source ACTUELLE. Un titre EONET vieux de 37 heures
+   disait « Typhoon Dujuan » quand GDACS, à jour, le donnait redescendu en
+   tempête — et en fin de vie, à 39° de latitude. */
+const CLASSES_TC = [
+  [/super\s*typhoon/i, 4, "super-typhon"],
+  [/hurricane|typhoon|category\s*[3-5]/i, 3, "ouragan"],
+  [/tropical\s*storm|severe\s*tropical|cyclonic\s*storm|tropical\s*cyclone/i, 2, "tempête tropicale"],
+  [/depression|disturbance|low/i, 1, "dépression tropicale"]
+];
+function classeTc(txt) {
+  const t = String(txt || "");
+  for (const [re, rang, nom] of CLASSES_TC) if (re.test(t)) return { rang, nom };
+  return null;
+}
+function intensiteGdacs(x) {
+  const s = String(x.s || "");
+  const cl = classeTc((s.match(/,\s*an?\s+([^()]+?)\s*\(/i) || [])[1]);
+  const v = +((s.match(/maximum wind speed of\s+(\d+)\s*km\/h/i) || [])[1] || 0);
+  const alerte = x.a === "Red" ? 2 : x.a === "Orange" ? 1 : 0;
+  return { rang: cl ? cl.rang : 1, cat: cl ? cl.nom : null, vmax: v || null, alerte, fiable: true };
+}
+function scoreTc(z) { return (z.rang || 1) * 60 + (z.vmax || 0) + (z.alerte || 0) * 40; }
+/* Le nom propre d'un système est le dernier mot de son titre : « Hurricane
+   Polo » et « Polo », « Tropical Depression Fifteen-E » et « Fifteen-e ». */
+function nomPropre(t) {
+  const m = String(t || "").toLowerCase().match(/[a-z0-9à-ÿ-]{3,}$/);
+  return m ? m[0] : "";
+}
+/* « Hurricane Polo » → « Polo », « Fifteen-e » → « Fifteen-E ». La classe, elle, est
+   publiée à part et en français : le navigateur compose « Ouragan Polo ». */
+function nomAffiche(t) {
+  const m = String(t || "").match(/([A-Za-z0-9À-ÿ]+(?:-[A-Za-z0-9]+)?)\s*$/);
+  if (!m) return String(t || "");
+  /* Une désignation numérique (« 01B », « 15E ») reste en capitales : c'est un
+     code, pas un nom. */
+  return m[1].split("-").map((x, i) => (i || /\d/.test(x)) ? x.toUpperCase()
+    : x.charAt(0).toUpperCase() + x.slice(1).toLowerCase()).join("-");
+}
+function memeNom(a, b) {
+  const x = nomPropre(a), y = nomPropre(b);
+  return !!x && x === y;
+}
+function intensiteTitre(titre) {
+  const cl = classeTc(titre);
+  return { rang: cl ? cl.rang : 1, cat: cl ? cl.nom : null, vmax: null, alerte: 0 };
+}
+
 async function ventCyclone() {
   const lire = f => { try { return JSON.parse(fs.readFileSync(path.join(OUT, f), "utf8")); } catch (e) { return null; } };
   const g = lire("gdacs.json"), e = lire("eonet.json");
@@ -902,11 +983,8 @@ async function ventCyclone() {
   if (g && Array.isArray(g.f))
     for (const x of g.f)
       if (x.t === "TC" && x.cur && Array.isArray(x.c))
-        /* La couleur GDACS seule ne départage rien : les cyclones en cours sont
-           presque tous « Green », et les quatre zones d'un relevé réel avaient
-           toutes la même note. On y ajoute la catégorie (x.sc), qui, elle, varie. */
-        brut.push({ la: x.c[0], lo: x.c[1], nm: nomCyclone(x.n), pri: 1, quand: 0,
-          sev: (x.a === "Red" ? 300 : x.a === "Orange" ? 200 : 100) + (Number(x.sc) || 0) });
+        brut.push(Object.assign({ la: x.c[0], lo: x.c[1], nm: nomCyclone(x.n), pri: 1, quand: 0 },
+          intensiteGdacs(x)));
   if (e && Array.isArray(e.events))
     for (const x of e.events)
       if (x.c === "severeStorms" && Array.isArray(x.g) && x.g.length) {
@@ -918,16 +996,14 @@ async function ventCyclone() {
            « open » longtemps après leur dissipation. */
         if (!Array.isArray(d) || d.length < 2) continue;
         const quand = d.length >= 3 ? d[2] * 60000 : 0;
-        if (quand && now - quand > 12 * 3600e3) {
-          console.log("     " + String(x.t).slice(0, 24) + " : position vieille de "
-            + Math.round((now - quand) / 3600e3) + " h — écartée");
-          continue;
-        }
-        const ti = String(x.t || "");
-        brut.push({ la: d[0], lo: d[1], nm: x.t || "Tempête", pri: 2, quand,
-          sev: /super\s*typhoon/i.test(ti) ? 305
-             : /typhoon|hurricane|cyclone/i.test(ti) ? 205
-             : /tropical\s*storm/i.test(ti) ? 105 : 5 });
+        /* UNE POSITION VIEILLE NE DÉCRIT PLUS OÙ EST LE CYCLONE, MAIS SON TITRE
+           DIT TOUJOURS CE QU'IL EST. J'écartais le relevé entier : le titre
+           « Hurricane Polo » partait avec, alors que c'était le seul endroit où
+           l'on apprenait que Polo était un ouragan. On garde donc le relevé pour
+           le CLASSEMENT, marqué comme position à ne pas utiliser. */
+        const vieux = !!(quand && now - quand > 12 * 3600e3);
+        brut.push(Object.assign({ la: d[0], lo: d[1], nm: x.t || "Tempête", pri: 2,
+          quand: vieux ? 0 : quand, vieux }, intensiteTitre(x.t), { fiable: !vieux }));
       }
 
   /* Les deux sources décrivent souvent le MÊME cyclone : GDACS et EONET suivent
@@ -943,28 +1019,52 @@ async function ventCyclone() {
   const zones = [];
   for (const b of brut) {
     if (!isFinite(b.la) || !isFinite(b.lo) || Math.abs(b.la) > 89) continue;
-    const p = zones.find(z => Math.abs(z.la - b.la) < FUSION
-      && Math.abs(((z.lo - b.lo + 540) % 360) - 180) < FUSION);
+    /* Proches, OU porteurs du même nom : un cyclone parcourt cinq degrés par
+       jour, et le relevé EONET peut avoir treize heures. Sans le nom, sa
+       classe — souvent la seule qu'on ait — n'atteignait pas la zone GDACS. */
+    const p = zones.find(z => (Math.abs(z.la - b.la) < FUSION
+      && Math.abs(((z.lo - b.lo + 540) % 360) - 180) < FUSION) || memeNom(z.nm, b.nm));
     if (p) {
       if (b.pri > p.pri) { p.nm = b.nm; p.pri = b.pri; }
-      if (b.quand > p.quand) { p.la = b.la; p.lo = b.lo; p.quand = b.quand; }
-      p.sev = Math.max(p.sev, b.sev);
+      /* Une position vieille ne remplace jamais une position fraîche, et une
+         zone faite UNIQUEMENT de positions vieilles n'est pas produite. */
+      if (!b.vieux && (p.vieux || b.quand > p.quand)) { p.la = b.la; p.lo = b.lo; p.quand = b.quand; p.vieux = false; }
+      /* Classe : une source à jour l'emporte sur une source périmée ; entre deux
+         sources à jour, on retient la plus forte. */
+      if (b.cat && (!p.cat || (b.fiable && !p.fiable) || (b.fiable === p.fiable && b.rang > p.rang))) {
+        p.rang = b.rang; p.cat = b.cat; p.fiable = !!b.fiable;
+      }
+      if ((b.vmax || 0) > (p.vmax || 0)) p.vmax = b.vmax;
+      if ((b.alerte || 0) > (p.alerte || 0)) p.alerte = b.alerte;
       continue;
     }
-    zones.push({ la: b.la, lo: b.lo, nm: b.nm, pri: b.pri, sev: b.sev, quand: b.quand });
+    zones.push({ la: b.la, lo: b.lo, nm: b.nm, pri: b.pri, rang: b.rang, cat: b.cat, fiable: !!b.fiable,
+      vmax: b.vmax || 0, alerte: b.alerte || 0, quand: b.quand, vieux: !!b.vieux });
   }
-  /* Les plus violents d'abord, et pas plus de quatre : au-delà on dépenserait
-     le quota d'Open-Meteo sur des tempêtes que personne ne regarde. */
-  zones.sort((a, b) => b.sev - a.sev);
-  if (zones.length > 3) { console.log("     " + (zones.length - 3) + " cyclone(s) au-delà des 3 plus sévères : grille fine non produite"); zones.length = 3; }
-  if (!zones.length) { write("windtc.json", { t: now, step: 0.5, zones: [] }, "aucun cyclone en cours"); return true; }
+  zones.forEach(z => { z.sev = scoreTc(z); });
+  /* Les plus violents d'abord. Le rang ne dépend plus de la couleur d'alerte
+     — identique pour tous — mais de la classe du système et de son vent. */
+  const candidats = zones.filter(z => !z.vieux).sort((a, b) => b.sev - a.sev);
+  const ecartes = zones.filter(z => z.vieux);
+  if (ecartes.length) console.log("     " + ecartes.length + " cyclone(s) sans position récente, non produit(s) : "
+    + ecartes.map(z => z.nm).join(", "));
+  console.log("     classement : " + candidats.map(z => z.nm + " (" + (z.cat || "?") + (z.vmax ? ", " + z.vmax + " km/h" : "") + ")").join(" · "));
+  if (!candidats.length) { write("windtc.json", { t: now, step: 0.5, zones: [] }, "aucun cyclone en cours"); return true; }
 
   /* ±4° à 0,5° : 17 points de large, contre 2 avec le socle mondial. Assez pour
      dessiner la spirale et creuser l'œil, sans faire exploser le quota — la
      grille mondiale consomme déjà 27 requêtes juste avant celle-ci. */
   const STEP = 0.5, RAY = 4;
-  let total = 0;
-  for (const z of zones) {
+  /* On GARDE au plus quatre zones, en en ESSAYANT au plus six. Une zone qui ne
+     tourne plus — un cyclone devenu extratropical, que les catalogues gardent
+     ouvert — libère sa place au suivant. Avant, elle la gardait : Dujuan,
+     à 39° de latitude et sans circulation, occupait chaque heure une des
+     trois places pendant que l'ouragan Polo, à 287 km/h, n'en avait aucune. */
+  const GARDE = 4, ESSAIS = 6;
+  let total = 0, gardees = 0, essais = 0;
+  for (const z of candidats) {
+    if (gardees >= GARDE || essais >= ESSAIS) { z.ko = 1; z.pasEssaye = 1; continue; }
+    essais++;
     const pts = [];
     for (let dla = -RAY; dla <= RAY + 1e-9; dla += STEP)
       for (let dlo = -RAY; dlo <= RAY + 1e-9; dlo += STEP) {
@@ -994,13 +1094,21 @@ async function ventCyclone() {
       z.ko = 1; continue;
     }
     z.circ = Math.round(circ * 100) / 100;
-    z.cells = cells; total += cells.length;
+    z.cells = cells; total += cells.length; gardees++;
   }
-  const gard = zones.filter(z => !z.ko && z.cells && z.cells.length);
+  const nonEssayes = candidats.filter(z => z.pasEssaye);
+  if (nonEssayes.length) console.log("     " + nonEssayes.length + " cyclone(s) moins intense(s) sans grille fine : "
+    + nonEssayes.map(z => z.nm).join(", "));
+  const gard = candidats.filter(z => !z.ko && z.cells && z.cells.length);
   if (!gard.length) { console.log("  !  vent cyclone : aucune zone exploitable, fichier conservé"); return false; }
   write("windtc.json", {
     t: now, step: STEP, ray: RAY,
-    zones: gard.map(z => ({ nm: z.nm, la: z.la, lo: z.lo, circ: z.circ, cells: z.cells }))
+    /* `cat` et `vmax` sont les chiffres OFFICIELS (GDACS, NHC/JTWC via EONET).
+       On ne publie pas le vent maximal de notre grille comme intensité du
+       cyclone : à 0,5° le modèle lisse le mur de l'œil et sous-estime
+       nettement le pic. La grille sert à ANIMER, pas à mesurer. */
+    zones: gard.map(z => ({ nm: z.nm, nom: nomAffiche(z.nm), la: z.la, lo: z.lo, cat: z.cat || null, vmax: z.vmax || null,
+      circ: z.circ, cells: z.cells }))
   }, gard.length + " cyclone(s), " + total + " points fins (grille " + STEP + "°)");
   return true;
 }
@@ -1008,7 +1116,14 @@ async function ventCyclone() {
 const VENT_URL = chunk => "https://api.open-meteo.com/v1/forecast"
   + "?latitude=" + chunk.map(p => p[0]).join(",")
   + "&longitude=" + chunk.map(p => p[1]).join(",")
-  + "&current=wind_speed_10m,wind_direction_10m";
+  /* Température et pression voyagent dans LA MÊME requête que le vent.
+     Open-Meteo compte une unité par point de mesure tant qu'on reste sous dix
+     variables : les deux ajouts ne coûtent donc rien en quota, et donnent de
+     quoi tracer les isobares, les centres d'action (A et D) et le champ de
+     températures — la carte météo telle qu'on la voit à la télévision.
+     La pression est celle ramenée au niveau de la mer : c'est la seule qui se
+     compare d'un point à l'autre, et celle de toutes les cartes météo. */
+  + "&current=wind_speed_10m,wind_direction_10m,temperature_2m,pressure_msl";
 /* On stocke les COMPOSANTES, pas la direction : le navigateur interpole
    linéairement entre quatre cellules, ce qui est faux sur un angle (350° et 10°
    donneraient 180°) mais exact sur des composantes. */
@@ -1017,9 +1132,15 @@ const LIT_VENT = (o, pt, out) => {
   const sp = o.current.wind_speed_10m, di = o.current.wind_direction_10m;
   if (sp == null || di == null) return;
   const r = (di + 180) * Math.PI / 180;
+  const t = o.current.temperature_2m, pr = o.current.pressure_msl;
+  /* [lat, lon, u, v, température °C, pression hPa]. Les deux derniers termes
+     valent null quand le modèle ne les fournit pas : le navigateur saute alors
+     la cellule pour ces couches, au lieu d'y lire un zéro qui serait faux. */
   out.push([pt[0], pt[1],
     Math.round(sp * Math.sin(r) * 100) / 100,
-    Math.round(sp * Math.cos(r) * 100) / 100]);
+    Math.round(sp * Math.cos(r) * 100) / 100,
+    t == null ? null : Math.round(t * 10) / 10,
+    pr == null ? null : Math.round(pr * 10) / 10]);
 };
 
 async function wind() {
@@ -1184,8 +1305,13 @@ async function effis() {
        SUCCÈS ; un échec se retente au tour suivant, et l'absence pure et simple
        du fichier ne se laisse pas attendre. */
     const jamais = wAge === Infinity;
-    const repos = jamais ? 5 * 60e3 : 45 * 60e3;
-    if ((jamais || wAge > 50 * 60e3) && now - windAt > repos) {
+    /* DEUX HEURES ET NON PLUS UNE. Le journal du robot montrait, heure après
+       heure, « 4 cyclone(s) au-delà des 3 plus sévères » et des 429 isolés : le
+       quota d'Open-Meteo était tendu. Le socle à 5° décrit la circulation de
+       grande échelle, qui évolue lentement ; les cyclones, eux, se déplacent de
+       vingt kilomètres par heure. Le quota va désormais là où il compte. */
+    const repos = jamais ? 5 * 60e3 : 105 * 60e3;
+    if ((jamais || wAge > 110 * 60e3) && now - windAt > repos) {
       console.log("  …  vent " + (jamais ? "ABSENT" : "vieux de " + Math.round(wAge / 60e3) + " min") + " — reconstruction");
       let ok = false;
       try { ok = await wind(); } catch (e) { console.log("  x  vent échec : " + e.message); }
