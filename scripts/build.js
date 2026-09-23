@@ -206,6 +206,11 @@ async function gdacs() {
       u: xmlTag(it, "link"),
       cap: xmlTag(it, "gdacs:cap") || "",
       id: xmlTag(it, "gdacs:eventid"),
+      /* L'ÉPISODE désigne l'avis en vigueur : un cyclone en compte un par
+         bulletin officiel (toutes les six heures). La géométrie ne se demande que
+         pour l'épisode courant — l'épisode 1, que je demandais partout, répond
+         400 pour un cyclone dès son deuxième bulletin. */
+      ep: xmlTag(it, "gdacs:episodeid") || "",
       cur: xmlTag(it, "gdacs:iscurrent") === "true",
       sc: parseFloat(xmlTag(it, "gdacs:alertscore")) || 0,
       bb: box,
@@ -398,7 +403,9 @@ async function pays() {
    On ne le demande que pour les alertes GRAVES et EN COURS : sur 341 alertes du
    flux, une douzaine seulement, donc une douzaine de requêtes par cycle. Et on
    simplifie : 5 235 sommets sur un écran de téléphone, c'est du poids pur. */
-const GEOM_TYPES = ["FL", "DR", "TC", "WF"];
+/* Les cyclones ont désormais leur propre collecteur, bien plus complet
+   (trajectoire, prévision, cône, zones de vent) : on ne les contoure plus ici. */
+const GEOM_TYPES = ["FL", "DR", "WF"];
 async function gdacsGeom() {
   let f = [];
   try { f = JSON.parse(fs.readFileSync(path.join(OUT, "gdacs.json"), "utf8")).f || []; }
@@ -411,7 +418,7 @@ async function gdacsGeom() {
   const out = [];
   for (const x of cibles) {
     const u = "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry"
-            + "?eventtype=" + x.t + "&eventid=" + x.id + "&episodeid=1";
+            + "?eventtype=" + x.t + "&eventid=" + x.id + "&episodeid=" + (x.ep || 1);
     try {
       const d = await get(u, 30000);
       for (const g of (d.features || [])) {
@@ -434,6 +441,125 @@ async function gdacsGeom() {
   const som = JSON.stringify(out).length;
   write("gdacsgeo.json", { t: now, f: out },
     out.length + " contours d'alerte (" + Math.round(som / 1024) + " ko)");
+}
+
+/* ---------- CYCLONES : TRAJECTOIRE, PRÉVISION ET ZONES DE VENT OFFICIELLES ----------
+   La couche « Cyclones » dessinait jusqu'ici les trajectoires d'EONET, dont les
+   positions avaient de 13 à 46 heures de retard le 23 septembre ; la prévision
+   était EXTRAPOLÉE par nous, à partir de cette position périmée. C'était deux
+   approximations empilées.
+
+   GDACS publie, pour chaque cyclone et chaque bulletin officiel :
+     — la trajectoire OBSERVÉE, un point toutes les six heures, daté ;
+     — la PRÉVISION officielle (NHC, JTWC, JMA…), datée, sur cinq jours ;
+     — le CÔNE D'INCERTITUDE officiel ;
+     — les zones où le vent dépasse 60, 90 et 120 km/h, maintenant et le long
+       de la trajectoire prévue — exactement « est-ce que ça vient sur nous ».
+   On republie tout cela, allégé.
+
+   ÉCONOMIE. La géométrie ne change qu'avec un nouveau bulletin. On garde celle
+   du passage précédent tant que l'épisode n'a pas changé : la plupart des
+   passages ne font donc AUCUNE requête, et un nouveau bulletin en coûte une. */
+const r2 = v => Math.round(v * 100) / 100;
+function anneau(coords, tol) {
+  const r = Array.isArray(coords) && Array.isArray(coords[0]) && Array.isArray(coords[0][0]) ? coords[0] : coords;
+  if (!Array.isArray(r) || r.length < 4) return null;
+  /* Quand le vent n'atteint pas un seuil, GDACS publie quand même un disque…
+     réduit à un point (étendue nulle). Le dessiner ferait apparaître une zone de
+     120 km/h là où il n'y en a pas : on l'écarte. */
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (const q of r) { if (q[0] < x0) x0 = q[0]; if (q[0] > x1) x1 = q[0]; if (q[1] < y0) y0 = q[1]; if (q[1] > y1) y1 = q[1]; }
+  if (x1 - x0 < 0.05 || y1 - y0 < 0.05) return null;
+  /* Douglas-Peucker sur [lon, lat], puis publication en [lat, lon] — l'ordre de
+     Leaflet — au centième de degré (un kilomètre) : largement assez pour une
+     zone de vent, dont le bord est lui-même une estimation. */
+  return dp(r, tol).map(q => [r2(q[1]), r2(q[0])]);
+}
+function centre(poly) {
+  const r = poly[0] || [];
+  const m = r.length > 1 && r[0][0] === r[r.length - 1][0] && r[0][1] === r[r.length - 1][1] ? r.slice(0, -1) : r;
+  if (!m.length) return null;
+  return [r2(m.reduce((a, q) => a + q[1], 0) / m.length), r2(m.reduce((a, q) => a + q[0], 0) / m.length)];
+}
+/* « 21/09 03:00 UTC » n'a pas d'année : on prend celle qui place la date à moins
+   de six mois de maintenant, pour passer décembre-janvier sans se tromper. */
+function dateEtiquette(t) {
+  const m = /(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/.exec(String(t || ""));
+  if (!m) return null;
+  const an = new Date(now).getUTCFullYear();
+  let best = null;
+  for (const a of [an - 1, an, an + 1]) {
+    const d = Date.UTC(a, +m[2] - 1, +m[1], +m[3], +m[4]);
+    if (best === null || Math.abs(d - now) < Math.abs(best - now)) best = d;
+  }
+  return best;
+}
+async function cyclones() {
+  let f = [];
+  try { f = JSON.parse(fs.readFileSync(path.join(OUT, "gdacs.json"), "utf8")).f || []; }
+  catch (e) { console.log("  …  cyclones : gdacs.json absent, on passe"); return false; }
+  const prec = {};
+  try { for (const c of JSON.parse(fs.readFileSync(path.join(OUT, "cyclones.json"), "utf8")).c || []) prec[c.id] = c; } catch (e) {}
+
+  const actifs = f.filter(x => x.t === "TC" && x.cur && x.id);
+  const out = [];
+  let dl = 0, repris = 0, echecs = 0;
+  for (const x of actifs) {
+    const I = intensiteGdacs(x);
+    const base = { id: x.id, ep: x.ep || "", nom: nomAffiche(nomCyclone(x.n)), cat: I.cat, rang: I.rang,
+      vmax: I.vmax, a: x.a, co: x.co || "", u: x.u || "", pos: x.c };
+    const p = prec[x.id];
+    if (p && x.ep && p.ep === x.ep && p.trk) { out.push(Object.assign({}, p, base)); repris++; continue; }
+    let d;
+    try {
+      d = await get("https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=TC&eventid="
+        + x.id + "&episodeid=" + (x.ep || 1), 45000);
+      dl++;
+    } catch (err) {
+      echecs++;
+      /* Sans géométrie fraîche, on garde l'ancienne en le disant, plutôt que de
+         faire disparaître le cyclone de la carte. */
+      out.push(p ? Object.assign({}, p, base, { geoAncienne: true }) : base);
+      continue;
+    }
+    const feats = d.features || [];
+    /* Trajectoire : un petit disque par point, étiqueté de sa date. */
+    const pts = feats.filter(g => /^Point_Polygon_Point_\d+$/.test(String(g.properties && g.properties.Class)))
+      .map(g => ({ k: +String(g.properties.Class).split("_").pop(), c: centre(g.geometry.coordinates),
+                   t: dateEtiquette(g.properties.polygonlabel) }))
+      .filter(q => q.c && q.t).sort((a, b) => a.k - b.k);
+    /* Le dernier point OBSERVÉ est le dernier dont la date est passée ; tout ce
+       qui suit est la prévision officielle. */
+    const obs = pts.filter(q => q.t <= now + 30 * 60e3), prv = pts.filter(q => q.t > now + 30 * 60e3);
+    const dernier = obs.length ? obs[obs.length - 1] : null;
+    const zones = {}, rayons = {};
+    let cone = null;
+    for (const g of feats) {
+      const cl = String(g.properties && g.properties.Class || ""), lab = String(g.properties.polygonlabel || "");
+      if (!g.geometry || (g.geometry.type !== "Polygon" && g.geometry.type !== "MultiPolygon")) continue;
+      if (cl === "Poly_Cones") { cone = anneau(g.geometry.coordinates, 0.04); continue; }
+      const seuil = cl === "Poly_Green" ? 60 : cl === "Poly_Orange" ? 90 : cl === "Poly_Red" ? 120 : 0;
+      if (!seuil) continue;
+      /* Enveloppe sur toute la trajectoire (étiquette « 60 km/h ») ou disque à une
+         date donnée : on garde l'enveloppe, et le disque de l'instant présent. */
+      if (/km\/h/i.test(lab)) { const z = anneau(g.geometry.coordinates, 0.04); if (z) zones[seuil] = z; continue; }
+      const t = Date.parse(String(g.properties.polygondate || "") + "Z");
+      if (dernier && isFinite(t) && Math.abs(t - dernier.t) < 30 * 60e3) {
+        const z = anneau(g.geometry.coordinates, 0.02); if (z) rayons[seuil] = z;
+      }
+    }
+    out.push(Object.assign(base, {
+      pos: dernier ? dernier.c : x.c,
+      tpos: dernier ? dernier.t : null,
+      trk: obs.map(q => [q.c[0], q.c[1], Math.round(q.t / 60000)]),
+      prv: prv.map(q => [q.c[0], q.c[1], Math.round(q.t / 60000)]),
+      cone, zones, rayons
+    }));
+  }
+  out.sort((a, b) => scoreTc(b) - scoreTc(a));
+  write("cyclones.json", { t: now, c: out }, out.length + " cyclone(s) en cours — "
+    + dl + " géométrie(s) téléchargée(s), " + repris + " reprise(s)" + (echecs ? ", " + echecs + " échec(s)" : ""));
+  return true;
 }
 
 /* ---------- TORNADES ET ORAGES VIOLENTS (NWS, États-Unis) ----------
@@ -1269,7 +1395,7 @@ async function effis() {
     /* `pays` est un fond STATIQUE : les frontieres ne bougent pas toutes les
        quinze minutes. Il n'est reconstruit que s'il manque — le comparateur
        d'ecriture s'en charge, la tache ne coute donc rien les autres fois. */
-    : [["bornes", bornes], ["pays", pays], ["nuages", nuages], ["quakes", quakes], ["eonet", eonet], ["gdacs", gdacs], ["gdacsgeo", gdacsGeom],
+    : [["bornes", bornes], ["pays", pays], ["nuages", nuages], ["quakes", quakes], ["eonet", eonet], ["gdacs", gdacs], ["gdacsgeo", gdacsGeom], ["cyclones", cyclones],
        ["nws", nws], ["storms", storms], ["sigmet", sigmet], ["meteoalarm", meteoalarm],
        ["hotspots", hotspots]];
 
