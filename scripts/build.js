@@ -506,10 +506,22 @@ async function cyclones() {
   let dl = 0, repris = 0, echecs = 0;
   for (const x of actifs) {
     const I = intensiteGdacs(x);
+    /* PAS de `pos` ici. Elle y était, et la reprise d'une géométrie connue
+       (`Object.assign({}, p, base)`) écrasait la position calculée — le dernier
+       point OBSERVÉ de la trajectoire — par le point du flux RSS. Mesuré sur
+       Dujuan le 24/09 : RSS au 22/09 06:00 (39,0 N 150,2 E), dernier point
+       observé au 23/09 06:00 (42,9 N 166,4 E) — 1 350 km d'écart, et une date de
+       bulletin qui ne correspondait pas à la position affichée. */
     const base = { id: x.id, ep: x.ep || "", nom: nomAffiche(nomCyclone(x.n)), cat: I.cat, rang: I.rang,
-      vmax: I.vmax, a: x.a, co: x.co || "", u: x.u || "", pos: x.c };
+      vmax: I.vmax, a: x.a, co: x.co || "", u: x.u || "" };
     const p = prec[x.id];
-    if (p && x.ep && p.ep === x.ep && p.trk) { out.push(Object.assign({}, p, base)); repris++; continue; }
+    if (p && x.ep && p.ep === x.ep && p.trk) {
+      const q = Object.assign({}, p, base);
+      /* Fichier écrit avant la correction : on repart du dernier point observé. */
+      const der = (p.trk || []).slice(-1)[0];
+      if (der) { q.pos = [der[0], der[1]]; q.tpos = der[2] * 60000; }
+      out.push(q); repris++; continue;
+    }
     let d;
     try {
       d = await get("https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=TC&eventid="
@@ -519,7 +531,7 @@ async function cyclones() {
       echecs++;
       /* Sans géométrie fraîche, on garde l'ancienne en le disant, plutôt que de
          faire disparaître le cyclone de la carte. */
-      out.push(p ? Object.assign({}, p, base, { geoAncienne: true }) : base);
+      out.push(p ? Object.assign({}, p, base, { geoAncienne: true }) : Object.assign(base, { pos: x.c }));
       continue;
     }
     const feats = d.features || [];
