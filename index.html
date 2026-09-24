@@ -6461,6 +6461,8 @@ async function situationIci(la, lo, cc, cur){
   return `<div class="si" style="--c:${N.c}"><div class="si-h"><span class="si-p"></span>${N.nm}</div>${lignes}${note}</div>`;
 }
 
+/* Pays membres de MeteoAlarm (codes ISO) : le portail européen des vigilances. */
+const MA_EUROPE = new Set(["AT","BA","BE","BG","CH","CY","CZ","DE","DK","EE","ES","FI","FR","GB","GR","HR","HU","IE","IL","IS","IT","LT","LU","LV","MD","ME","MK","MT","NL","NO","PL","PT","RO","RS","SE","SI","SK","UA"]);
 async function showWeather(lat, lon, presetName){
   const pop = openInfo([lat,lon],"wx"+lat.toFixed(2)+lon.toFixed(2));
   pop.setContent('<div class="pp-t">Météo locale…</div><div class="pp-desc">Interrogation des modèles météo</div>');
@@ -6468,8 +6470,20 @@ async function showWeather(lat, lon, presetName){
     const wURL=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=7&timezone=auto`;
     const tasks=[omFetch(wURL, null, 300000),
       omFetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,pm2_5&timezone=auto`, null, 900000).catch(()=>null)];
-    tasks.push(presetName?Promise.resolve(null):fetchJSON(`https://photon.komoot.io/reverse?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}&limit=1&lang=fr`, null, 3600000, 10000).catch(()=>null));
-    const [w,air,g]=await Promise.all(tasks);
+    /* Le géocodage inverse part TOUJOURS, même quand le lieu arrive avec son nom
+       (recherche, étiquette de ville) : il donne le PAYS, dont dépend la
+       couverture des vigilances nationales. Sans lui, Paris ouvert depuis la
+       recherche se voyait annoncer que les vigilances françaises n'étaient
+       pas relayées. La réponse est gardée une heure en mémoire. */
+    tasks.push(fetchJSON(`https://photon.komoot.io/reverse?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}&limit=1&lang=fr`, null, 3600000, 10000).catch(()=>null));
+    /* Chaque source répond pour elle-même. Avec Promise.all, un refus du
+       service météo (quota atteint) faisait disparaître toute la fiche — y
+       compris « Situation ici », qui n'en dépend pas — et affichait « vérifiez la
+       connexion » alors que la connexion allait bien. */
+    const [rw, ra, rg]=await Promise.allSettled(tasks);
+    const w = rw.status==="fulfilled" ? rw.value : null;
+    const air = ra.status==="fulfilled" ? ra.value : null;
+    const g = rg.status==="fulfilled" ? rg.value : null;
     /* gp doit vivre dans toute la fonction : il sert aussi plus bas pour le pays */
     const gp = (g && g.features && g.features[0] && g.features[0].properties) || null;
     let name=presetName;
@@ -6477,11 +6491,23 @@ async function showWeather(lat, lon, presetName){
       name = gp ? [gp.city||gp.name, gp.county||gp.state, gp.country].filter(x=>x&&String(x).trim()).join(", ") : "";
       if(!name) name="Pleine mer ou zone isolée";
     }
+    if(!w || !w.current){
+      const cc0=(gp&&gp.countrycode)||"";
+      let si0=""; try{ si0=await situationIci(lat, lon, cc0, null); }catch(e){}
+      const quota = typeof omPaused==="function" && omPaused();
+      pop.setContent(`<div class="pp-t">${esc(name)}</div>
+        <div class="pp-coords">${lat.toFixed(3)}, ${lon.toFixed(3)}</div>
+        ${si0}
+        <div class="pp-warn">${quota
+          ? "Météo momentanément indisponible : le service météo limite le nombre de demandes. Réessayez dans quelques minutes."
+          : "Météo momentanément indisponible. Réessayez dans quelques instants."}</div>`);
+      return;
+    }
     const c=w.current, [dsc,em]=WMO[c.weather_code]||["Conditions actuelles","thermometer"];
     let airHtml="";
     if(air&&air.current&&air.current.european_aqi!=null){
       const inf=aqiInfo(air.current.european_aqi);
-      airHtml=`<div class="pp-row" style="margin-top:8px">Air : <b style="color:${inf[1]}">${inf[2]}</b> (indice ${Math.round(air.current.european_aqi)} · PM2.5 ${air.current.pm2_5} µg/m³)${air.current.european_aqi>60?" — <b>fumées possibles</b>":""}</div>`;
+      airHtml=`<div class="pp-row" style="margin-top:8px">Air : <b style="color:${inf[1]}">${inf[2]}</b> (indice ${Math.round(air.current.european_aqi)} · PM2,5 ${nf(air.current.pm2_5,1)} µg/m³)${air.current.european_aqi>60?" — <b>fumées possibles</b>":""}</div>`;
     }
     const cc=(gp&&gp.countrycode)||"";
     /* La situation passe AVANT la météo : c'est la question qu'on se pose en
@@ -6490,7 +6516,13 @@ async function showWeather(lat, lon, presetName){
     try{ siHtml=await situationIci(lat, lon, cc, w.current); }catch(e){ siHtml=""; }
     let vigHtml="";
     if(cc==="FR") vigHtml=`<a class="pp-link" href="https://vigilance.meteofrance.fr/fr" target="_blank" rel="noopener">${ic("siren","x14")}Vigilance officielle Météo-France${ic("external","x12 xl")}</a>`;
-    else if(cc) vigHtml=`<a class="pp-link" href="https://www.meteoalarm.org/en/live/" target="_blank" rel="noopener">${ic("siren","x14")}Vigilances officielles européennes${ic("external","x12 xl")}</a>`;
+    /* Le lien des vigilances européennes était proposé pour TOUT pays hors
+       France, Japon compris. MeteoAlarm ne couvre que l'Europe ; les États-Unis
+       ont leur service ; ailleurs, le portail de l'Organisation météorologique
+       mondiale rassemble les avertissements officiels de chaque pays. */
+    else if(cc && MA_EUROPE.has(cc)) vigHtml=`<a class="pp-link" href="https://www.meteoalarm.org/" target="_blank" rel="noopener">${ic("siren","x14")}Vigilances officielles européennes${ic("external","x12 xl")}</a>`;
+    else if(cc==="US") vigHtml=`<a class="pp-link" href="https://www.weather.gov/" target="_blank" rel="noopener">${ic("siren","x14")}Alertes officielles du National Weather Service${ic("external","x12 xl")}</a>`;
+    else if(cc) vigHtml=`<a class="pp-link" href="https://severeweather.wmo.int/" target="_blank" rel="noopener">${ic("siren","x14")}Avertissements officiels du pays (Organisation météorologique mondiale)${ic("external","x12 xl")}</a>`;
     const dl=w.daily||{}; let fcHtml="";
     if(dl.time&&dl.time.length&&dl.temperature_2m_max){
       fcHtml='<div class="fc-t">Aujourd’hui & 7 jours (max / min · pluie %)</div><div class="fc">'+dl.time.map((d,i)=>{
@@ -9627,7 +9659,7 @@ setTimeout(hideLoader,9000);
    data/i18n/*.json. Elle sert de clé à la copie locale ; sans elle, un
    visiteur garderait des traductions périmées, ou retéléchargerait à chaque
    visite un fichier de 150 ko qui n'a pas changé. */
-const I18N_VER = "2026-09-24d";
+const I18N_VER = "2026-09-24f";
 async function chargeDico(lg){
   if(lg === "fr") return null;
   if(dicoCache.has(lg)) return dicoCache.get(lg);
