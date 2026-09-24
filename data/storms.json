@@ -1,1 +1,1 @@
-{"t":1790264264275,"f":[]}
+{"t":1790265184099,"f":[{"ev":"Flash Flood Warning","sev":"Severe","cert":"Likely","urg":"Immediate","zone":"Eddy, NM","d0":"2026-09-24T09:52:00-06:00","d1":"2026-09-24T12:45:00-06:00","on":true,"act":"NEW","tor":"","grele":"","vent":"","dep":null,"txt":"Flash Flood Warning issued September 24 at 9:52AM MDT until September 24 at 12:45PM MDT by NWS Midland/Odessa TX","g":{"type":"Polygon","coordinates":[[[-104.46,32.23],[-104.35,32.13],[-104.1,32.38],[-104.14,32.55],[-104.4,32.49],[-104.49,32.34],[-104.5,32.34],[-104.49,32.33],[-104.46,32.23]]]}}]}
