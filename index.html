@@ -1180,6 +1180,14 @@ header{height:52px;padding:0 12px;gap:10px;background:rgba(8,13,24,.96);
 
 /* Sous 420 px, le logo seul : un nom tronqué (« Planèt… ») fait négligé. */
 @media (max-width:420px){ .brand .bwords{display:none} }
+
+/* Faits alignés des fiches */
+.kv{display:grid;grid-template-columns:auto 1fr;gap:0;margin:10px 0 12px;border-radius:9px;overflow:hidden;
+  background:rgba(255,255,255,.06)}
+.kv dt,.kv dd{margin:0;padding:8px 11px;background:rgba(11,17,30,.97);font:13px/1.4 var(--ui)}
+.kv dt{color:var(--t3);font-weight:500;padding-right:6px}
+.kv dd{color:#f2f6fc;font-weight:600;text-align:right}
+.kv dt:not(:last-of-type),.kv dd:not(:last-of-type){box-shadow:0 1px 0 rgba(255,255,255,.06)}
 </style>
 </head>
 <body>
@@ -3766,6 +3774,9 @@ const CITIES = [["Paris",48.86,2.35],["Londres",51.51,-0.13],["Madrid",40.42,-3.
 
 /* ---------- Utilitaires ---------- */
 const esc = s => String(s==null?"":s).replace(/[<>&"]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]));
+/* Fait aligné d'une fiche : libellé à gauche, valeur à droite. La valeur est
+   du HTML déjà échappé par l'appelant ; le libellé, un texte fixe traduisible. */
+const kv = pairs => `<dl class="kv">${pairs.filter(Boolean).map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>`;
 
 /* La liste des pays se construit ICI : elle echappe ses libelles, donc elle ne
    peut pas etre remplie avant que `esc` existe. */
@@ -4274,10 +4285,13 @@ function drawQuakes(){
     const [lon,lat,depth]=f.geometry.coordinates;
     const [col,txt]=magInfo(m);
     L.circleMarker([lat,lon],{renderer:cnv,radius:Math.max(4,(m-1.8)*3),color:col,weight:2,opacity:.95,fillColor:col,fillOpacity:.5})
-      .bindPopup(`<div class="pp-t">${ic("quake","x18")}Séisme — magnitude ${m.toFixed(1)}</div>
+      /* Fabriquée à l'ouverture, et au format français : « magnitude 5.6 »
+         écrivait la virgule décimale à l'anglaise. */
+      .bindPopup(()=>`<div class="pp-t" style="color:${col}">Séisme de magnitude ${nf(m,1)}</div>
         <div class="pp-cat">${esc(lieuSeismeFR(f.properties.place)||"Localisation en cours")}</div>
-        <div class="pp-row">Survenu le <b>${fmtDate(f.properties.time)}</b></div>
-        <div class="pp-row">Profondeur : <b>${fmtD(depth)}</b>${depth<70?" (peu profond → plus ressenti en surface)":""}</div>
+        ${kv([["Survenu", esc(fmtDate(f.properties.time))],
+              ["Il y a", esc(Math.max(1,Math.round((Date.now()-f.properties.time)/36e5))+" h")],
+              ["Profondeur", esc(fmtD(depth))+(depth<70?" · peu profond":"")]])}
         <div class="pp-desc">${txt}</div>
         <a class="pp-link" href="#" onclick="showNews(${lat},${lon},'quake','Séisme — actualités');return false">${ic("news","x14")}Actualités locales</a><br>
         ${f.properties.url?`<a class="pp-link" href="${esc(f.properties.url)}" target="_blank" rel="noopener">Fiche USGS détaillée${ic("external","x12 xl")}</a>`:""}`,{maxWidth:290})
@@ -5369,22 +5383,24 @@ function drawComplexes(){
        désormais le majorant de surface touchée, annoncé comme tel. */
     /* Fabriquée à l'ouverture seulement : quarante fiches complètes, villages
        exposés compris, étaient composées à chaque déplacement pour rien. */
-    const html=()=>`<div class="pp-t" style="color:${col}">${ic(mort?"smoke":"flame","x18")}${mort?"Zone brûlée":"Incendie"} — au plus ${fmtA(c.burned*100)}</div>
-      <div class="pp-cat">Foyers regroupés · analyse automatique</div>
+    /* FAITS ALIGNÉS. La fiche empilait sept paragraphes d'explication autour de
+       chaque chiffre ; on garde les chiffres, leur définition exacte dans le
+       libellé, et une seule phrase de réserve à la fin. */
+    const html=()=>`<div class="pp-t" style="color:${col}">${mort?"Zone brûlée":"Incendie actif"}</div>
+      <div class="pp-cat">Détections satellite regroupées</div>
       <div class="stbadge" style="--c:${col}">${bk.nm}${bk.k!=="zombie"?" · "+st.nm:""}</div>
       <div class="pp-row" style="color:${col};font-weight:600">${st.label}</div>
-      <div class="pp-row" style="color:#8fa4cc;font-size:13px">${st.why}</div>
-      ${bk.k==="zombie"?`<div class="pp-warn">${ZOMBIE_WHY}</div>`:""}
-      <div class="pp-row"><span class="fresh" style="background:${c.fresh<6?"#4be3a4":c.fresh<24?"#ffc46b":"#8fa4cc"}"></span>Détection la plus récente : il y a <b>${c.fresh<1?"moins d’1 h":Math.round(c.fresh)+" h"}</b></div>
-      <div class="pp-row">Surface touchée : <b>au plus ${fmtA(c.burned*100)}</b><br><span style="color:#8fa4cc">somme des <b>pixels satellites</b> en alerte thermique, recouvrements retirés. C’est un <b>majorant, pas une mesure</b> : un front de flammes de 50 m qui traverse un pixel de 375 m fait compter le pixel entier, soit 14 ha. La surface réellement brûlée est plus petite, souvent de moitié.</span></div>
-      <div class="pp-row">Étendue du sinistre : <b>${fmtA(c.area*100)}</b> · <b>${c.n}</b> foyers<br><span style="color:#8fa4cc">écart entre les détections les plus éloignées — <b>inclut le terrain resté vert</b> entre les foyers, ce n’est pas une surface brûlée</span></div>
-      <div class="pp-row">Puissance totale : <b>${nf(c.frp)} MW</b>${c.frp>1000?" — sinistre majeur":c.frp>300?" — feu important":""}</div>
-      <div class="pp-row">Activité du <b>${fmtShort(c.t0)}</b> au <b>${fmtShort(c.t1)}</b></div>
-      ${vecTxt||'<div class="pp-row">Propagation non mesurable (foyer trop récent ou stationnaire)</div>'}
+      ${kv([["Dernière détection", `il y a ${c.fresh<1?"moins d’une heure":Math.round(c.fresh)+" h"}`],
+            ["Surface touchée (maximum)", fmtA(c.burned*100)],
+            ["Étendue du sinistre", fmtA(c.area*100)+" · "+c.n+" foyers"],
+            ["Puissance rayonnée", nf(c.frp)+" MW"],
+            ["Activité", "du "+fmtShort(c.t0)+" au "+fmtShort(c.t1)],
+            ["Propagation", c.vec&&!mort ? "vers le "+compass(c.vec.brg)+" · "+fmtVp(c.vec.spd) : mort ? "aucune" : "non mesurable"]])}
       ${localitesHTML(c)}
       ${mort?"":`<a class="pp-link" href="#" onclick="fireAnalysis(${c.c[0]},${c.c[1]},'Incendie',${c.t0},${c.t1});return false">${ic("projection","x14")}Prévoir la propagation (météo et règle des 30)</a><br>`}
       <a class="pp-link" href="#" onclick="showNews(${c.c[0]},${c.c[1]},'fire','Incendie — actualités');return false">${ic("news","x14")}Actualités : évacuations, bilans, moyens engagés</a>
-      <div class="pp-warn">Surface et direction calculées à partir des détections satellites réelles. Ce n’est pas un relevé de terrain : les pompiers font foi.</div>`;
+      <div class="pp-warn">Estimation par satellite : la surface réellement brûlée est en général plus petite. Les services de secours font foi.</div>`;
+
     /* Un seul repère par sinistre, à son barycentre : la surface en hectares et
        l'état en trois lettres se lisent sans ouvrir la fiche. C'est ce point qui
        remplace le contour — « il y a ça, ici », comme demandé. */
@@ -5406,7 +5422,10 @@ function drawComplexes(){
         html:`<div class="fsym ${bk.k}${gros?" gros":""}" style="--c:${col};--d:${dia}px"></div>`}),
       zIndexOffset: bk.k==="actif"?600:100, riseOnHover:true})
       .bindPopup(html,{maxWidth:mqMobile.matches?260:320});
-    if(z>=7) mk.bindTooltip(`≈ ${bTxt} ${isImp()?"ac":"ha"}`,{permanent:true, direction:"right", className:"fsym-t", offset:[dia/2+2,0]});
+    /* Nombre entier, arrondi à deux chiffres significatifs : « 3,1k ha » mêlait
+       une abréviation anglaise et une virgule française. */
+    const arr=bVal>=100 ? Math.round(bVal/Math.pow(10,Math.floor(Math.log10(bVal))-1))*Math.pow(10,Math.floor(Math.log10(bVal))-1) : Math.round(bVal);
+    if(z>=7) mk.bindTooltip(`≈ ${nf(arr)} ${isImp()?"ac":"ha"}`,{permanent:true, direction:"right", className:"fsym-t", offset:[dia/2+2,0]});
     mk.addTo(layers.complexes);
   }
   setC("c-complex",cx.length);
@@ -9522,6 +9541,12 @@ wResize(); wReposition();
    lien de partage, puis zone mémorisée, puis vue mondiale par défaut. */
 const startHash = location.hash && location.hash.length>3;
 const startZone = (function(){ try{ return sessionStorage.getItem("pedZone")||""; }catch(e){ return ""; } })();
+/* « _ » signifie « le monde entier » : c'est un démarrage PAR DÉFAUT, pas une zone
+   déjà chargée. Tester `!startZone` le confondait avec une zone : après avoir
+   choisi le monde entier une fois, chaque rechargement de la session sautait le
+   chargement des incendies, des alertes, des périmètres et des villes — la
+   carte restait à moitié vide jusqu'au premier déplacement. */
+const departMonde = !startHash && (!startZone || startZone==="_");
 
 let premierChargement;
 if(startHash && applyShareURL()){
@@ -9554,7 +9579,7 @@ premierChargement.then(()=>{
        partage ou une zone mémorisée : les redemander ne ferait que dupliquer le
        travail. Seule la vue mondiale par défaut, qui ne charge d'abord que les
        événements et les séismes, a besoin du complément. */
-    if(!startHash && !startZone){
+    if(departMonde){
       loadHotspots(); loadAlerts(); loadPerims(); loadCities(); loadEuba();
     }
     fetchWind();
@@ -9602,7 +9627,7 @@ setTimeout(hideLoader,9000);
    data/i18n/*.json. Elle sert de clé à la copie locale ; sans elle, un
    visiteur garderait des traductions périmées, ou retéléchargerait à chaque
    visite un fichier de 150 ko qui n'a pas changé. */
-const I18N_VER = "2026-09-24c";
+const I18N_VER = "2026-09-24d";
 async function chargeDico(lg){
   if(lg === "fr") return null;
   if(dicoCache.has(lg)) return dicoCache.get(lg);
