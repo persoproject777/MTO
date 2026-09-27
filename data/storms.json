@@ -1,1 +1,1 @@
-{"t":1790471211019,"f":[]}
+{"t":1790472394625,"f":[{"ev":"Severe Thunderstorm Warning","sev":"Severe","cert":"Observed","urg":"Immediate","zone":"Garfield, OK","d0":"2026-09-26T20:22:00-05:00","d1":"2026-09-26T20:45:00-05:00","on":true,"act":"CON","tor":"","grele":"1.00","vent":"60 MPH","dep":{"brg":279,"kt":16,"c":[36.46,-97.67]},"txt":"Severe Thunderstorm Warning issued September 26 at 8:22PM CDT until September 26 at 8:45PM CDT by NWS Norman OK","g":{"type":"Polygon","coordinates":[[[-97.74,36.43],[-97.75,36.52],[-97.46,36.57],[-97.46,36.39],[-97.74,36.43]]]}}]}
