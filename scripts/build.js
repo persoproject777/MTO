@@ -1397,6 +1397,82 @@ async function effis() {
   return false;
 }
 
+/* ---------- MOYENS AÉRIENS ENGAGÉS (ADS-B communautaire, adsb.lol) ----------
+   POURQUOI LE ROBOT, ET PLUS LE NAVIGATEUR.
+   La carte interrogeait airplanes.live depuis le navigateur de chaque visiteur.
+   Mesuré le 28/09 : ce service répond désormais 403 à toute requête non
+   enregistrée (« Please contact us… »), sans en-tête CORS, et les autres
+   réseaux ouverts (adsb.lol, adsb.fi, OpenSky) ne donnent AUCUNE autorisation
+   CORS non plus. Aucun navigateur ne peut donc lire ces positions : la console
+   se remplissait d'erreurs toutes les vingt secondes pour une couche vide.
+   Un serveur, lui, n'est pas soumis au CORS. Le robot interroge adsb.lol (base
+   ouverte, licence ODbL) à chaque tour et publie les seuls moyens utiles.
+
+   QUOI. Deux familles de requêtes, sur la planète entière :
+   - /v2/mil : les appareils d'État, dont on ne garde que les plateformes
+     d'acheminement et d'évacuation (Hercules, C-295, Chinook, NH90…) et les
+     indicatifs de secours ;
+   - /v2/type/<code> : chaque type qui ne sert qu'à la lutte ou au secours
+     (Canadair, Air Tractor, Aircrane, hélicoptères sanitaires et SAR).
+   Le navigateur applique ensuite exactement la même classification qu'avant.
+
+   RYTHME. Le service limite sévèrement les requêtes enchaînées — mesuré : à une
+   requête toutes les 3 s, cinq refus (429) sur douze. Mais il accepte une LISTE
+   de types séparés par des virgules : les 29 types tiennent en UNE requête.
+   Deux requêtes par tour en tout, espacées de 3 s, avec une nouvelle tentative
+   patiente sur un refus. */
+const AERO_TYPES = ["CL2T", "CL41", "CL21", "CL15", "AT8T", "AT5T", "M18", "S64", "S61", "S58T", "H500",
+  "B412", "B212", "B429", "AS32", "AS3B", "H225", "EC25", "EC45", "EC35", "EC30", "A109", "A139", "A169",
+  "AS65", "H60", "S70", "UH1", "H64"];
+const AERO_AIDE = /^(C130|C30J|L382|A400|C295|CN35|C27J|CH47|H47|NH90|EC72|H21[05]M|C17|IL76|AN26|AN12|KC30|A332|C160)$/;
+const AERO_APPEL = /^(PELIC|MILAN|DRAGON|DRAG\d|MORANE|DRAGO|VVF|PROCIV|IPC\d|RESCEU|ESCUE|TANKER|TNKR|AIRTANKER|LEAD|AIRATTACK|ATTACK|HELITACK|HELITANK|JUMPER|SMOKEY|BIRDDOG|BOMBER|BOMBARDIER|WATERB|FIREB|FIRE\d|CANADAIR|AIRTRACT|SPOTTER|RESCUE|RESCU\d|SARKING|COASTG|CG\d{3,}|ICEGUARD|SAMU|HEMS|HELIMED|LIFEFLIGHT|LIFELINE|LIFEGUARD|MEDIC\d|AIRMED|AMBULANCE|CHRISTOPH|REGA|ADAC|ANGEL\d|SECURITE|SECCIV|CIVPRO|PROTEC)/;
+async function aeronefs() {
+  const pause = ms => new Promise(r => setTimeout(r, ms));
+  const lire = async u => {
+    for (let essai = 0; ; essai++) {
+      try { return await get(u, 20000); }
+      catch (e) {
+        if (essai >= 2 || !/HTTP (429|5\d\d)|abort/i.test(String(e && e.message))) throw e;
+        await pause(6000 * (essai + 1));
+      }
+    }
+  };
+  const t0 = Date.now();
+  const urls = ["https://api.adsb.lol/v2/mil", "https://api.adsb.lol/v2/type/" + AERO_TYPES.join(",")];
+  const vus = new Map();
+  let ok = 0, ko = 0;
+  for (let i = 0; i < urls.length; i++) {
+    if (i) await pause(3000);
+    let d;
+    try { d = await lire(urls[i]); ok++; }
+    catch (e) { ko++; console.log("     avions : " + (i ? "types de secours" : "appareils d'État") + " — " + e.message); continue; }
+    for (const a of (d.ac || [])) {
+      if (!a.hex || a.lat == null || a.lon == null) continue;
+      const f = String(a.flight || "").toUpperCase().replace(/\s+/g, "");
+      const t = String(a.t || "").toUpperCase();
+      if (i === 0 && !AERO_AIDE.test(t) && AERO_TYPES.indexOf(t) < 0 && !AERO_APPEL.test(f)) continue;
+      const vu = a.seen_pos != null ? a.seen_pos : (a.seen || 0);
+      /* Au-delà de cinq minutes sans position, l'appareil a atterri ou quitté la
+         couverture : le publier le montrerait là où il n'est plus. */
+      if (vu > 300) continue;
+      const o = { hex: a.hex, fl: f, t: a.t || "", r: a.r || "", d: a.desc || "", c: a.category || "",
+        la: Math.round(a.lat * 1e4) / 1e4, lo: Math.round(a.lon * 1e4) / 1e4,
+        tr: Math.round(a.track != null ? a.track : a.true_heading != null ? a.true_heading : -1), gs: Math.round(a.gs || 0),
+        al: a.alt_baro === "ground" ? "ground" : (a.alt_baro != null ? Math.round(a.alt_baro) : null),
+        vs: a.baro_rate != null ? Math.round(a.baro_rate) : null, sq: a.squawk || "", fg: a.dbFlags || 0,
+        vu: Math.round(vu) };
+      const p = vus.get(a.hex);
+      if (!p || o.vu < p.vu) vus.set(a.hex, o);
+    }
+  }
+  if (!ok) throw new Error("adsb.lol injoignable (" + ko + " échecs)");
+  const ac = [...vus.values()].sort(byKey(x => x.hex));
+  /* `t` = heure de la COLLECTE, pas du début du tour : c'est à elle que se
+     rapporte l'âge de chaque position (`vu`). */
+  write("avions.json", { t: t0, ac }, ac.length + " appareil(s) — " + ok + " requête(s)" + (ko ? ", " + ko + " échec(s)" : ""));
+  return true;
+}
+
 /* ---------- Orchestration ---------- */
 (async () => {
   const only = process.argv[2] || "fast";
@@ -1416,7 +1492,10 @@ async function effis() {
        d'ecriture s'en charge, la tache ne coute donc rien les autres fois. */
     : [["bornes", bornes], ["pays", pays], ["nuages", nuages], ["quakes", quakes], ["eonet", eonet], ["gdacs", gdacs], ["gdacsgeo", gdacsGeom], ["cyclones", cyclones],
        ["nws", nws], ["storms", storms], ["sigmet", sigmet], ["meteoalarm", meteoalarm],
-       ["hotspots", hotspots]];
+       ["hotspots", hotspots],
+       /* En DERNIER : ce sont les données qui vieillissent le plus vite, elles
+          partent donc au plus près de la publication. */
+       ["aeronefs", aeronefs]];
 
   let failed = 0;
   for (const [name, fn] of tasks) {

@@ -1808,21 +1808,11 @@ header .hbtn:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,25
       <details>
         <summary><svg class="ic x16" aria-hidden="true"><use href="#i-helicopter"/></svg><span>Moyens aériens engagés : ce que l’on voit, et ce qu’on ne voit pas</span></summary>
         <p><b>Cette couche ne montre pas le trafic aérien.</b> Elle montre les <b>moyens engagés</b> sur un événement : bombardiers d’eau, hélicoptères de lutte et de secours, évacuations sanitaires, garde-côtes, recherche et sauvetage, protection civile. Tout le transport commercial, le fret et l’aviation générale sont <b>écartés à la lecture</b>, avant même d’être dessinés. Un Airbus en croisière n’apprend rien sur un incendie ; trois Canadair qui tournent au-dessus d’un massif, énormément.</p><p>Deux couleurs, deux natures : <b style="color:#ff9db0">rouge</b> pour un moyen engagé, <b style="color:#e6c65c">or</b> pour un renfort d’État sur une plateforme d’acheminement ou d’évacuation (Hercules, C-295, Chinook, NH90…). Chaque appareil est orienté selon son <b>cap réel</b> et porte son indicatif ; zoomez et son rôle exact s’affiche dessous.</p>
-        <p><b>Trajectoire réellement parcourue</b> : les positions relevées sont mémorisées et tracées derrière chaque moyen engagé, sur une demi-heure. Sur un bombardier d’eau, cette trace dessine le <b>circuit entre le point d’écopage et le front</b> — c’est là que se lit le travail en cours, bien mieux que dans une position isolée.</p><p><b>Fluide sans surcharge</b> : les positions sont relevées toutes les 20 secondes, mais entre deux relevés chaque appareil <b>continue d’avancer</b> d’après son cap et sa vitesse réels. Le mouvement est continu alors que le réseau ne travaille presque pas.</p>
-        <p><b>Ce qui n’apparaît pas — soyons clairs</b> :</p>
-        <p><b>Comment un appareil est reconnu.</b> Trois signaux, dans cet ordre : son <b>indicatif radio officiel</b> (Pélican et Milan pour la Sécurité civile française, Dragon pour ses hélicoptères, Drago en Italie, Tanker, Lead et Helitack en Amérique du Nord, Rescue pour le sauvetage britannique, Christoph et Rega pour les HEMS germanophones, SAMU en France) ; son <b>type d’appareil</b> quand celui-ci ne sert qu’à ça (Canadair CL-415, Air Tractor AT-802, Dromader, Erickson Aircrane) ; enfin sa <b>description constructeur</b>. Les types à double usage sont volontairement exclus de la reconnaissance automatique : un King Air ou un Dash-8 est le plus souvent un vol d’affaires ou une ligne régionale, et l’accepter ferait rentrer du trafic ordinaire.</p><p>Un chasseur en exercice n’a rien à voir avec un Canadair au-dessus d’un incendie : le seul drapeau « militaire » ne suffit donc jamais. Il est retenu uniquement combiné à une plateforme réellement utilisée pour l’acheminement de secours.</p>
-        <p><b>Un anneau fin</b>, resserré au contour du symbole, marque les moyens engagés. Il était auparavant presque quatre fois plus large que l’appareil, avec un remplissage qui empâtait la carte ; à quelques appareils affichés au lieu de plusieurs centaines, un liseré discret suffit.</p>
-        <p>Le panneau <b>Ma sécurité</b> les signale aussi : « 3 moyens aériens de secours en vol » est une information rassurante, c’est le signe concret que le sinistre est activement combattu.</p>
-        <p><b>Les drones de loisir n’émettent pas d’ADS-B.</b> Un DJI ou un drone de particulier est <b>invisible ici</b>, et le restera : aucun flux public ne les diffuse.</p>
-        <p><b>Certains appareils d’État</b> coupent leur transpondeur ou sont filtrés à la source.</p>
-        <p><b>Les zones sans récepteur au sol</b> — plein océan, déserts, régions isolées — restent vides : ce réseau est alimenté par des volontaires, pas par des satellites.</p>
-        <p><b>Pourquoi un bombardier d’eau peut clignoter</b> — il travaille à très basse altitude, parfois quelques dizaines de mètres au-dessus des flammes, et son signal n’atteint alors plus les récepteurs au sol : il disparaît une passe, revient la suivante. La carte le <b>conserve jusqu’à 6 minutes</b> sans confirmation en poursuivant sa trajectoire d’après son cap, plutôt que de l’effacer. Sa fiche indique alors « position non confirmée depuis X s ».</p>
-        <p>Le rayon de chaque sondage correspond maintenant à la <b>demi-diagonale exacte</b> de la zone à couvrir : plus aucun coin d’écran n’est oublié, ce qui laissait auparavant des trous sur les vues larges.</p>
-        <p><b>Couverture et limite du service</b> : chaque interrogation est plafonnée à 463 km de rayon. Sur une vue large, la carte lance donc <b>2 à 4 sondages répartis</b>, envoyés <b>un par un à 1,5 seconde d’intervalle</b>, et fusionne les résultats sans doublons.</p>
-        <p>Pourquoi si prudemment ? Le service est <b>communautaire et gratuit</b>. En testant, j’ai constaté qu’un rythme trop soutenu déclenche un refus complet (erreur 503) pendant plusieurs dizaines de secondes — c’est ce qui causait les avions manquants. Le réglage actuel consomme <b>0,2 requête par seconde</b>, très en deçà des limites.</p>
-        <p>Conséquence assumée : à l’échelle d’un continent, la couverture est <b>volontairement partielle</b>. Zoomez sur une région pour être certain de voir tous les moyens engagés — c’est là que la précision compte vraiment.</p>
-        <p>Les appareils dont la position n’a pas été rafraîchie depuis plus de 75 secondes sont <b>affichés en transparence</b> : vous voyez immédiatement ceux dont la position est incertaine.</p>
-        <p>Source : réseau communautaire ADS-B. Position typiquement vieille de quelques secondes.</p>
+        <p><b>Relevé toutes les quinze minutes.</b> Les réseaux ADS-B ouverts n'autorisent plus un site web à les interroger directement depuis votre navigateur. La carte lit donc un relevé mondial fait par son robot à chaque tour : chaque appareil est dessiné à sa <b>dernière position relevée</b>, sans extrapolation, et sa fiche dit depuis combien de minutes.</p>
+        <p><b>Pour le voir bouger en direct</b>, touchez l'appareil puis « Suivre cet appareil en direct » : il s'ouvre sur adsb.lol, qui affiche sa position seconde par seconde.</p>
+        <p><b>Comment un appareil est reconnu.</b> Son <b>type</b> quand celui-ci ne sert qu'à la lutte ou au secours (Canadair, Air Tractor, Aircrane, hélicoptères sanitaires et de sauvetage), son <b>indicatif radio</b> (Pélican, Milan, Dragon, Tanker, Rescue, SAMU…), ou, pour un appareil d'État, une plateforme d'acheminement ou d'évacuation (Hercules, C-295, Chinook, NH90…).</p>
+        <p><b>Ce qui n'apparaît pas.</b> Les drones de loisir, qui n'émettent pas d'ADS-B ; les appareils d'État qui coupent leur transpondeur ; les zones sans récepteur au sol (océans, déserts) ; et les bombardiers d'eau à très basse altitude, que les récepteurs perdent parfois.</p>
+        <p>Source : adsb.lol, réseau communautaire ADS-B (données ouvertes, licence ODbL).</p>
       </details>
 
       <details>
@@ -2408,7 +2398,7 @@ const CAT = [
   {id:"terre",   icon:"globe",    nm:"Terre",
    hint:"Autres : sécheresses, glissements de terrain, tempêtes de sable et inondations recensées par la NASA."},
   {id:"ciel",    icon:"plane",    nm:"Ciel",
-   hint:"Aéronefs qui émettent en ADS-B. La couleur indique l'altitude. Touchez un appareil pour son type, son immatriculation et son cap."},
+   hint:"Moyens aériens de lutte et de secours, relevés toutes les quinze minutes. Touchez un appareil pour son rôle, l'âge de sa position et le suivre en direct."},
   {id:"alertes", icon:"siren",    nm:"Alertes",
    hint:"Alertes graduées GDACS (ONU et Commission européenne) et bulletins des météorologues d'État américains, consignes comprises."},
   {id:"fond",    icon:"layers",   nm:"Repères", kind:"base",
@@ -3451,10 +3441,10 @@ const layers = {
 /* Profil de performance : adapté à l’appareil détecté */
 
 const PERF = LOW
-  ? {hotFetch:600,  hotDraw:600,  parts:150, radarFrames:6,  aqCells:[4,3], places:1.0, quakeCap:600, windCells:90}
+  ? {hotFetch:600,  hotDraw:600,  parts:150, radarFrames:4,  aqCells:[4,3], places:1.0, quakeCap:600, windCells:90}
   : mqMobile.matches
-  ? {hotFetch:1100, hotDraw:1100, parts:240, radarFrames:8,  aqCells:[5,4], places:1.0, quakeCap:1200, windCells:170}
-  : {hotFetch:2000, hotDraw:2000, parts:420, radarFrames:11, aqCells:[6,5], places:1.3, quakeCap:2500, windCells:260};
+  ? {hotFetch:1100, hotDraw:1100, parts:240, radarFrames:6,  aqCells:[5,4], places:1.0, quakeCap:1200, windCells:170}
+  : {hotFetch:2000, hotDraw:2000, parts:420, radarFrames:7, aqCells:[6,5], places:1.3, quakeCap:2500, windCells:260};
 let labelDensity = LOW ? 0 : 1;
 /* Unités : métrique par défaut, impérial pour les régions qui l’utilisent */
 const IMPERIAL_DEFAULT = /^(en-us|en-gb|my|lr)/i.test(navigator.language||"");
@@ -6310,11 +6300,50 @@ let rvFrames=[], rvIdx=0, rvTimer=0, rvHost="", rvLayers=[], rvRenew=0;
    façon de ne plus avoir d'échec est de ne pas demander de tuile périmée, ce
    dont s'occupe initRadar ci-dessous. */
 const RV_VIDE="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+/* ZOOM 7 AU PLUS, et DEUX IMAGES SUR LA CARTE AU PLUS.
+   Mesuré le 28/09 :
+   - au-delà du zoom 7, RainViewer ne sert plus le radar mais une vignette
+     grise « Zoom Level Not Supported » (vérifié aux zooms 8 et 10). Sur une vue
+     de ville, la carte se couvrait de ces cartouches. On déclare donc le zoom 7
+     comme résolution d'origine : plus près, Leaflet agrandit ces tuiles-là.
+   - le service tolère 500 tuiles par minute, 300 d'un coup. Les treize images
+     de l'animation restaient toutes attachées à la carte : chaque déplacement
+     leur faisait redemander leurs tuiles à toutes les treize, et la console se
+     remplissait de centaines d'erreurs 429. Seules l'image affichée et la
+     suivante restent désormais attachées ; une image déjà vue revient du cache
+     du navigateur (conservée deux jours), sans nouvelle requête. */
+/* TUILES DE 512 PIXELS : quatre fois moins de requêtes pour la même image.
+   `zoomOffset:-1` demande le niveau inférieur, qui couvre la même surface ;
+   `maxNativeZoom:8` correspond donc au niveau 7 du service, son dernier niveau
+   réel.
+   GARDE-FOU DE DÉBIT. Mesuré : sans lui, l'animation redemandait sans fin des
+   tuiles déjà refusées (un refus n'est pas mis en cache), 684 requêtes et 396
+   échecs en trente secondes. On compte donc les tuiles demandées sur la
+   dernière minute, et l'animation ne va pas chercher une image nouvelle
+   au-delà de 300 ; et au premier refus, elle se fige 90 secondes sur l'image
+   affichée plutôt que de s'emballer. */
+const RV_ZMAX=8, RV_BUDGET=300, RV_REQ=[];
+/* Une tuile déjà reçue revient du cache du navigateur : elle ne compte pas
+   dans le débit. Seules les adresses jamais reçues sont décomptées. */
+const RV_RECUES=new Set();
+let rvGel=0;
+const rvDebit = () => { const t=Date.now()-60000; while(RV_REQ.length && RV_REQ[0]<t) RV_REQ.shift(); return RV_REQ.length; };
 function rvEnsure(i){
   if(rvLayers[i] || !rvFrames[i]) return;
-  rvLayers[i]=L.tileLayer(`${rvHost}${rvFrames[i].path}/256/{z}/{x}/{y}/4/1_1.png`,
-    {opacity:0, zIndex:190, attribution:"RainViewer", updateWhenIdle:true,
-     errorTileUrl:RV_VIDE, maxZoom:19}).addTo(layers.radar);
+  const lay=L.tileLayer(`${rvHost}${rvFrames[i].path}/512/{z}/{x}/{y}/4/1_1.png`,
+    {opacity:0, zIndex:190, attribution:"RainViewer", updateWhenIdle:true, keepBuffer:1,
+     tileSize:512, zoomOffset:-1, errorTileUrl:RV_VIDE, maxNativeZoom:RV_ZMAX, maxZoom:19});
+  lay._pret=false;
+  lay.on("load", ()=>{ lay._pret=true; });
+  lay.on("tileloadstart", e=>{ const u=e.tile && e.tile.src; if(!u || !RV_RECUES.has(u)) RV_REQ.push(Date.now()); });
+  lay.on("tileload", e=>{ const u=e.tile && e.tile.src; if(u){ if(RV_RECUES.size>6000) RV_RECUES.clear(); RV_RECUES.add(u); } });
+  lay.on("tileerror", ()=>{ rvGel=Date.now(); });
+  rvLayers[i]=lay.addTo(layers.radar);
+}
+/* Détache tout ce qui n'est ni l'image affichée ni la suivante. */
+function rvDetache(){
+  const n=rvFrames.length, garde=new Set([rvIdx, (rvIdx+1)%n]);
+  rvLayers.forEach((l,k)=>{ if(l && !garde.has(k)){ layers.radar.removeLayer(l); rvLayers[k]=null; } });
 }
 /* Purge complète : à appeler AVANT toute requête et à l'extinction de la couche.
    RainViewer fait tourner l'identifiant de ses images toutes les dix minutes.
@@ -6344,9 +6373,18 @@ async function initRadar(){
     clearInterval(rvTimer);
     rvTimer=setInterval(()=>{
       if(!$("#tg-radar").checked||document.hidden||!rvFrames.length) return;
+      /* On n'avance que si l'image suivante est prête : le téléchargement
+         s'étale au rythme du réseau au lieu de tout demander d'un coup. */
+      const suiv=rvLayers[(rvIdx+1)%rvFrames.length];
+      if(suiv && !suiv._pret) return;
+      /* Figé après un refus, ou budget de la minute atteint : on reste sur
+         l'image affichée. */
+      if(Date.now()-rvGel < 90000) return;
+      if(!rvLayers[(rvIdx+2)%rvFrames.length] && rvDebit() > RV_BUDGET) return;
       if(rvLayers[rvIdx]) rvLayers[rvIdx].setOpacity(0);
       rvIdx=(rvIdx+1)%rvFrames.length;
       rvEnsure(rvIdx); rvEnsure((rvIdx+1)%rvFrames.length);
+      rvDetache();
       if(rvLayers[rvIdx]) rvLayers[rvIdx].setOpacity(.72);
       const fr=rvFrames[rvIdx];
       if(fr) setC("c-radar", new Date(fr.time*1000).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}));
@@ -8130,16 +8168,21 @@ function aFrame(){
     let la=a.la, lo=a.lo;
     /* Extrapolation depuis la dernière position VUE (et non depuis le relevé),
        bornée à 90 s pour ne jamais inventer une trajectoire trop longue */
-    const maxExtrap = a.rescue ? 200 : 110;
-    const since=Math.min(maxExtrap, (a.seen||0) + (a.perdu?(Date.now()-(a.at||0))/1000:0) + Math.max(0,dt));
-    if(a.gs>2 && a.track!=null && since>0){
+    /* PAS D'EXTRAPOLATION. Prolonger de plusieurs minutes la trajectoire d'un
+       hélicoptère qui tourne au-dessus d'un feu le dessinerait là où il n'est
+       pas. On montre la dernière position relevée, et son âge. */
+    const maxExtrap = 0;
+    const since=Math.min(maxExtrap, (a.seen||0) + Math.max(0,dt));
+    if(maxExtrap>0 && a.gs>2 && a.track!=null && since>0){
       const km=(a.gs*1.852)*(since/3600);
       const d=destPoint(a.la,a.lo,a.track,km);
       la=d[0]; lo=d[1];
     }
     /* Un moyen de secours reste lisible même sans confirmation : c'est
        précisément quand il vole bas, donc quand il travaille. */
-    const vieux=(a.seen||0)>75 || a.perdu;
+    /* Au-delà de vingt minutes, la position est trop ancienne pour être prise
+       au pied de la lettre : l'appareil passe en transparence. */
+    const vieux=(a.seen||0)>1200;
     const stale = a.rescue ? false : vieux;
     const attenue = a.rescue ? (vieux?0.75:1) : (vieux?0.35:1);
     lo=lonPres(lo, cLngA);
@@ -8206,144 +8249,68 @@ function aFrame(){
   }
 }
 
-/* Le service plafonne à 250 NM (463 km). Au-delà, on répartit plusieurs
-   sondages pour couvrir l’écran entier au lieu de n’en voir qu’un disque. */
-function airProbes(){
-  const b=map.getBounds(), c=b.getCenter();
-  const RKM=460, STEP=RKM*1.35;
-  const hKm=distKm([b.getSouth(),c.lng],[b.getNorth(),c.lng]);
-  const wKm=distKm([c.lat,b.getWest()],[c.lat,b.getEast()]);
-  const nY=Math.min(3, Math.max(1, Math.ceil(hKm/STEP)));
-  const nX=Math.min(3, Math.max(1, Math.ceil(wKm/STEP)));
-  /* Service communautaire : on plafonne à 6 sondages espacés de 1,5 s, ce qui
-     reste très en deçà de ses limites tout en couvrant les vues larges. */
-  const max=LOW?3:6;
-  const out=[];
-  for(let j=0;j<nY;j++) for(let i=0;i<nX;i++){
-    if(out.length>=max) break;
-    const la=Math.max(-90, Math.min(90, b.getSouth()+(b.getNorth()-b.getSouth())*(j+0.5)/nY));
-    /* LA LONGITUDE DOIT ÊTRE REPLIÉE. La carte fait défiler le monde en continu :
-       passé l'antiméridien, Leaflet rend des longitudes de 181, 183, 190… qui
-       sont justes pour lui mais hors plage pour un service web. airplanes.live
-       les refusait, et le journal se remplissait de « Failed to fetch » sur des
-       adresses en .../182.988/... — douze échecs pour quarante-six réussites,
-       uniquement parce que l'utilisateur avait fait glisser la carte vers l'est.
-       Le champ de vent, lui, repliait déjà : c'est la même formule. */
-    const lo=((b.getWest()+(b.getEast()-b.getWest())*(i+0.5)/nX+540)%360)-180;
-    /* Rayon juste suffisant pour la case, avec recouvrement */
-    /* Rayon = demi-diagonale de la case, pour qu'aucun coin ne soit oublié */
-    const cellH=hKm/nY, cellW=wKm/nX;
-    const r=Math.min(250, Math.max(20, Math.ceil(Math.sqrt(cellH*cellH+cellW*cellW)/2/1.852)+3));
-    out.push({la, lo, r});
-  }
-  return out;
-}
+/* LE RELEVÉ DU ROBOT, PAS UN SERVICE INTERROGÉ PAR CHAQUE VISITEUR.
+   La carte appelait airplanes.live depuis le navigateur. Mesuré le 28/09 : ce
+   service répond désormais 403 à toute requête non enregistrée, sans en-tête
+   CORS — et aucun réseau ADS-B ouvert (adsb.lol, adsb.fi, OpenSky) n'autorise
+   un site tiers à lire ses réponses. Résultat : deux erreurs rouges dans la
+   console toutes les vingt secondes, et une couche toujours vide.
+   Le robot, lui, n'est pas un navigateur : il interroge adsb.lol à chaque tour
+   (toutes les quinze minutes) et publie les seuls moyens de lutte, de secours
+   et d'acheminement de la planète entière, dans data/avions.json. Plus
+   aucune requête ne part d'ici. Le prix : une position vieille de quelques
+   minutes, annoncée comme telle, et un lien pour suivre l'appareil en direct. */
 async function loadAir(){
   if(!airOn() || AIR.busy) return;
   const z=map.getZoom();
   if(z<5){ AIR.list=[]; aClear(); setC("c-air","zoom+"); return; }
   AIR.busy=true;
   try{
-    const probes=airProbes();
     setC("c-air","…");
-    /* Séquentiel et espacé : jamais deux requêtes en même temps */
-    const res=[];
-    for(let i=0;i<probes.length;i++){
-      if(i) await new Promise(r=>setTimeout(r, 1500));
-      if(!airOn()) break;
-      const pr=probes[i];
-      /* Un grand rayon renvoie beaucoup plus d'appareils : le délai doit suivre,
-         sinon les vues larges échouent systématiquement. */
-      const delai=Math.min(26000, 9000 + pr.r*70);
-      const one=await fetchJSON(`https://api.airplanes.live/v2/point/${pr.la.toFixed(3)}/${pr.lo.toFixed(3)}/${pr.r}`, null, 0, delai).catch(()=>null);
-      res.push(one);
-      if(one===null && i===0) break;   /* service indisponible : inutile d’insister */
-    }
-    const byHex=new Map();
-    res.forEach(d=>{
-      ((d&&d.ac)||[]).forEach(a=>{
-        if(!a.hex) return;
-        const prev=byHex.get(a.hex);
-        /* En cas de doublon entre sondages, on garde la position la plus fraîche */
-        if(!prev || (a.seen_pos||99) < (prev.seen_pos||99)) byHex.set(a.hex,a);
-      });
-    });
-    const raw=[...byHex.values()];
-    AIR.probes=probes.length;
-    /* `dbFlags` est un champ de bits, pas un booléen : 1 = militaire,
-       2 = remarquable, 4 = adresse masquée, 8 = LADD. Le lire avec `!!`
-       faisait passer pour militaire tout appareil simplement « remarquable ». */
-    const vus_total = raw.length;
-    let brut=raw.map(a=>({
-      hex:a.hex, flight:(a.flight||"").trim(), t:a.t||"", desc:a.desc||"",
-      reg:a.r||"", cat:a.category||"", la:a.lat, lo:a.lon,
-      track:(a.track!=null?a.track:a.true_heading), gs:a.gs||0,
-      alt:a.alt_baro, vs:a.baro_rate, sq:a.squawk, dbFlags:a.dbFlags||0,
-      mil:((+a.dbFlags||0)&1)===1, notable:((+a.dbFlags||0)&2)===2,
-      seen:a.seen_pos
-    })).filter(a=>a.la!=null&&a.lo!=null);
-
+    /* Un relevé de plus de 45 minutes montrerait des appareils depuis longtemps
+       posés : on n'affiche rien plutôt que de les montrer en vol. */
+    const d=await preload("avions", 45*60e3);
+    if(!d || !Array.isArray(d.ac)){ AIR.list=[]; AIR.rescue=[]; aClear(); setC("c-air","indisponible"); return; }
+    const age0=Math.max(0, (Date.now()-(d.t||Date.now()))/1000);
+    AIR.releve=d.t||0;
+    let brut=d.ac.map(a=>({
+      hex:a.hex, flight:a.fl||"", t:a.t||"", desc:a.d||"", reg:a.r||"", cat:a.c||"",
+      la:a.la, lo:a.lo, track:(a.tr!=null && a.tr>=0 ? a.tr : null), gs:a.gs||0,
+      alt:a.al, vs:a.vs, sq:a.sq, dbFlags:a.fg||0,
+      /* `dbFlags` est un champ de bits : 1 = militaire, 2 = remarquable. */
+      mil:((+a.fg||0)&1)===1, notable:((+a.fg||0)&2)===2,
+      /* Âge RÉEL de la position : âge du relevé + retard de la position au
+         moment du relevé. */
+      seen:age0+(a.vu||0)
+    })).filter(a=>a.la!=null && a.lo!=null);
     brut.forEach(a=>{
       a.rescue=isRescue(a);
       a.aid = !a.rescue && isAid(a);
       if(a.rescue||a.aid) a.role=rescueRole(a);
       a.at=Date.now();
     });
-
-    /* LE FILTRE. Tout ce qui n'est ni un moyen engagé ni un renfort d'État
-       sort ici : lignes commerciales, fret, aviation générale, planeurs,
-       véhicules au sol. Ils n'apprennent rien sur une catastrophe et noyaient
-       les quelques appareils qui, eux, en disent beaucoup. */
-    AIR.list = brut.filter(a=>a.rescue||a.aid);
-    AIR.ecartes = vus_total - AIR.list.length;
-    /* Les appareils volant bas — bombardiers d'eau en particulier — ont une
-       réception hachée : ils disparaissent une passe puis reviennent. On les
-       conserve jusqu'à 3 minutes (6 pour les secours) au lieu de les effacer,
-       en les marquant comme non confirmés. */
-    const vus=new Set(AIR.list.map(a=>a.hex));
-    const now2=Date.now();
-    (AIR.prev||[]).forEach(o=>{
-      if(vus.has(o.hex)) return;
-      const age=now2-(o.at||0);
-      const limite=o.rescue ? 360000 : 180000;
-      if(age<limite){ o.perdu=true; AIR.list.push(o); }
-    });
-    AIR.prev=AIR.list.slice();
+    /* LE FILTRE, inchangé : ni moyen engagé ni renfort d'État, on écarte. */
+    AIR.list=brut.filter(a=>a.rescue||a.aid);
+    AIR.ecartes=brut.length-AIR.list.length;
     AIR.rescue=AIR.list.filter(a=>a.rescue);
     AIR.at=Date.now();
-
-    /* Trajectoire réellement parcourue : on mémorise les positions relevées
-       pour chaque appareil engagé. Sur un bombardier d'eau, la trace montre le
-       circuit entre le point d'eau et le front — c'est l'information utile. */
-    const gardeTrace=Date.now()-1800000;
-    AIR.list.forEach(a=>{
-      let tr=AIR.trails.get(a.hex);
-      if(!tr){ tr=[]; AIR.trails.set(a.hex,tr); }
-      const der=tr[tr.length-1];
-      if(!der || Math.abs(der[0]-a.la)>0.0006 || Math.abs(der[1]-a.lo)>0.0006){
-        tr.push([a.la,a.lo,Date.now()]);
-        if(tr.length>60) tr.shift();
-      }
-      a.trail=tr;
-    });
-    /* Purge des traces d'appareils disparus depuis plus de trente minutes */
-    if(AIR.trails.size>140){
-      for(const [h,tr] of AIR.trails){
-        if(!tr.length || tr[tr.length-1][2] < gardeTrace) AIR.trails.delete(h);
-      }
-    }
-
     const nR=AIR.rescue.length, nA=AIR.list.length-nR;
     setC("c-air", nR ? (nR+" engagé"+(nR>1?"s":"")+(nA?" · "+nA+" renfort"+(nA>1?"s":""):""))
                      : (nA ? nA+" renfort"+(nA>1?"s":"") : "aucun"));
     startLoop();
-  }catch(e){ setC("c-air","service saturé"); }
+  }catch(e){
+    /* Journal : un message fixe, le détail à part. */
+    if(window.__diagPush) window.__diagPush("RÉSEAU","Moyens aériens : relevé illisible");
+    setC("c-air","indisponible");
+  }
   finally{ AIR.busy=false; }
 }
 function airStart(){
   clearInterval(AIR.timer);
   loadAir();
-  AIR.timer=setInterval(()=>{ if(airOn() && !document.hidden) loadAir(); }, 20000);
+  /* Le relevé change toutes les quinze minutes ; le relire chaque minute ne
+     coûte rien (il n'est retéléchargé que s'il a changé). */
+  AIR.timer=setInterval(()=>{ if(airOn() && !document.hidden) loadAir(); }, 60000);
   startLoop();
 }
 function airStop(){ clearInterval(AIR.timer); AIR.timer=0; AIR.list=[]; aClear(); setC("c-air","–"); }
@@ -8370,17 +8337,20 @@ map.on("click", e=>{
      ${best.rescue?`<div class="pp-row" style="color:#ff9db0;font-weight:600">${esc(best.role)}</div>`:""}
      ${best.aid?`<div class="pp-row" style="color:#e6c65c;font-weight:600">${esc(best.role)}<br><span style="color:#8fa4cc;font-weight:400">appareil d’État — plateforme d’acheminement ou d’évacuation</span></div>`:""}
      ${best.trail&&best.trail.length>1?`<div class="pp-row">Trajectoire suivie : <b>${best.trail.length}</b> positions relevées sur ${Math.round((Date.now()-best.trail[0][2])/60000)} min</div>`:""}
-     ${best.perdu?`<div class="pp-row" style="color:#ffc46b">Position non confirmée depuis ${Math.round((Date.now()-(best.at||0))/1000)} s — vol à basse altitude, réception intermittente</div>`:""}
+     <div class="pp-row">Position relevée il y a <b>${(()=>{ const sec=(best.seen||0)+Math.max(0,(Date.now()-(best.at||Date.now()))/1000); return sec<90 ? Math.round(sec)+" s" : Math.round(sec/60)+" min"; })()}</b></div>
+     <a class="pp-link" href="https://adsb.lol/?icao=${encodeURIComponent(best.hex||"")}" target="_blank" rel="noopener">${ic("plane","x14")}Suivre cet appareil en direct${ic("external","x12 xl")}</a>
      <div class="pp-row">${kindFr}${best.t?` · code <b>${esc(best.t)}</b>`:""}${best.cat?` · cat. ${esc(best.cat)} (${esc(AC_CAT[best.cat]||"?")})`:""}</div>
      ${best.reg?`<div class="pp-row">Immatriculation : <b>${esc(best.reg)}</b></div>`:""}
      <div class="pp-row">Altitude : <b>${alt}</b> ${vs}</div>
      <div class="pp-row">Vitesse sol : <b>${Math.round(best.gs)} kt</b> (${fmtV(best.gs*1.852)})</div>
-     <div class="pp-row">Cap : <b>${Math.round(best.track||0)}°</b> vers le ${compass(best.track||0)}</div>
+     <div class="pp-row">Cap : <b>${Math.round(best.track||0)}°</b> vers ${LANG==="fr" ? SI_DIR(best.track||0).replace(/^au /,"le ").replace(/^à l'/,"l’") : compass(best.track||0)}</div>
      ${best.sq?`<div class="pp-row">Transpondeur : ${esc(best.sq)}${best.sq==="7700"?" — <b style='color:#ff2e63'>URGENCE</b>":best.sq==="7600"?" — panne radio":best.sq==="7500"?" — <b style='color:#ff2e63'>DÉTOURNEMENT</b>":""}</div>`:""}
-     <div class="pp-foot">ADS-B communautaire · position vue il y a ${Math.round(best.seen||0)} s · code ${esc(best.hex||"")}</div>`);
+     <div class="pp-foot">ADS-B communautaire (adsb.lol) · relevé toutes les 15 min · code ${esc(best.hex||"")}</div>`);
 });
 
-map.on("moveend", ()=>{ if(airOn()) { clearTimeout(AIR.mv); AIR.mv=setTimeout(loadAir,2200); } });
+/* Le relevé couvre la planète entière : un déplacement ne demande rien au
+   réseau, seul le passage du seuil de zoom compte. */
+map.on("zoomend", ()=>{ if(airOn()) { clearTimeout(AIR.mv); AIR.mv=setTimeout(loadAir,600); } });
 map.on("resize", ()=>{ aResize(); aReposition(); });
 
 
@@ -8678,7 +8648,7 @@ async function assessSafety(){
       const roles={};
       proches.forEach(a=>{ roles[a.role]=(roles[a.role]||0)+1; });
       const det=Object.entries(roles).map(([r,n])=>n+" "+r.toLowerCase()).join(", ");
-      R.push({sev:"ok", ic:"helicopter", t:`${proches.length} moyen${proches.length>1?"s":""} aérien${proches.length>1?"s":""} de secours en vol`,
+      R.push({sev:"ok", ic:"helicopter", t:`${proches.length} moyen${proches.length>1?"s":""} aérien${proches.length>1?"s":""} de secours relevé${proches.length>1?"s":""} en vol`,
         d:`${det}<br><span style="color:#4be3a4">Le sinistre est activement combattu.</span>`,
         go:[proches[0].la, proches[0].lo], key:"rescue", dist:0});
     }
@@ -9909,7 +9879,7 @@ setTimeout(hideLoader,9000);
    data/i18n/*.json. Elle sert de clé à la copie locale ; sans elle, un
    visiteur garderait des traductions périmées, ou retéléchargerait à chaque
    visite un fichier de 150 ko qui n'a pas changé. */
-const I18N_VER = "2026-09-24h";
+const I18N_VER = "2026-09-28a";
 async function chargeDico(lg){
   if(lg === "fr") return null;
   if(dicoCache.has(lg)) return dicoCache.get(lg);
@@ -10750,6 +10720,7 @@ async function ouvreGlobe(){
       clearTimeout(glVeille); glVeille=0;
       $("#globe").classList.remove("load");
       try{ glMap.setProjection({type:"globe"}); }catch(e){}
+      glFigeCorrection();
       glMaj();
       glMap.on("click","ev", ev=>{
         const f=ev.features&&ev.features[0]; if(!f) return;
@@ -10839,6 +10810,34 @@ function glMajPoles(){
     const so=glMap && glMap.getSource(id);
     if(so && so.setTiles) so.setTiles(glUrlPole(q, glNuitCle));
   }
+}
+/* CORRECTION DE PROJECTION MESURÉE, PUIS FIGÉE.
+   En projection globe, le moteur mesure en continu l'écart entre le calcul
+   de la carte graphique et le calcul exact, pour corriger l'alignement en
+   latitude : il dessine un pixel hors écran et le relit, toutes les dix images.
+   Chrome signale chacune de ces relectures (« READ-usage buffer was written,
+   then fenced… ») : 178 avertissements pour une demi-minute de rotation dans la
+   console d'un visiteur. Or cet écart est une propriété de la carte graphique :
+   il ne change pas d'une seconde à l'autre. On laisse donc le moteur mesurer
+   trois fois à l’ouverture, on attend que sa correction se soit posée, puis on
+   la garde telle quelle. Même alignement, plus de relecture. Si la structure
+   interne du moteur venait à changer, rien n'est modifié. */
+function glFigeCorrection(){
+  try{
+    const pr=glMap && glMap.style && glMap.style.projection;
+    const vp=pr && (pr._verticalPerspectiveProjection || (pr.name==="vertical-perspective" ? pr : null));
+    if(!vp || typeof vp.updateGPUdependent!=="function" || vp.__fige) return;
+    const mesure=vp.updateGPUdependent.bind(vp);
+    let lectures=0, derniere=null, gele=false;
+    vp.updateGPUdependent=ctx=>{
+      if(gele) return;
+      mesure(ctx);
+      const em=vp._errorMeasurement;
+      if(em && em._lastReadbackFrame!==derniere){ if(derniere!==null) lectures++; derniere=em._lastReadbackFrame; }
+      if(lectures>=3 && performance.now()-(vp._errorMeasurementLastChangeTime||0)>800) gele=true;
+    };
+    vp.__fige=true;
+  }catch(e){ if(window.__diagPush) window.__diagPush("INFO","Vue planète : correction de projection laissée au moteur"); }
 }
 /* Rafraîchit ce qui est porté sur la sphère, sans rien redemander au réseau. */
 function glMaj(){
