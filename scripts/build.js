@@ -1397,6 +1397,65 @@ async function effis() {
   return false;
 }
 
+/* ---------- DANGER MÉTÉOROLOGIQUE D'INCENDIE (Copernicus EFFIS, indice FWI) ----------
+   POURQUOI LE ROBOT. La carte demandait cet indice au serveur cartographique
+   d'EFFIS, tuile par tuile, depuis le navigateur de chaque visiteur. Mesuré le
+   28/09 : ce serveur coupe au hasard une partie de ses réponses (en-tête « 200,
+   9 088 octets », puis la connexion se ferme sans rien envoyer), ce que Chrome
+   affiche en rafale d'ERR_HTTP2_PROTOCOL_ERROR. Et la carte demandait des tuiles
+   jusque sur le Pacifique, alors que l'indice ne couvre QUE l'Europe (vérifié
+   sur une image du monde entier : Islande, cap Nord, Canaries, 45° est).
+   Le robot fait donc UNE requête par jour pour l'Europe entière, avec plusieurs
+   essais et une vérification que l'image est complète, et la publie. Les
+   visiteurs ne contactent plus EFFIS du tout. En cas d'échec, l'image de la
+   veille reste en place, datée comme telle. */
+const FWI_BOITE = { o: -26, s: 26, e: 46, n: 73 };
+async function risqueFeu() {
+  const jour = new Date(now).toISOString().slice(0, 10);
+  let prec = null;
+  try { prec = JSON.parse(fs.readFileSync(path.join(OUT, "fwi.json"), "utf8")); } catch (e) {}
+  if (prec && prec.jour === jour && prec.img && fs.existsSync(path.join(OUT, prec.img))) {
+    write("fwi.json", prec, "indice du " + jour + " déjà publié");
+    return true;
+  }
+  const merc = (lo, la) => [lo * 20037508.342789244 / 180, Math.log(Math.tan(Math.PI / 4 + la * Math.PI / 360)) * 6378137];
+  const [x0, y0] = merc(FWI_BOITE.o, FWI_BOITE.s), [x1, y1] = merc(FWI_BOITE.e, FWI_BOITE.n);
+  /* 1 600 pixels de large : environ deux pixels par maille de l'indice (0,1°). */
+  const L = 1600, H = Math.round(L * (y1 - y0) / (x1 - x0));
+  const url = "https://maps.wild-fire.eu/effis?service=WMS&request=GetMap&layers=mf010.fwi&styles="
+    + "&format=image%2Fpng&transparent=true&version=1.1.1&TIME=" + jour + "&width=" + L + "&height=" + H
+    + "&srs=EPSG%3A3857&bbox=" + [x0, y0, x1, y1].map(v => v.toFixed(2)).join(",");
+  const SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  let image = null, motif = "";
+  for (let essai = 0; essai < 4 && !image; essai++) {
+    if (essai) await new Promise(r => setTimeout(r, 6000 * essai));
+    const ctl = new AbortController();
+    const minuterie = setTimeout(() => ctl.abort(), 90000);
+    try {
+      const r = await fetch(url, { signal: ctl.signal, headers: { "User-Agent": UA } });
+      const b = Buffer.from(await r.arrayBuffer());
+      const annonce = +(r.headers.get("content-length") || 0);
+      /* Une image COMPLÈTE : signature PNG au début, bloc IEND à la fin, et
+         autant d'octets que l'en-tête en annonçait. */
+      const complete = b.length > 1000 && b.subarray(0, 8).equals(SIGNATURE)
+        && b.subarray(-8, -4).toString("latin1") === "IEND" && (!annonce || annonce === b.length);
+      if (r.ok && complete) image = b;
+      else motif = "HTTP " + r.status + ", " + b.length + (annonce ? "/" + annonce : "") + " octets";
+    } catch (e) { motif = e.message; }
+    finally { clearTimeout(minuterie); }
+  }
+  if (!image) throw new Error("EFFIS : image incomplète après 4 essais (" + motif + ")");
+  const img = "fwi-" + jour + ".png";
+  fs.writeFileSync(path.join(OUT, img), image);
+  /* Une seule image publiée à la fois : celles des jours précédents partent. */
+  for (const f of fs.readdirSync(OUT)) {
+    if (/^fwi-\d{4}-\d{2}-\d{2}\.png$/.test(f) && f !== img) fs.unlinkSync(path.join(OUT, f));
+  }
+  write("fwi.json", { t: now, jour, img, b: [FWI_BOITE.s, FWI_BOITE.o, FWI_BOITE.n, FWI_BOITE.e] },
+    "indice du " + jour + " — " + Math.round(image.length / 1024) + " ko");
+  return true;
+}
+
 /* ---------- MOYENS AÉRIENS ENGAGÉS (ADS-B communautaire, adsb.lol) ----------
    POURQUOI LE ROBOT, ET PLUS LE NAVIGATEUR.
    La carte interrogeait airplanes.live depuis le navigateur de chaque visiteur.
@@ -1492,7 +1551,7 @@ async function aeronefs() {
        d'ecriture s'en charge, la tache ne coute donc rien les autres fois. */
     : [["bornes", bornes], ["pays", pays], ["nuages", nuages], ["quakes", quakes], ["eonet", eonet], ["gdacs", gdacs], ["gdacsgeo", gdacsGeom], ["cyclones", cyclones],
        ["nws", nws], ["storms", storms], ["sigmet", sigmet], ["meteoalarm", meteoalarm],
-       ["hotspots", hotspots],
+       ["hotspots", hotspots], ["fwi", risqueFeu],
        /* En DERNIER : ce sont les données qui vieillissent le plus vite, elles
           partent donc au plus près de la publication. */
        ["aeronefs", aeronefs]];

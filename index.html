@@ -5856,18 +5856,55 @@ async function loadFlood(){
   }catch(e){ setC("c-flood","–"); floodKey=""; }
 }
 function fwiDate(){ const d=new Date(); return d.toISOString().slice(0,10); }
-let fwiLayer=null;
-function initFWI(){
+/* INDICE DE DANGER : L'IMAGE DU ROBOT, PLUS LE SERVEUR D'EFFIS EN DIRECT.
+   Mesuré le 28/09 : le serveur cartographique d'EFFIS coupe au hasard une partie
+   de ses réponses, et Chrome en affichait des rafales d'ERR_HTTP2_PROTOCOL_ERROR
+   — une par tuile, à chaque déplacement, y compris sur le Pacifique et les
+   Amériques alors que l'indice ne couvre que l'Europe. Le robot publie désormais
+   une image de l'Europe entière par jour (data/fwi-AAAA-MM-JJ.png, 80 ko) : une
+   seule requête, vers notre propre site, et plus aucune vers EFFIS.
+   L'image est demandée en projection Web Mercator : posée sur ses deux coins,
+   elle tombe exactement sur la carte.
+   Si le fichier du robot manque, on retombe sur le service direct, mais BORNÉ à
+   l'Europe : plus une seule tuile demandée ailleurs. */
+const FWI_EUROPE = [[26,-26],[73,46]];
+let fwiLayer=null, fwiJeton=0;
+async function initFWI(){
   if(!$("#tg-fwi").checked){ setC("c-fwi","–"); return; }
-  if(fwiLayer){ setC("c-fwi","actif"); return; }
+  if(!map.hasLayer(layers.fwi)) map.addLayer(layers.fwi);
+  if(fwiLayer){ setC("c-fwi", fwiLayer._etiquette||"actif"); return; }
+  const jeton=++fwiJeton;
+  setC("c-fwi","…");
+  /* L'indice de la veille reste indicatif : on l'accepte jusqu'à 36 h, daté. */
+  const d=await preload("fwi", 36*3600e3).catch(()=>null);
+  if(jeton!==fwiJeton || fwiLayer || !$("#tg-fwi").checked) return;
+  if(d && d.img && Array.isArray(d.b) && d.b.length===4){
+    const [s0,o0,n0,e0]=d.b;
+    const auj = d.jour===fwiDate();
+    const lay=L.imageOverlay(DATA_BASE+d.img, [[s0,o0],[n0,e0]], {pane:"tilePane", zIndex:150,
+      opacity:.5, interactive:false, attribution:"© UE Copernicus EFFIS"});
+    lay._etiquette = auj ? "aujourd’hui" : "du "+String(d.jour||"").split("-").reverse().slice(0,2).join("/");
+    lay.on("load", ()=>setC("c-fwi", lay._etiquette));
+    lay.on("error", ()=>{ setC("c-fwi","indisponible");
+      if(window.__diagPush) window.__diagPush("RÉSEAU","Indice de danger : image du robot illisible"); });
+    fwiLayer=lay;
+    lay.addTo(layers.fwi);
+    /* Indice de la veille : celui du jour arrive au prochain tour du robot. On
+       repasse dans vingt minutes plutôt que d'attendre le lendemain. */
+    if(!auj) setTimeout(()=>{
+      if(fwiLayer!==lay || !$("#tg-fwi").checked) return;
+      try{ layers.fwi.removeLayer(lay); }catch(_){}
+      fwiLayer=null; initFWI();
+    }, 20*60e3);
+    return;
+  }
   fwiLayer=L.tileLayer.wms("https://maps.wild-fire.eu/effis",{
     layers:"mf010.fwi", format:"image/png", transparent:true, version:"1.1.1",
     TIME:fwiDate(), opacity:.5, tileSize:512, zIndex:150, updateWhenIdle:true,
-    attribution:"© UE Copernicus EFFIS"});
+    bounds:L.latLngBounds(FWI_EUROPE), attribution:"© UE Copernicus EFFIS"});
   fwiLayer.on("tileerror",()=>setC("c-fwi","lent…"));
   fwiLayer.on("load",()=>setC("c-fwi","actif"));
   fwiLayer.addTo(layers.fwi);
-  setC("c-fwi","…");
 }
 
 /* ===== ALERTE : le feu approche-t-il d’un village ? ===== */
@@ -8971,7 +9008,7 @@ $("#tg-fc").addEventListener("change",ev=>{
   else{ map.removeLayer(layers.forecast); setC("c-fc","–"); }
 });
 $("#tg-fwi").addEventListener("change",ev=>{
-  if(ev.target.checked){ map.addLayer(layers.fwi); initFWI(); toast("Indice officiel de danger — du vert (faible) au rouge sombre (extrême). Le serveur européen demande quelques secondes.",6000); }
+  if(ev.target.checked){ map.addLayer(layers.fwi); initFWI(); toast("Indice officiel de danger d’incendie en Europe — du vert (faible) au rouge sombre (extrême).",5000); }
   else{ map.removeLayer(layers.fwi); setC("c-fwi","–"); }
 });
 $("#tg-threat").addEventListener("change",ev=>{
@@ -9010,6 +9047,22 @@ $("#tg-euba").addEventListener("change",ev=>{
   if(ev.target.checked){ map.addLayer(layers.euba); ebKey=""; loadEuba(); }
   else map.removeLayer(layers.euba);
 });
+/* CASE COCHÉE ⇒ GROUPE SUR LA CARTE.
+   Ces groupes ne sont pas attachés à la carte d'office : c'est l'écouteur
+   « change » de leur case qui les attache. Or une case cochée PAR DÉFAUT ne
+   déclenche aucun « change » au démarrage. Mesuré le 28/09 : l'indice de danger
+   d'incendie et les icebergs, cochés d'origine, étaient préparés dans un groupe
+   jamais affiché — invisibles tant qu'on ne décochait pas puis recochait. On
+   aligne donc les groupes sur leurs cases au démarrage. */
+const GROUPES_A_LA_DEMANDE = {"tg-fwi":"fwi", "tg-ice":"ice", "tg-radar":"radar", "tg-aq":"aq", "tg-flood":"flood"};
+function accordeGroupes(){
+  for(const [id,g] of Object.entries(GROUPES_A_LA_DEMANDE)){
+    const cb=document.getElementById(id), grp=layers[g];
+    if(!cb || !grp) continue;
+    if(cb.checked && !map.hasLayer(grp)) map.addLayer(grp);
+    else if(!cb.checked && map.hasLayer(grp)) map.removeLayer(grp);
+  }
+}
 $("#tg-ice").addEventListener("change",ev=>{
   if(ev.target.checked){ buildIce(); map.addLayer(layers.ice); } else map.removeLayer(layers.ice);
 });
@@ -9841,6 +9894,7 @@ premierChargement.then(()=>{
     if($("#tg-aq").checked) loadAQ();
     if($("#tg-flood").checked) loadFlood();
     loadVigilance(); loadOrages();
+    accordeGroupes();
     if($("#tg-fwi").checked) initFWI();
     loadForecastGrid(true);
     /* Une fois tout chargé et les compteurs renseignés, on éteint ce qui n'a
