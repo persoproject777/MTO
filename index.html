@@ -1306,6 +1306,28 @@ header .hbtn:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,25
    suivent le zoom à gauche de la fiche, au lieu de passer dessous. */
 @media (min-width:900px){ body.fiche-ouverte #geoloc,body.fiche-ouverte #safebtn{right:412px} }
 #fresh{background:rgba(10,16,28,.9)}
+
+/* ---------- Noms de lieux ----------
+   Pays en capitales espacées, subdivisions en petites capitales discrètes,
+   villes en gras avec leur point, villages en romain léger. Un liseré sombre
+   les rend lisibles sur n'importe quelle imagerie. */
+.lnom{position:absolute;white-space:nowrap;pointer-events:none;color:#f3f7fd;
+  text-shadow:0 0 3px rgba(4,8,16,.95),0 0 7px rgba(4,8,16,.75),0 1px 2px rgba(4,8,16,.9)}
+.lnom em{font-style:normal;display:flex;align-items:baseline;gap:5px}
+.lnom b{font:700 12px/1 var(--ui);color:#ffd79a}
+.lnom.zone{transform:translate(-50%,-50%);font:600 10.5px/1 var(--ui);letter-spacing:.14em;
+  text-transform:uppercase;color:rgba(228,236,248,.72)}
+.lnom.pointe{display:flex;flex-direction:column;align-items:center;transform:translate(-50%,calc(-100% + 3px))}
+.lnom.pointe i{width:5px;height:5px;margin-top:3px;border-radius:50%;background:#fff;
+  box-shadow:0 0 0 1.5px rgba(4,8,16,.8)}
+.lnom.cap em{font:700 13.5px/1.15 var(--ui)}
+.lnom.cap i{width:6px;height:6px;border-radius:1.5px}
+.lnom.grande em{font:700 13px/1.15 var(--ui)}
+.lnom.ville em{font:600 12px/1.15 var(--ui)}
+.lnom.village{transform:translate(-50%,-50%);color:#e6edf6}
+.lnom.village em{font:500 11px/1.15 var(--ui)}
+.lnom.clic{pointer-events:auto;cursor:pointer}
+.lnom.clic:hover em{text-decoration:underline;text-underline-offset:2px}
 </style>
 </head>
 <body>
@@ -1632,11 +1654,9 @@ header .hbtn:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,25
           <div class="lgshapes">
             <span><b class="lgs alRouge"></b>Disque plein rouge — alerte <b>ROUGE en cours</b></span>
             <span><b class="lgs alOrange"></b>Disque plein orange — alerte <b>ORANGE en cours</b></span>
-            <span><b class="lgs alClos"></b>Cercle creux en pointillé — <b>événement CLOS</b> par les autorités</span>
           </div>
-          <p class="lghint">Un événement clos n’est plus une alerte : il reste affiché à titre d’historique,
-            sans son emprise. Une surface brûlée peut toutefois connaître des reprises plusieurs jours après
-            la fin de l’alerte.</p>
+          <p class="lghint">Seuls les événements en cours sont affichés : un événement clos par les autorités
+            disparaît de la carte.</p>
         </div>
 
         <div class="lg">
@@ -1713,7 +1733,7 @@ header .hbtn:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,25
         <summary><svg class="ic x16" aria-hidden="true"><use href="#i-map"/></svg><span>Couches limitées à certaines régions</span></summary>
         <p>Toutes les sources ne couvrent pas la planète. Les tuiles concernées s’affichent désormais en grisé avec la mention <b>« hors zone »</b> dès que vous regardez ailleurs :</p>
         <p><b>Périmètres É.-U.</b> — relevés au sol par les agences fédérales américaines, uniquement en Amérique du Nord.<br>
-        <b>Périmètres Copernicus</b> et <b>indice de danger FWI</b> — Europe et bassin méditerranéen.<br>
+        <b>Périmètres Copernicus</b> — Europe et bassin méditerranéen.<br>
         <b>Alertes officielles</b> — GDACS couvre le monde entier, les bulletins des météorologues d’État seulement les États-Unis.</p>
         <p>La mention se met à jour toute seule quand vous déplacez la carte : vous voyez immédiatement ce qui a du sens là où vous regardez.</p>
       </details>
@@ -1731,13 +1751,6 @@ header .hbtn:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,25
         <p>Quatre niveaux : <span class="sw" style="--c:#ff1744"></span> <b>crue majeure possible</b> (au-delà des maximums récents) · <span class="sw" style="--c:#ff9f43"></span> débit très élevé · <span class="sw" style="--c:#ffc46b"></span> hausse marquée · <span class="sw" style="--c:#8a6a3a"></span> <b>étiage sévère</b> — car la sécheresse hydrologique est aussi une catastrophe, et elle annonce souvent les incendies.</p>
         <p>Chaque fiche donne le pic prévu, le débit habituel, le seuil haut et le rapport entre les deux.</p>
         <p>Modèle mondial GloFAS à environ 5 km : il décrit un bassin versant, pas un point précis de berge. En France, <b>Vigicrues</b> fait foi.</p>
-      </details>
-
-      <details>
-        <summary><svg class="ic x16" aria-hidden="true"><use href="#i-gauge"/></svg><span>Danger d’incendie officiel (indice FWI)</span></summary>
-        <p>L’indice <b>Fire Weather Index</b> est l’outil <b>officiel de l’Union européenne</b> pour évaluer le risque d’incendie. Il combine température, humidité, vent et sécheresse accumulée du sol sur plusieurs semaines — bien plus complet que la règle des 30, qui ne regarde que l’instant présent.</p>
-        <p>La carte se colore du <b>vert</b> (danger faible) au <b>rouge sombre</b> (extrême). Une zone rouge sans incendie signifie : <b>un départ de feu y serait très difficile à maîtriser</b>. C’est l’indice que consultent les services de secours européens.</p>
-        <p>Servez-vous des deux ensemble : le FWI dit <b>où le terrain est prêt à brûler</b>, la règle des 30 dit <b>ce que fera un feu déjà déclaré dans les heures qui viennent</b>.</p>
       </details>
 
       <details>
@@ -2410,7 +2423,6 @@ const CAT = [
 const SCOPES = {
   na:  {box:[-172,18,-66,72], nm:"Amérique du Nord"},
   eu:  {box:[-26,28,45,72],   nm:"Europe et Méditerranée"},
-  euc: {box:[-26,28,45,72],   nm:"Europe"},
   wus: {box:null,             nm:"monde (ONU) et États-Unis"}
 };
 
@@ -2452,13 +2464,14 @@ const LAYERS = [
 
   {id:"tg-risk",     cat:"feux", icon:"projection", nm:"Risque",      full:"Risque et propagation",
    sub:"où le feu peut aller, fumée, villages exposés", c:"#38bdf8", cnt:"c-threat", on:1,
-   drives:["tg-fc","tg-smoke","tg-fwi","tg-threat"]},
+   drives:["tg-fc","tg-smoke","tg-threat"]},
   {id:"tg-fc",       cat:"feux", hide:1, cnt:"c-fc",    on:1},
   {id:"tg-smoke",    cat:"feux", hide:1, cnt:"c-smoke", on:1},
-  {id:"tg-fwi",      cat:"feux", hide:1, cnt:"c-fwi",   on:1, scope:"euc"},
   {id:"tg-threat",   cat:"feux", hide:1,               on:1},
   /* ---- Météo ---- */
-  {id:"tg-cities",   cat:"meteo", icon:"thermometer", nm:"Températures", full:"Températures sur villes et villages",  c:"#4be3a4", cnt:"c-cities", on:1},
+  /* Éteinte d'office : les noms de lieux s'affichent sans elle, et une
+     température sur chaque nom chargeait la carte. */
+  {id:"tg-cities",   cat:"meteo", icon:"thermometer", nm:"Températures", full:"Températures sur les villes affichées",  c:"#4be3a4", cnt:"c-cities", on:0},
   {id:"tg-wind",     cat:"meteo", icon:"wind",        nm:"Vent",         full:"Vent animé en direct",                 c:"#3ce0ff", cnt:"c-wind",   on:1},
   /* La carte du bulletin météo : isobares et centres d'action allumés d'office,
      ils ne masquent rien ; le dégradé des températures, lui, recouvre
@@ -3284,11 +3297,9 @@ async function dessineReference(){
   }
   if(!await chargeReference()) return;
   if(!map.hasLayer(layerBords)) layerBords.addTo(map);
-  if(!map.hasLayer(layerNoms))  layerNoms.addTo(map);
 
   const z = map.getZoom();
   layerBords.clearLayers();
-  layerNoms.clearLayers();
 
   const b = map.getBounds().pad(0.3);
   const S=b.getSouth(), N=b.getNorth(), O=b.getWest(), E=b.getEast();
@@ -3312,19 +3323,8 @@ async function dessineReference(){
     n++;
   }
 
-  /* Les NOMS s'effacent au-delà du niveau régional : au zoom 9 on cherche une
-     rue, pas à savoir dans quel pays on se trouve. */
-  if(z > 8) return;
-  const seuil = z < 3 ? 7.5 : z < 4.5 ? 7 : z < 6 ? 6 : 0;
-  let m = 0;
-  for(const p of PAYS){
-    if(p.r < seuil) continue;
-    if(p.c[0] < S || p.c[0] > N || p.c[1] < O || p.c[1] > E) continue;
-    if(++m > 90) break;
-    L.marker(p.c, { pane:"refPane", interactive:false, keyboard:false,
-      icon: L.divIcon({ className:"", iconSize:[0,0],
-        html:`<div class="pnom${z<4?" pt":""}">${esc(p.n)}</div>` }) }).addTo(layerNoms);
-  }
+  /* Les noms de pays sont désormais posés avec tous les autres noms de lieux
+     (voir « NOMS DE LIEUX »), pour qu'aucune étiquette n'en chevauche une autre. */
 }
 let refT=0;
 function majReference(){
@@ -3411,7 +3411,6 @@ const mkIcon = (k, cls) => L.divIcon({className:"",
   html:`<div class="mk ${k}${cls?" "+cls:""}">${FORMES[k]||FORMES.fire}</div>`,
   iconSize:[18,18], iconAnchor:[9,9]});
 const layers = {
-  fwi: L.layerGroup(),
   forecast: L.layerGroup().addTo(map),
   flood: L.layerGroup(),
   radar: L.layerGroup(),
@@ -3946,19 +3945,7 @@ const GPREC = {
   DR:"une sécheresse couvre une <b>région entière</b> et n’a pas de contour net. Le point ne vaut que comme repère régional.",
   TS:"le point est l’<b>origine de la vague</b>. Les côtes menacées peuvent se trouver à des milliers de kilomètres."
 };
-const CITIES = [["Paris",48.86,2.35],["Londres",51.51,-0.13],["Madrid",40.42,-3.7],["Berlin",52.52,13.41],
-["Rome",41.9,12.5],["Athènes",37.98,23.73],["Moscou",55.76,37.62],["Istanbul",41.01,28.98],
-["Le Caire",30.04,31.24],["Casablanca",33.57,-7.59],["Dakar",14.72,-17.47],["Abidjan",5.36,-4.01],
-["Lagos",6.52,3.38],["Kinshasa",-4.44,15.27],["Nairobi",-1.29,36.82],["Johannesburg",-26.2,28.05],
-["Antananarivo",-18.88,47.51],["Dubaï",25.2,55.27],["Téhéran",35.69,51.39],["Karachi",24.86,67.01],
-["Bombay",19.08,72.88],["New Delhi",28.61,77.21],["Dacca",23.81,90.41],["Bangkok",13.76,100.5],
-["Jakarta",-6.21,106.85],["Singapour",1.35,103.82],["Hong Kong",22.32,114.17],["Shanghai",31.23,121.47],
-["Pékin",39.9,116.41],["Séoul",37.57,126.98],["Tokyo",35.68,139.69],["Manille",14.6,120.98],
-["Sydney",-33.87,151.21],["Auckland",-36.85,174.76],["Nouméa",-22.28,166.46],["Honolulu",21.31,-157.86],
-["Anchorage",61.22,-149.9],["Vancouver",49.28,-123.12],["Los Angeles",34.05,-118.24],["Chicago",41.88,-87.63],
-["New York",40.71,-74.01],["Montréal",45.5,-73.57],["Mexico",19.43,-99.13],["Bogota",4.71,-74.07],
-["Lima",-12.05,-77.04],["São Paulo",-23.55,-46.63],["Buenos Aires",-34.6,-58.38],["Santiago",-33.45,-70.67],
-["Reykjavik",64.15,-21.94],["Papeete",-17.53,-149.57]];
+
 
 /* ---------- Utilitaires ---------- */
 const esc = s => String(s==null?"":s).replace(/[<>&"]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]));
@@ -4033,6 +4020,65 @@ const VOLCS=[];
 const inBbox = (lat, lon) => !state.bbox ||
   (lon>=state.bbox[0]-2 && lat>=state.bbox[1]-2 && lon<=state.bbox[2]+2 && lat<=state.bbox[3]+2);
 
+
+/* ---------- Fiche d'un volcan ----------
+   Deux sources, fusionnées : le référentiel de la NASA (EONET), qui dit
+   depuis quand le volcan est suivi en activité, et le RAPPORT HEBDOMADAIRE du
+   Smithsonian et de l'USGS, qui dit ce qui s'est passé cette semaine : statut,
+   hauteur maximale du panache, niveau d'alerte national. Chaque fait est
+   celui du rapport, restitué en français ; rien n'est extrapolé. */
+let VOLC_HEBDO=null;
+const MOIS_EN={january:"janvier",february:"février",march:"mars",april:"avril",may:"mai",june:"juin",
+  july:"juillet",august:"août",september:"septembre",october:"octobre",november:"novembre",december:"décembre"};
+function semaineFR(sem){
+  const m=String(sem||"").match(/(\d+)\s+([A-Za-z]+)\s*-\s*(\d+)\s+([A-Za-z]+)\s+(\d{4})/);
+  if(!m) return String(sem||"");
+  const m1=MOIS_EN[m[2].toLowerCase()]||m[2], m2=MOIS_EN[m[4].toLowerCase()]||m[4];
+  return m1===m2 ? `du ${m[1]} au ${m[3]} ${m2} ${m[5]}` : `du ${m[1]} ${m1} au ${m[3]} ${m2} ${m[5]}`;
+}
+/* Le volcan du rapport qui correspond : par son NOM d'abord, puis, à défaut,
+   par sa position à moins de 3 km. Une simple proximité ne suffit pas : au
+   Kamtchatka, le Klyuchevskoy et le Bezymianny sont deux volcans distincts à
+   moins de 10 km l'un de l'autre, et 30 km prêtaient le rapport de l'un à
+   l'autre. */
+function volcanHebdo(ll, titre){
+  const nomV=normNom(String(titre||"").replace(/\s+Volcano.*$/i,""));
+  let best=null, bd=3;
+  for(const h of (VOLC_HEBDO && VOLC_HEBDO.v) || []){
+    if(nomV && normNom(h.n)===nomV){ best=h; break; }
+    const d=distKm(ll,[h.la,h.lo]);
+    if(d<bd){ bd=d; best=h; }
+  }
+  if(best) best._pris=true;
+  return best;
+}
+const ALERTE_MOT={watch:"Vigilance (Watch)", warning:"Alerte (Warning)", advisory:"Avis (Advisory)", normal:"Normal",
+  orange:"Orange", yellow:"Jaune", red:"Rouge", green:"Vert"};
+function alerteFR(a){
+  if(!a) return "";
+  let t="";
+  if(a.mot) t=(ALERTE_MOT[String(a.mot).toLowerCase()]||a.mot)+(a.niv!=null && a.sur ? ` — niveau ${a.niv} sur ${a.sur}` : "");
+  else t=`${a.niv}`+(a.sur!=null ? ` sur une échelle de ${a.de!=null?a.de:1} à ${a.sur}` : "");
+  return t+(a.chg==="hausse" ? " · relevé cette semaine" : a.chg==="baisse" ? " · abaissé cette semaine" : " · inchangé");
+}
+function volcanFiche(titre, depuis, src, h){
+  const v = LANG==="fr" ? nomVolcanFR(titre) : {nom:String(titre||""), pays:""};
+  const statut = h ? (h.st==="new" ? "NOUVELLE ACTIVITÉ ÉRUPTIVE" : h.st==="cont" ? "ACTIVITÉ ÉRUPTIVE CONTINUE" : "OBSERVATIONS SANS ÉRUPTION CONFIRMÉE") : "";
+  const colB = h && h.st==="new" ? "#ff5b4d" : "#ff9f43";
+  const pan = h && h.pan ? (h.pan>=1000 ? "jusqu’à "+nf(h.pan/1000,1)+" km" : "jusqu’à "+nf(h.pan)+" m")+" au-dessus du sommet" : "";
+  return `<div class="pp-t" style="color:#ff7a5c">${esc(v.nom)}</div>
+   <div class="pp-cat">${v.pays?esc(v.pays)+" · ":""}Volcan en activité</div>
+   ${statut?`<div class="stbadge" style="--c:${colB}">${statut}</div>`:""}
+   ${kv([h ? ["Rapport de la semaine", esc(semaineFR(VOLC_HEBDO && VOLC_HEBDO.sem))] : null,
+         pan ? ["Panache de cendres", esc(pan)] : null,
+         h && h.al ? ["Niveau d’alerte national", esc(alerteFR(h.al))] : null,
+         depuis ? ["Suivi en activité depuis", esc(VOLC_DATE(depuis))] : null,
+         ["Source", h ? "Smithsonian · USGS" : "Smithsonian · Global Volcanism Program"]])}
+   <div class="pp-desc">${h ? "Faits tirés du rapport hebdomadaire officiel du Smithsonian et de l’USGS. " : ""}Explosions, cendres ou coulées restent possibles ; les cendres peuvent gêner l’aviation loin du volcan. Les consignes des autorités locales font foi.</div>
+   ${h?`<a class="pp-link" href="https://volcano.si.edu/reports_weekly.cfm" target="_blank" rel="noopener">Rapport hebdomadaire complet (en anglais)${ic("external","x12 xl")}</a><br>`:""}
+   ${src?`<a class="pp-link" href="${esc(src)}" target="_blank" rel="noopener">Fiche du volcan${ic("external","x12 xl")}</a>`:""}`;
+}
+
 /* ================= NASA EONET (filtré pays si ciblé) ================= */
 async function loadEonet(){
   /* Deux requêtes : la zone ciblée pour les événements terrestres, et le monde
@@ -4066,6 +4112,10 @@ async function loadEonet(){
     data = {events: (dLocal.events||[]).concat((dOcean&&dOcean.events)||[])
       .filter((e,i,arr)=>arr.findIndex(x=>x.id===e.id)===i)};
   }
+  /* Rapport hebdomadaire Smithsonian / USGS (publié le jeudi) : accepté
+     jusqu'à dix jours, le temps que le suivant paraisse. */
+  VOLC_HEBDO = await preload("volcans", 10*864e5).catch(()=>null);
+  if(VOLC_HEBDO && Array.isArray(VOLC_HEBDO.v)) VOLC_HEBDO.v.forEach(h=>{ h._pris=false; });
   layers.fires.clearLayers(); layers.storms.clearLayers(); EONET_TC.length=0;
   layers.volcanoes.clearLayers(); layers.other.clearLayers();
   layers.ice.clearLayers(); state.iceRaw=[]; state.iceBuilt=false;
@@ -4121,24 +4171,22 @@ async function loadEonet(){
     } else if(catId==="severeStorms"){
       /* Version officielle déjà connue : le tracé EONET, en retard, n'ajoute rien. */
       if(tcOfficielPour(ev.title, ll)) continue;
+      /* Dernier point de plus de deux jours et demi : tempête dissipée. */
+      if(when && Date.now()-new Date(when) > 2.5*864e5) continue;
       processStorm(ev, pts, ll, when, src); n.storms++;
     } else if(catId==="volcanoes"){
       /* Fiche fabriquée à l'ouverture : le nom suit la langue choisie. Et la
          date SANS heure — « 02:00 », c'était minuit UTC converti, une heure
          qui ne veut rien dire pour une éruption suivie depuis des années. */
       const titreV=ev.title, depuisV=first||when;
-      mk.volcanoes.push(L.marker(ll,{icon:mkIcon("volc")}).bindPopup(()=>{
-        const v = LANG==="fr" ? nomVolcanFR(titreV) : {nom:String(titreV||""), pays:""};
-        return `<div class="pp-t" style="color:#ff7a5c">${esc(v.nom)}</div>
-         <div class="pp-cat">${v.pays?esc(v.pays)+" · ":""}Volcan en activité</div>
-         ${kv([["Suivi en activité depuis", esc(VOLC_DATE(depuisV))],
-               ["Source", "Smithsonian · Global Volcanism Program"]])}
-         <div class="pp-desc">Une éruption dure souvent des mois, parfois des années : cette date marque le début du suivi, pas le dernier panache. Explosions, cendres ou coulées restent possibles ; les cendres peuvent gêner l’aviation loin du volcan.</div>
-         ${src?`<a class="pp-link" href="${esc(src)}" target="_blank" rel="noopener">Bulletin officiel${ic("external","x12 xl")}</a>`:""}`;
-      },{maxWidth:290}));
+      const hebdoV=volcanHebdo(ll, titreV);
+      mk.volcanoes.push(L.marker(ll,{icon:mkIcon("volc")})
+        .bindPopup(()=>volcanFiche(titreV, depuisV, src, hebdoV),{maxWidth:300}));
       VOLCS.push({la:ll[0], lo:ll[1], t:titreV});
       n.volcanoes++;
     } else if(catId==="seaLakeIce"){
+      /* Un iceberg dérive : une position de plus de trois semaines ne dit plus où il est. */
+      if(when && Date.now()-new Date(when) > 21*864e5) continue;
       state.iceRaw.push({ll, html:`<div class="pp-t">${ic("ice","x18")}${esc(ev.title)}</div><div class="pp-cat">Iceberg / glace suivie par satellite</div>
         <div class="pp-row">Relevé : <b>${fmtDate(when)}</b></div>
         ${src?`<a class="pp-link" href="${esc(src)}" target="_blank" rel="noopener">Source${ic("external","x12 xl")}</a>`:""}`});
@@ -4153,6 +4201,18 @@ async function loadEonet(){
       n.other++;
     }
   }
+  /* Volcans du rapport de la semaine absents du référentiel de la NASA : on les
+     ajoute (mesuré le 28/09 : le Krakatau en nouvelle activité, le Merapi, le
+     Semeru…). Seules les éruptions nouvelles ou continues : « autres
+     observations » n'est pas une éruption. */
+  for(const h of (VOLC_HEBDO && VOLC_HEBDO.v) || []){
+    if(h._pris || (h.st!=="new" && h.st!=="cont")) continue;
+    const llH=[h.la, h.lo], titreH=h.n+" Volcano, "+h.p;
+    mk.volcanoes.push(L.marker(llH,{icon:mkIcon("volc")})
+      .bindPopup(()=>volcanFiche(titreH, null, null, h),{maxWidth:300}));
+    VOLCS.push({la:h.la, lo:h.lo, t:titreH});
+    n.volcanoes++;
+  }
   layers.fires.addLayers(mk.fires);
   layers.volcanoes.addLayers(mk.volcanoes);
   layers.other.addLayers(mk.other);
@@ -4162,6 +4222,7 @@ async function loadEonet(){
     window.__diagPush("INFO", n.archives+" incendies references de plus de 8 jours ecartes (archives sans valeur informative)");
   compteCyclones();
   setC("c-volcanoes",n.volcanoes); setC("c-other",n.other); setC("c-ice",n.ice);
+  majVif();
 }
 function buildIce(){
   if(state.iceBuilt) return;
@@ -4352,6 +4413,8 @@ function retireEonetDoublons(){
 function compteCyclones(){
   const n=(CYCL?CYCL.length:0)+EONET_TC.length;
   setC("c-storms",n); setC("ch-storms",n);
+  /* Le bandeau de l'en-tête suit sans attendre son prochain tour. */
+  majVif();
 }
 let cyclAt=0;
 async function loadCyclones(){
@@ -4366,6 +4429,9 @@ async function loadCyclones(){
     const der=Array.isArray(c.trk) && c.trk.length ? c.trk[c.trk.length-1] : null;
     if(der && isFinite(der[0]) && isFinite(der[1]) && isFinite(der[2])){ c.pos=[der[0], der[1]]; c.tpos=der[2]*60000; }
   }
+  /* Plus de bulletin depuis 20 h (trois avis manqués) : le système est dissipé.
+     Le robot les écarte déjà ; on le revérifie ici pour un fichier en retard. */
+  CYCL=CYCL.filter(c=>!c.tpos || Date.now()-c.tpos <= 20*3600e3);
   cyclAt=d.t||0;
   layers.cyclones.clearLayers();
   /* Les plus faibles d'abord, les plus violents par-dessus. */
@@ -4626,7 +4692,10 @@ async function loadAlerts(){
            globe, où il se mêlait aux alertes en cours. Il reste consultable dès le
            zoom 5. Et un cyclone déjà dessiné par la couche Cyclones — spirale,
            trajectoire, zones de vent — n'a pas besoin d'un second rond. */
-        if(clos && zA<5) continue;
+        /* CLOS = PLUS UNE ALERTE : on ne le dessine plus du tout. Il restait
+           en cercle pointillé « à titre d'historique », et se lisait pour un
+           événement en cours ; le robot ne les publie d'ailleurs plus. */
+        if(clos) continue;
         if(x.t==="TC" && CYCL && $("#tg-storms") && $("#tg-storms").checked) continue;
         /* Hors du champ de vision : rien à dessiner. */
         if(!dansVue(bA, lat, lon)) continue;
@@ -4707,6 +4776,9 @@ async function loadAlerts(){
       for(const f of (a.features||[]).slice(0,120)){
         if(!f.geometry) continue;
         const p=f.properties||{};
+        /* Échue entre deux passages du robot : elle ne s'affiche plus. */
+        const finNws=Date.parse(p.ends||p.expires||"");
+        if(isFinite(finNws) && finNws<Date.now()) continue;
         const col = p.severity==="Extreme" ? "#ff2e63" : "#ff9f43";
         const sevFr = p.severity==="Extreme" ? "Extrême" : "Sévère";
         L.geoJSON(f,{renderer:cnv, style:{color:col,weight:1,fillColor:col,fillOpacity:.13}})
@@ -4732,15 +4804,13 @@ async function loadAlerts(){
   setC("c-alerts", graves ? (nRouge?nRouge+" rouge"+(nRouge>1?"s":""):"")
                             + (nRouge&&nOrange?" · ":"")
                             + (nOrange?nOrange+" orange":"")
-                            + (nClos?" · "+nClos+" clos":"")
-                          : (nClos?"0 en cours · "+nClos+" clos":(n?"0 grave":"0")));
+                          : (n?"0 grave":"0"));
   setC("ch-alerts", graves||"0");
 }
 
-/* ===== LIEUX : villes, villages et hameaux — source Photon (fiable, mondiale) ===== */
+/* ===== LIEUX : météo par lieu (les NOMS sont posés par « NOMS DE LIEUX ») ===== */
 let placesT=0, placesKey="", placesData=[], placesBox=null;
 const placeCache=new Map();
-const PW={city:6, town:4.5, village:3, hamlet:1.6, suburb:2.5, locality:1, isolated_dwelling:.8};
 
 /* Cache météo par LIEU (précision ~1 km, 15 min) : se déplacer sur la carte
    ne redemande que les lieux réellement nouveaux. */
@@ -4864,137 +4934,260 @@ async function wxBatch(pts){
   return out;
 }
 
-function placeTier(z){
-  if(z<6.2)  return {t:0, tags:null,                    rad:0,   max:60};
-  if(z<8.2)  return {t:1, tags:["city","town"],         rad:70,  max:40};
-  if(z<10)   return {t:2, tags:["city","town","village"], rad:35, max:55};
-  if(z<12)   return {t:3, tags:["city","town","village","hamlet"], rad:18, max:70};
-  return       {t:4, tags:["city","town","village","hamlet","locality","suburb"], rad:9, max:80};
+/* ==================== NOMS DE LIEUX : DU PAYS AU VILLAGE ====================
+   Une hiérarchie, comme sur une vraie carte, et jamais plus d'information qu'il
+   n'en faut à l'échelle regardée :
+     de loin              les pays ;
+     en approchant        les capitales, les grandes villes et les subdivisions
+                          (départements, régions, États, provinces) ;
+     plus près            les villes ;
+     tout près            les villages — et rien en dessous : ni hameau, ni
+                          lieu-dit, ni quartier.
+   AVANT : Photon interrogé à chaque déplacement, jusqu'aux lieux-dits et aux
+   quartiers, chaque nom portant sa température et son vent. Des trous (Photon
+   rend les lieux les plus PROCHES d'un point, pas tous ceux d'une zone), des
+   noms qui sautaient d'un déplacement à l'autre, une requête météo par lieu.
+   MAINTENANT : un fichier préparé une fois par mois par le robot (communes
+   officielles de France, GeoNames ailleurs, noms français de Natural Earth),
+   découpé en cases, dont la carte ne charge que celles qu'elle affiche. Aucun
+   service externe pendant qu'on déplace la carte. Une étiquette qui reste à
+   l'écran ne bouge pas. La température n'apparaît que si l'on allume la couche
+   « Températures », et seulement sur les lieux les plus importants. */
+map.createPane("nomsPane");
+map.getPane("nomsPane").style.zIndex = 455;
+map.getPane("nomsPane").style.pointerEvents = "none";
+const layerLieux = L.layerGroup().addTo(map);
+let LIEUX=null, LIEUX_CLES=new Set(), lieuxEssai=0;
+const TUILES_LIEUX=new Map(), TUILES_ATTENTE=new Map();
+async function chargeLieux(){
+  if(LIEUX) return LIEUX;
+  if(Date.now()-lieuxEssai < 60000) return null;
+  lieuxEssai=Date.now();
+  const d=await preload("lieux", 45*864e5).catch(()=>null);
+  if(d && Array.isArray(d.z) && Array.isArray(d.g)){ LIEUX=d; LIEUX_CLES=new Set(d.k||[]); }
+  return LIEUX;
 }
-/* Photon renvoie les lieux les plus proches d’un point : rapide et disponible partout */
-async function photonPlaces(la, lo, tier){
-  const tags=tier.tags.map(t=>"&osm_tag=place:"+t).join("");
-  const u=`https://photon.komoot.io/reverse?lat=${la.toFixed(3)}&lon=${lo.toFixed(3)}&limit=50&radius=${tier.rad}${tags}&lang=fr`;
-  try{
-    const d=await fetchJSON(u, null, 1800000, 12000);
-    return (d.features||[]).map(f=>{
-      const p=f.properties||{}, c=f.geometry&&f.geometry.coordinates;
-      if(!c||!p.name) return null;
-      return {n:p.name, la:c[1], lo:c[0], r:(PW[p.osm_value]||1)*10};
-    }).filter(Boolean);
-  }catch(e){ return []; }
+/* Une case n'est demandée que si elle existe (liste `k` du fichier) : jamais
+   de 404 pour un océan ou un désert. */
+function tuileLieux(cle){
+  if(TUILES_LIEUX.has(cle)) return Promise.resolve(TUILES_LIEUX.get(cle));
+  if(TUILES_ATTENTE.has(cle)) return TUILES_ATTENTE.get(cle);
+  const pr=fetchJSON(DATA_BASE+"lieux/"+cle+".json?v="+encodeURIComponent((LIEUX&&LIEUX.v)||""), null, 7*864e5, 15000)
+    .then(d=>Array.isArray(d)?d:[]).catch(()=>[])
+    .then(liste=>{
+      TUILES_ATTENTE.delete(cle);
+      TUILES_LIEUX.set(cle, liste);
+      if(TUILES_LIEUX.size>90) TUILES_LIEUX.delete(TUILES_LIEUX.keys().next().value);
+      return liste;
+    });
+  TUILES_ATTENTE.set(cle, pr);
+  return pr;
 }
-async function loadCities(force){
-  if(!$("#tg-cities").checked) return;
-  const z=map.getZoom(), b=map.getBounds(), tier=placeTier(z);
-  /* Déjà couvert au même niveau de détail ? on se contente de redessiner */
-  if(!force && placesBox && placesBox.tier===tier.t && boxCovers(placesBox.sb,b)){ renderPlaces(); return; }
-  const sb=snapBox(b, zoomStep(z,1), 0.20);
-  const key=tier.t+"|"+boxKey(sb);
-  if(key===placesKey && !force) return;
-  placesKey=key;
-  try{
-    setC("c-cities","…");
-    let pts=[];
-    if(tier.t===0){
-      pts=CITIES.map(c=>({n:c[0], la:c[1], lo:c[2], r:60}));
-    }else{
-      const ck=key;
-      if(placeCache.has(ck)){ pts=placeCache.get(ck); }
-      else{
-        /* 3 sondages répartis sur la vue : couverture complète de l’écran */
-        const c0=b.getCenter();
-        const probes=(tier.t>=3)
-          ? [[c0.lat,c0.lng],
-             [b.getNorth()*.70+b.getSouth()*.30, b.getWest()*.70+b.getEast()*.30],
-             [b.getSouth()*.70+b.getNorth()*.30, b.getEast()*.70+b.getWest()*.30]]
-          : [[c0.lat,c0.lng]];
-        const res=await Promise.all(probes.map(pr=>photonPlaces(pr[0],pr[1],tier)));
-        const seen=new Set();
-        res.flat().forEach(o=>{
-          const k=o.n+"|"+o.la.toFixed(2);
-          if(seen.has(k)) return;
-          seen.add(k); pts.push(o);
-        });
-        if(pts.length){
-          placeCache.set(ck,pts);
-          if(placeCache.size>50) placeCache.delete(placeCache.keys().next().value);
-        }
-      }
-      placesBox={tier:tier.t, sb:sb};
+function clesVue(pas, lettre){
+  const b=map.getBounds(), sud=Math.max(-85, b.getSouth()), nord=Math.min(85, b.getNorth());
+  const ouest=b.getWest(), est=Math.min(b.getEast(), ouest+360);
+  const out=new Set();
+  for(let i=Math.floor(sud/pas); i<=Math.floor(nord/pas); i++){
+    for(let x=Math.floor(ouest/pas)*pas; x<=est; x+=pas){
+      const lo=((x%360)+540)%360-180;
+      const cle=lettre+"_"+i+"_"+Math.floor((lo+180)/pas);
+      if(LIEUX_CLES.has(cle)) out.add(cle);
     }
-    if(!pts.length){ setC("c-cities","–"); return; }
-    pts.sort((a,c)=>c.r-a.r);
-    pts=pts.slice(0,tier.max);
-    /* DÉCOUPLAGE : les NOMS de lieux viennent de Photon, la température
-       d'Open-Meteo. Les deux étaient liés — si l'enrichissement météo échouait,
-       la liste entière était jetée et la couche des lieux disparaissait, alors
-       que les noms étaient là et parfaitement utilisables. Cela emportait aussi
-       le croisement des localités concernées par un incendie, qui n'a pas besoin
-       de la moindre température pour fonctionner.
-       On garde donc les lieux dans tous les cas ; la température est un bonus. */
-    const data=await wxBatch(pts);
-    placesData = data.length ? data : pts;
-    renderPlaces();
-  }catch(e){ setC("c-cities","–"); placesKey=""; }
+  }
+  return [...out];
 }
-/* Rendu : le nom est toujours affiché, jamais de chevauchement */
-/* Mesure exacte de la largeur réelle du texte : aucun nom n’est jamais coupé */
-const _mc=document.createElement("canvas").getContext("2d");
-const _mf='600 10px -apple-system,system-ui,"Segoe UI",Roboto,sans-serif';
-const _mcache=new Map();
-function labelWidth(name, temp, wind){
-  const k=name+"|"+temp+"|"+wind;
-  if(_mcache.has(k)) return _mcache.get(k);
-  _mc.font=_mf;
-  const w=Math.ceil(_mc.measureText(name).width + _mc.measureText(temp+"  "+wind).width + 22);
-  _mcache.set(k,w);
-  if(_mcache.size>800) _mcache.clear();
+/* À chaque échelle, ce qui se nomme. */
+function niveauNoms(z){
+  return {
+    pays: z < 7,
+    grandes: z >= 4.5 && z < 9.5,
+    popGrande: z < 5.5 ? 3e6 : z < 6.5 ? 1e6 : 3e5,
+    zones: z >= 5,
+    villes: z >= 8,
+    popVille: z < 8.5 ? 1e5 : z < 9 ? 3e4 : z < 9.5 ? 1.5e4 : z < 10 ? 8000 : 5000,
+    villages: z >= 10.5,
+    popVillage: z < 11 ? 2000 : z < 11.5 ? 1000 : z < 12 ? 500 : 0
+  };
+}
+const normNom = x => String(x||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");
+/* Mesure exacte du texte, pour que deux étiquettes ne se chevauchent jamais. */
+const UIF = (getComputedStyle(document.documentElement).getPropertyValue("--ui")||"").trim() || "sans-serif";
+const _mn=document.createElement("canvas").getContext("2d"), _mnc=new Map();
+function largeurTexte(txt, poids, taille, espacement, maj){
+  const k=poids+"|"+taille+"|"+espacement+"|"+(maj?1:0)+"|"+txt;
+  let w=_mnc.get(k);
+  if(w==null){
+    _mn.font=poids+" "+taille+"px "+UIF;
+    const t=maj ? txt.toUpperCase() : txt;
+    w=Math.ceil(_mn.measureText(t).width + espacement*taille*t.length);
+    _mnc.set(k,w);
+    if(_mnc.size>4000) _mnc.clear();
+  }
   return w;
 }
-function renderPlaces(){
-  if(!$("#tg-cities").checked || !placesData.length) return;
-  const sz=map.getSize(), placed=[];
-  /* De loin, moins de noms : à l'échelle du globe, trente-quatre étiquettes
-     s'ajoutaient aux phénomènes. On garde les plus grandes villes. */
-  const zP=map.getZoom();
-  const PAD=[12,6,2][labelDensity], LIM=Math.round([24,55,120][labelDensity]*(zP<3?0.45:zP<4?0.7:1));
-  layers.cities.clearLayers();
-  const cLngP=map.getCenter().lng;
-  for(const p of placesData){
-    const q=map.latLngToContainerPoint([p.la,lonPres(p.lo,cLngP)]);
-    if(q.x<-60||q.y<-30||q.x>sz.x+60||q.y>sz.y+30) continue;
-    /* La température peut manquer (plafond météo atteint) : le nom du lieu
-       s'affiche quand même, seul. Auparavant l'absence de `p.c` faisait échouer
-       tout le rendu de la couche. */
-    const c0=p.c||null;
-    const w=labelWidth(p.n, c0?Math.round(c0.temperature_2m)+"°":"", c0?Math.round(c0.wind_speed_10m):""), h=13;
-    let clash=false;
-    for(const o of placed){
-      if(Math.abs(o.x-q.x)<(o.w+w)/2+PAD && Math.abs(o.y-q.y)<h+PAD-1){ clash=true; break; }
-    }
-    if(clash) continue;
-    if(placed.length>=LIM) break;
-    placed.push({x:q.x,y:q.y,w:w});
-    /* Étiquette complète si la météo est là, nom seul sinon. Un lieu sans
-       température reste une information utile — et cliquable. */
-    const c=c0;
-    const corps = c
-      ? `<span class="nm">${esc(p.n)}</span><b>${fmtTs(c.temperature_2m)}</b>`
-        + `<span class="arr" style="transform:rotate(${Math.round((c.wind_direction_10m+90)%360)}deg)">${mic("arrow")}</span>`
-        + `${fmtVs(c.wind_speed_10m)}`
-      : `<span class="nm">${esc(p.n)}</span>`;
-    L.marker([p.la,p.lo],{interactive:true, zIndexOffset:-500,
-      icon:L.divIcon({className:"", iconSize:[w,13], iconAnchor:[w/2,-4],
-        html:`<div class="plabel">${corps}</div>`})})
-      .on("click",()=>showWeather(p.la,p.lo,p.n)).addTo(layers.cities);
-  }
-  setC("c-cities",placed.length);
+const STYLE_NOM={
+  pays:{p:600, t:12.5, e:.06, m:1}, paysL:{p:600, t:11, e:.09, m:1}, zone:{p:600, t:10.5, e:.14, m:1},
+  cap:{p:700, t:13.5, e:0, m:0}, grande:{p:700, t:13, e:0, m:0}, ville:{p:600, t:12, e:0, m:0}, village:{p:500, t:11, e:0, m:0}
+};
+const NOMS=new Map();            /* étiquettes affichées, par clé */
+const TEMPS_LIEUX=new Map();     /* températures déjà connues, par position */
+let nomsT=0, nomsJeton=0;
+function videNoms(){ layerLieux.clearLayers(); NOMS.clear(); placesData=[]; }
+function nomsActifs(){
+  const r=$("#tg-ref"), t=$("#tg-cities");
+  return {ref:!!(r&&r.checked), temp:!!(t&&t.checked)};
 }
+async function majNoms(){
+  const on=nomsActifs();
+  if(!on.ref && !on.temp){ videNoms(); setC("c-cities","–"); return; }
+  const jeton=++nomsJeton, z=map.getZoom(), niv=niveauNoms(z);
+  if(on.ref && niv.pays) await chargeReference();
+  if(z>=4.5) await chargeLieux();
+  if(LIEUX){
+    const attente=[];
+    if(niv.villes) for(const k of clesVue(5,"v")) attente.push(tuileLieux(k));
+    if(niv.villages) for(const k of clesVue(2,"p")) attente.push(tuileLieux(k));
+    if(attente.length) await Promise.all(attente);
+  }
+  if(jeton!==nomsJeton) return;
+  dessineNoms();
+  if(on.temp) temperaturesNoms();
+}
+function dessineNoms(){
+  const on=nomsActifs();
+  if(!on.ref && !on.temp){ videNoms(); return; }
+  const z=map.getZoom(), niv=niveauNoms(z), b=map.getBounds().pad(0.04), sz=map.getSize(), cLng=map.getCenter().lng;
+  const cand=[];
+  /* 1. Pays */
+  if(on.ref && niv.pays && PAYS){
+    /* De loin, les grands pays seulement (rang = ordre de grandeur de la
+       population : 7,5 ≈ 30 millions) ; tous les pays à partir du zoom 6. */
+    const seuil = z < 4 ? 7.5 : z < 5 ? 7 : z < 6 ? 6 : 0;
+    for(const p of PAYS){
+      if(p.r < seuil || !dansVue(b, p.c[0], p.c[1])) continue;
+      cand.push({t: z<4?"paysL":"pays", n:p.n, la:p.c[0], lo:p.c[1], pr:1e13+p.r});
+    }
+  }
+  const villesVues=[];
+  if(LIEUX){
+    /* 2. Capitales et grandes villes (noms français) */
+    if(niv.grandes) for(const g of LIEUX.g){
+      /* Une capitale passe avant sa population, mais pas celle d'un micro-État
+         au niveau des pays : Monaco (36 000 hab.) n'a rien à faire au zoom 5. */
+      if(!(g[3]>=niv.popGrande || (g[4] && z>=5 && (g[3]>=150000 || z>=7.5)))) continue;
+      if(!dansVue(b, g[1], g[2])) continue;
+      const c={t:g[4]?"cap":"grande", n:g[0], la:g[1], lo:g[2], pop:g[3], pr:1e11+g[3]+(g[4]?5e10:0), clic:1};
+      cand.push(c); villesVues.push(c);
+    }
+    /* 3. Villes, puis villages : les cases de la vue, déjà triées par population */
+    const lire=(pas, lettre, seuil, type)=>{
+      for(const k of clesVue(pas, lettre)){
+        const liste=TUILES_LIEUX.get(k); if(!liste) continue;
+        for(const l of liste){
+          if(l[3] < seuil) break;
+          if(!dansVue(b, l[1], l[2])) continue;
+          const c={t:type, n:l[0], la:l[1], lo:l[2], pop:l[3], pr:l[3], clic:1};
+          cand.push(c); villesVues.push(c);
+        }
+      }
+    };
+    if(niv.villes) lire(5, "v", niv.popVille, "ville");
+    if(niv.villages) lire(2, "p", niv.popVillage, "village");
+    /* 4. Subdivisions, chacune à l'échelle que Natural Earth lui conseille :
+       les États américains avant les départements français, ceux-ci avant les
+       communes slovènes. Au niveau des villes, elles cèdent la place. */
+    if(on.ref && niv.zones) for(const q of LIEUX.z){
+      const ml=q[3];
+      if(z < Math.max(5, ml-1) || z >= Math.max(ml, 6.5)+3) continue;
+      if(!dansVue(b, q[1], q[2])) continue;
+      cand.push({t:"zone", n:q[0], la:q[1], lo:q[2], pr: z<8.5 ? 1e10-ml*1e6 : 1-ml/100});
+    }
+  }
+  /* Doublons : la même ville par deux sources, ou un département qui porte le
+     nom de sa préfecture (Paris) — on garde l'étiquette la plus importante. */
+  cand.sort((a,c)=>c.pr-a.pr);
+  const vus=[];
+  const PAD=[10,6,3][labelDensity];
+  /* Soixante étiquettes au plus sur un grand écran, une trentaine sur un
+     téléphone : au-delà, la carte se lit mal. */
+  const LIM=Math.round(Math.min(60, sz.x*sz.y/12000)*[0.55,1,1.4][labelDensity]);
+  const places=[], boites=[];
+  for(const c of cand){
+    if(places.length>=LIM) break;
+    const nn=normNom(c.n);
+    if(vus.some(v=>v.nn===nn && distKm([v.la,v.lo],[c.la,c.lo])<30)) continue;
+    const st=STYLE_NOM[c.t];
+    const lo=lonPres(c.lo, cLng);
+    const q=map.latLngToContainerPoint([c.la, lo]);
+    const tmp=on.temp && c.clic ? TEMPS_LIEUX.get(wxKey(c.la,c.lo)) : null;
+    let w=largeurTexte(c.n, st.p, st.t, st.e, st.m);
+    if(tmp!=null) w+=largeurTexte(" "+Math.round(tmp)+"°", 700, 12, 0, 0)+4;
+    const pointe = c.t==="cap" || c.t==="grande" || c.t==="ville";
+    const h=st.t+4;
+    const x0=q.x-w/2, x1=q.x+w/2;
+    const y0 = pointe ? q.y-h-8 : q.y-h/2, y1 = pointe ? q.y+3 : q.y+h/2;
+    if(x0<-4 || x1>sz.x+4 || y0<-4 || y1>sz.y+4) continue;
+    if(boites.some(o=>x0<o[2]+PAD && x1>o[0]-PAD && y0<o[3]+PAD && y1>o[1]-PAD)) continue;
+    boites.push([x0,y0,x1,y1]);
+    vus.push({nn, la:c.la, lo:c.lo});
+    places.push(Object.assign(c, {lo2:lo, tmp}));
+  }
+  /* Rendu par différence : une étiquette déjà affichée n'est ni détruite ni
+     recréée — pas de clignotement quand on déplace la carte. */
+  const garde=new Set();
+  for(const c of places){
+    const cle=c.t+"|"+c.n+"|"+c.la+"|"+c.lo+"|"+(c.tmp!=null?Math.round(c.tmp):"");
+    garde.add(cle);
+    if(NOMS.has(cle)) continue;
+    const pointe = c.t==="cap" || c.t==="grande" || c.t==="ville";
+    const temp = c.tmp!=null ? `<b>${Math.round(c.tmp)}°</b>` : "";
+    const html = c.t==="pays" || c.t==="paysL"
+      ? `<div class="pnom${c.t==="paysL"?" pt":""}">${esc(c.n)}</div>`
+      : c.t==="zone" ? `<div class="lnom zone">${esc(c.n)}</div>`
+      : pointe ? `<div class="lnom pointe ${c.t} clic"><em>${esc(c.n)}${temp}</em><i></i></div>`
+      : `<div class="lnom village clic"><em>${esc(c.n)}${temp}</em></div>`;
+    const mk=L.marker([c.la, c.lo2], {pane:"nomsPane", interactive:!!c.clic, keyboard:false,
+      icon:L.divIcon({className:"", iconSize:[0,0], html})});
+    if(c.clic) mk.on("click", ()=>showWeather(c.la, c.lo, c.n));
+    mk.addTo(layerLieux);
+    NOMS.set(cle, mk);
+  }
+  for(const [cle, mk] of NOMS){ if(!garde.has(cle)){ layerLieux.removeLayer(mk); NOMS.delete(cle); } }
+  /* Les lieux habités de la vue servent aussi aux fiches d'incendie (localités
+     touchées ou menacées). */
+  placesData=villesVues.map(c=>({n:c.n, la:c.la, lo:c.lo, pop:c.pop}));
+  if(on.temp) setC("c-cities", places.filter(c=>c.tmp!=null).length || "…");
+}
+/* Températures : seulement si la couche est allumée, et seulement pour les
+   vingt-quatre lieux les plus importants à l'écran. */
+let tempsEnCours=false;
+async function temperaturesNoms(){
+  if(tempsEnCours) return;
+  const manque=[];
+  for(const mk of NOMS.values()){
+    const ll=mk.getLatLng();
+    if(!mk.options.interactive) continue;
+    manque.push({la:ll.lat, lo:((ll.lng+540)%360)-180});
+  }
+  const cible=manque.filter(p=>!TEMPS_LIEUX.has(wxKey(p.la,p.lo))).slice(0,24);
+  if(!cible.length) return;
+  tempsEnCours=true;
+  try{
+    const res=await wxBatch(cible);
+    let neuf=0;
+    for(const r of res){ if(r.c && r.c.temperature_2m!=null){ TEMPS_LIEUX.set(wxKey(r.la,r.lo), r.c.temperature_2m); neuf++; } }
+    if(TEMPS_LIEUX.size>1500) TEMPS_LIEUX.clear();
+    if(neuf) dessineNoms();
+  }catch(e){}
+  finally{ tempsEnCours=false; }
+}
+/* Anciennes entrées, conservées pour les appels existants. */
+function loadCities(){ return majNoms(); }
+function renderPlaces(){ dessineNoms(); }
 map.on("moveend", ()=>{
-  clearTimeout(placesT);
-  renderPlaces();
-  placesT=setTimeout(()=>loadCities(false), 1200);
+  clearTimeout(nomsT);
+  dessineNoms();
+  nomsT=setTimeout(majNoms, 180);
 });
 
 
@@ -5694,6 +5887,8 @@ async function loadVigilance(){
     const age=p.t?Math.round((Date.now()-p.t)/60000):null;
     let n=0, rouge=0, orange=0;
     for(const z of p.f){
+      const finZ=Date.parse(z.d1||"");
+      if(isFinite(finZ) && finZ<Date.now()) continue;      /* vigilance terminée */
       const col=VIGI_COL[z.niv]||"#8fa4cc";
       if(z.niv===4) rouge++; else if(z.niv===3) orange++;
       L.geoJSON(z.g,{renderer:cnv,
@@ -5757,6 +5952,8 @@ async function loadOrages(){
       /* Une alerte ANNULÉE ou EXPIRÉE ne se dessine pas comme une alerte en
          cours : c'est la règle du projet, et le code VTEC nous le dit. */
       if(!s.on) continue;
+      const finS=Date.parse(s.d1||"");
+      if(isFinite(finS) && finS<Date.now()) continue;      /* alerte arrivée à échéance */
       const col=ORAGE_COL[s.ev]||"#8fa4cc", nm=ORAGE_FR[s.ev]||s.ev;
       const est=s.ev==="Tornado Warning";
       if(est) tor++;
@@ -5854,57 +6051,6 @@ async function loadFlood(){
     });
     setC("c-flood",n);
   }catch(e){ setC("c-flood","–"); floodKey=""; }
-}
-function fwiDate(){ const d=new Date(); return d.toISOString().slice(0,10); }
-/* INDICE DE DANGER : L'IMAGE DU ROBOT, PLUS LE SERVEUR D'EFFIS EN DIRECT.
-   Mesuré le 28/09 : le serveur cartographique d'EFFIS coupe au hasard une partie
-   de ses réponses, et Chrome en affichait des rafales d'ERR_HTTP2_PROTOCOL_ERROR
-   — une par tuile, à chaque déplacement, y compris sur le Pacifique et les
-   Amériques alors que l'indice ne couvre que l'Europe. Le robot publie désormais
-   une image de l'Europe entière par jour (data/fwi-AAAA-MM-JJ.png, 80 ko) : une
-   seule requête, vers notre propre site, et plus aucune vers EFFIS.
-   L'image est demandée en projection Web Mercator : posée sur ses deux coins,
-   elle tombe exactement sur la carte.
-   Si le fichier du robot manque, on retombe sur le service direct, mais BORNÉ à
-   l'Europe : plus une seule tuile demandée ailleurs. */
-const FWI_EUROPE = [[26,-26],[73,46]];
-let fwiLayer=null, fwiJeton=0;
-async function initFWI(){
-  if(!$("#tg-fwi").checked){ setC("c-fwi","–"); return; }
-  if(!map.hasLayer(layers.fwi)) map.addLayer(layers.fwi);
-  if(fwiLayer){ setC("c-fwi", fwiLayer._etiquette||"actif"); return; }
-  const jeton=++fwiJeton;
-  setC("c-fwi","…");
-  /* L'indice de la veille reste indicatif : on l'accepte jusqu'à 36 h, daté. */
-  const d=await preload("fwi", 36*3600e3).catch(()=>null);
-  if(jeton!==fwiJeton || fwiLayer || !$("#tg-fwi").checked) return;
-  if(d && d.img && Array.isArray(d.b) && d.b.length===4){
-    const [s0,o0,n0,e0]=d.b;
-    const auj = d.jour===fwiDate();
-    const lay=L.imageOverlay(DATA_BASE+d.img, [[s0,o0],[n0,e0]], {pane:"tilePane", zIndex:150,
-      opacity:.5, interactive:false, attribution:"© UE Copernicus EFFIS"});
-    lay._etiquette = auj ? "aujourd’hui" : "du "+String(d.jour||"").split("-").reverse().slice(0,2).join("/");
-    lay.on("load", ()=>setC("c-fwi", lay._etiquette));
-    lay.on("error", ()=>{ setC("c-fwi","indisponible");
-      if(window.__diagPush) window.__diagPush("RÉSEAU","Indice de danger : image du robot illisible"); });
-    fwiLayer=lay;
-    lay.addTo(layers.fwi);
-    /* Indice de la veille : celui du jour arrive au prochain tour du robot. On
-       repasse dans vingt minutes plutôt que d'attendre le lendemain. */
-    if(!auj) setTimeout(()=>{
-      if(fwiLayer!==lay || !$("#tg-fwi").checked) return;
-      try{ layers.fwi.removeLayer(lay); }catch(_){}
-      fwiLayer=null; initFWI();
-    }, 20*60e3);
-    return;
-  }
-  fwiLayer=L.tileLayer.wms("https://maps.wild-fire.eu/effis",{
-    layers:"mf010.fwi", format:"image/png", transparent:true, version:"1.1.1",
-    TIME:fwiDate(), opacity:.5, tileSize:512, zIndex:150, updateWhenIdle:true,
-    bounds:L.latLngBounds(FWI_EUROPE), attribution:"© UE Copernicus EFFIS"});
-  fwiLayer.on("tileerror",()=>setC("c-fwi","lent…"));
-  fwiLayer.on("load",()=>setC("c-fwi","actif"));
-  fwiLayer.addTo(layers.fwi);
 }
 
 /* ===== ALERTE : le feu approche-t-il d’un village ? ===== */
@@ -9007,10 +9153,6 @@ $("#tg-fc").addEventListener("change",ev=>{
   if(ev.target.checked){ map.addLayer(layers.forecast); loadForecastGrid(); drawForecast(); }
   else{ map.removeLayer(layers.forecast); setC("c-fc","–"); }
 });
-$("#tg-fwi").addEventListener("change",ev=>{
-  if(ev.target.checked){ map.addLayer(layers.fwi); initFWI(); toast("Indice officiel de danger d’incendie en Europe — du vert (faible) au rouge sombre (extrême).",5000); }
-  else{ map.removeLayer(layers.fwi); setC("c-fwi","–"); }
-});
 $("#tg-threat").addEventListener("change",ev=>{
   if(ev.target.checked){ map.addLayer(layers.threats); checkThreats(); }
   else{ map.removeLayer(layers.threats); setC("c-threat","–"); }
@@ -9054,7 +9196,7 @@ $("#tg-euba").addEventListener("change",ev=>{
    d'incendie et les icebergs, cochés d'origine, étaient préparés dans un groupe
    jamais affiché — invisibles tant qu'on ne décochait pas puis recochait. On
    aligne donc les groupes sur leurs cases au démarrage. */
-const GROUPES_A_LA_DEMANDE = {"tg-fwi":"fwi", "tg-ice":"ice", "tg-radar":"radar", "tg-aq":"aq", "tg-flood":"flood"};
+const GROUPES_A_LA_DEMANDE = {"tg-ice":"ice", "tg-radar":"radar", "tg-aq":"aq", "tg-flood":"flood"};
 function accordeGroupes(){
   for(const [id,g] of Object.entries(GROUPES_A_LA_DEMANDE)){
     const cb=document.getElementById(id), grp=layers[g];
@@ -9073,8 +9215,7 @@ $("#tg-air").addEventListener("change",ev=>{
   } else { airPane.style.display="none"; airStop(); }
 });
 $("#tg-cities").addEventListener("change",ev=>{
-  if(ev.target.checked){ map.addLayer(layers.cities); loadCities(); }
-  else map.removeLayer(layers.cities);
+  if(ev.target.checked) majNoms(); else { dessineNoms(); setC("c-cities","–"); }
 });
 $("#tg-wind").addEventListener("change",ev=>{
   if(ev.target.checked){ windPane.style.display=""; wind.pause=false; fetchWind().then(startLoop, startLoop); }
@@ -9158,7 +9299,7 @@ function buildDrawer(c){
       c.checked=!c.checked;
       br.classList.toggle("on", c.checked);
       br.setAttribute("aria-pressed", String(c.checked));
-      majReference();
+      majReference(); majNoms();
       toast(`<span class="tmsg">${ic("layers","x16")}Frontières et noms de lieux — ${c.checked?"affichés":"masqués"}</span>`, 2200);
     };
     return;
@@ -9710,19 +9851,13 @@ function purgeExpired(){
     const it=placeCache.keys();
     for(let i=0;i<15;i++) placeCache.delete(it.next().value);
   }
-  if(_mcache.size>700) _mcache.clear();
+  if(_mnc.size>3000) _mnc.clear();          /* mesures de texte des noms de lieux */
   return n;
 }
 function newDay(){
   const d=new Date().toISOString().slice(0,10);
   if(d===lastDay) return false;
   lastDay=d;
-  /* L’indice de danger est daté : on le recharge au bon jour */
-  if(fwiLayer){
-    try{ layers.fwi.clearLayers(); }catch(e){}
-    fwiLayer=null;
-    if($("#tg-fwi").checked) initFWI();
-  }
   /* Tout ce qui dépend d’une fenêtre temporelle repart de zéro */
   hotKey=""; hotBox=null; ebKey=""; ebBox=null;
   aqKey=""; aqBox=null; floodKey=""; floodBox=null;
@@ -9895,7 +10030,6 @@ premierChargement.then(()=>{
     if($("#tg-flood").checked) loadFlood();
     loadVigilance(); loadOrages();
     accordeGroupes();
-    if($("#tg-fwi").checked) initFWI();
     loadForecastGrid(true);
     /* Une fois tout chargé et les compteurs renseignés, on éteint ce qui n'a
        rien à montrer. Le délai laisse aux dernières couches le temps d'aboutir. */
@@ -9933,7 +10067,7 @@ setTimeout(hideLoader,9000);
    data/i18n/*.json. Elle sert de clé à la copie locale ; sans elle, un
    visiteur garderait des traductions périmées, ou retéléchargerait à chaque
    visite un fichier de 150 ko qui n'a pas changé. */
-const I18N_VER = "2026-09-28a";
+const I18N_VER = "2026-09-29a";
 async function chargeDico(lg){
   if(lg === "fr") return null;
   if(dicoCache.has(lg)) return dicoCache.get(lg);
@@ -10608,6 +10742,7 @@ function glDonnees(){
   }
   for(const a of (lastAlerts||[])){
     if(a.a!=="Red" && a.a!=="Orange") continue;
+    if(!a.cur) continue;
     const clos=!a.cur, col=clos?"#8494ad":(a.a==="Red"?"#ff2e63":"#ff9f43");
     f.push({type:"Feature", properties:{
         g:"alerte", col, r: clos?4:(a.a==="Red"?9:7),

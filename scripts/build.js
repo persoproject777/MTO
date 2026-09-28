@@ -22,6 +22,7 @@
  */
 const fs = require("fs");
 const path = require("path");
+const zlib = require("zlib");
 
 const OUT = path.join(__dirname, "..", "data");
 fs.mkdirSync(OUT, { recursive: true });
@@ -126,7 +127,12 @@ async function eonet() {
        — Incendies : le navigateur écarte déjà tout ce qui dépasse huit jours ;
          les publier quand même, c'était 378 événements morts sur 382, téléchargés
          par chaque visiteur pour être jetés aussitôt. */
-    const LIMITE = cat === "volcanoes" ? 5 * 365 * 864e5 : cat === "wildfires" ? 8.5 * 864e5 : MAX;
+    /* Tempêtes : dernier point de plus de deux jours et demi = système dissipé
+       (mesuré : un dernier point vieux de 4,9 jours encore dessiné). Glaces :
+       un iceberg dérive, une position de plus de trois semaines ne dit plus où
+       il est (mesuré : 68 jours). */
+    const LIMITE = cat === "volcanoes" ? 5 * 365 * 864e5 : cat === "wildfires" ? 8.5 * 864e5
+      : cat === "severeStorms" ? 2.5 * 864e5 : cat === "seaLakeIce" ? 21 * 864e5 : MAX;
     if (age > LIMITE) return null;
     const keep = cat === "severeStorms"
       ? (g.length > 20 ? g.slice(-20) : g)
@@ -212,11 +218,28 @@ async function gdacs() {
          400 pour un cyclone dès son deuxième bulletin. */
       ep: xmlTag(it, "gdacs:episodeid") || "",
       cur: xmlTag(it, "gdacs:iscurrent") === "true",
+      /* Date de DERNIÈRE MISE À JOUR de l'événement chez GDACS. */
+      to: xmlTag(it, "gdacs:todate"),
       sc: parseFloat(xmlTag(it, "gdacs:alertscore")) || 0,
       bb: box,
       c: [p3(lat), p3(lon)]
     };
   }).filter(Boolean)
+    /* ÉVÉNEMENTS PÉRIMÉS ÉCARTÉS À LA SOURCE. Mesuré le 28/09 sur le flux :
+       57 événements CLOS (42 feux, 12 sécheresses, 2 inondations, 1 cyclone)
+       que la carte dessinait encore, et 37 feux « en cours » dont GDACS n'avait
+       rien mis à jour depuis plus de trois jours. Un événement clos n'est plus
+       une alerte ; un feu sans nouvelle depuis trois jours non plus. Les
+       inondations évoluent plus lentement : cinq jours. Les sécheresses et les
+       séismes gardent la date de GDACS, qui les tient lui-même à jour. */
+    .filter(x => {
+      if (!x.cur) return false;
+      const maj = Date.parse(x.to);
+      if (!isFinite(maj)) return true;
+      if (x.t === "WF") return now - maj <= 3 * 864e5;
+      if (x.t === "FL") return now - maj <= 5 * 864e5;
+      return true;
+    })
     /* Les plus graves d'abord : la carte n'aura jamais à trier elle-même pour
        décider quoi dessiner en dernier, donc au-dessus. */
     .sort(byKey(x => ({ Red: 0, Orange: 1, Green: 2 }[x.a] ?? 3) + "|" + x.t + "|" + x.id));
@@ -494,6 +517,13 @@ function dateEtiquette(t) {
   }
   return best;
 }
+/* UN CYCLONE SANS BULLETIN DEPUIS 20 HEURES EST TERMINÉ. Les centres
+   d'avis publient toutes les six heures ; vingt heures de silence, c'est plus
+   de trois bulletins manqués : le système s'est dissipé ou n'est plus
+   tropical. Mesuré le 28/09 : GDACS tenait encore « en cours » Gonzalo,
+   dernier point observé 49 h plus tôt, et Odalys, 25 h — la carte et le
+   compteur de l'en-tête les montraient comme actifs. */
+const CYCLONE_MUET = 20 * 3600e3;
 async function cyclones() {
   let f = [];
   try { f = JSON.parse(fs.readFileSync(path.join(OUT, "gdacs.json"), "utf8")).f || []; }
@@ -502,7 +532,7 @@ async function cyclones() {
   try { for (const c of JSON.parse(fs.readFileSync(path.join(OUT, "cyclones.json"), "utf8")).c || []) prec[c.id] = c; } catch (e) {}
 
   const actifs = f.filter(x => x.t === "TC" && x.cur && x.id);
-  const out = [];
+  const out = [], perimes = [];
   let dl = 0, repris = 0, echecs = 0;
   for (const x of actifs) {
     const I = intensiteGdacs(x);
@@ -520,6 +550,7 @@ async function cyclones() {
       /* Fichier écrit avant la correction : on repart du dernier point observé. */
       const der = (p.trk || []).slice(-1)[0];
       if (der) { q.pos = [der[0], der[1]]; q.tpos = der[2] * 60000; }
+      if (q.tpos && now - q.tpos > CYCLONE_MUET) { perimes.push(q.nom); continue; }
       out.push(q); repris++; continue;
     }
     let d;
@@ -567,6 +598,7 @@ async function cyclones() {
         const z = anneau(g.geometry.coordinates, 0.05); if (z) prev[seuil].push([Math.round(t / 60000), z]);
       }
     }
+    if (dernier && now - dernier.t > CYCLONE_MUET) { perimes.push(base.nom); continue; }
     out.push(Object.assign(base, {
       pos: dernier ? dernier.c : x.c,
       tpos: dernier ? dernier.t : null,
@@ -577,7 +609,8 @@ async function cyclones() {
   }
   out.sort((a, b) => scoreTc(b) - scoreTc(a));
   write("cyclones.json", { t: now, c: out }, out.length + " cyclone(s) en cours — "
-    + dl + " géométrie(s) téléchargée(s), " + repris + " reprise(s)" + (echecs ? ", " + echecs + " échec(s)" : ""));
+    + dl + " géométrie(s) téléchargée(s), " + repris + " reprise(s)" + (echecs ? ", " + echecs + " échec(s)" : "")
+    + (perimes.length ? ", écarté(s) faute de bulletin : " + perimes.join(", ") : ""));
   return true;
 }
 
@@ -634,27 +667,82 @@ async function storms() {
     f.length + " orages violents (" + tor + " tornades)");
 }
 
-/* ---------- CENDRES VOLCANIQUES (SIGMET internationaux) ----------
-   Mesuré : 138 SIGMET, dont 11 pour des cendres, TOUS avec des coordonnées.
-   C'est la seule source ouverte donnant un polygone de nuage de cendres à
-   l'échelle du monde — les VAAC eux-mêmes publient en texte ou en CSV maison. */
-async function sigmet() {
-  const d = await get("https://aviationweather.gov/api/data/isigmet?format=json", 30000);
-  const f = (Array.isArray(d) ? d : []).filter(x => Array.isArray(x.coords) && x.coords.length >= 3)
-    .map(x => ({
-      h: String(x.hazard || ""),          /* VA = cendres, TS = orage, TURB, ICE… */
-      q: String(x.qualifier || ""),
-      fir: String(x.firName || x.firId || ""),
-      d0: x.validTimeFrom || null, d1: x.validTimeTo || null,
-      /* Tranche de niveaux de vol : c'est ce qui compte pour l'aviation. */
-      b: x.base == null ? null : +x.base, tp: x.top == null ? null : +x.top,
-      txt: String(x.rawSigmet || "").replace(/\s+/g, " ").slice(0, 240),
-      g: { type: "Polygon", coordinates: [x.coords.map(c => [p3(c.lon), p3(c.lat)])] }
-    }))
-    .sort(byKey(x => x.h + "|" + x.fir + "|" + String(x.d0)));
-  const va = f.filter(x => /VA|ASH/i.test(x.h)).length;
-  write("sigmet.json", { t: now, f },
-    f.length + " SIGMET (" + va + " cendres volcaniques)");
+/* ---------- VOLCANS : RAPPORT HEBDOMADAIRE SMITHSONIAN / USGS ----------
+   EONET ne publie, pour un volcan, que la date du début du suivi. Le rapport
+   hebdomadaire officiel (Global Volcanism Program et USGS, chaque jeudi) dit
+   ce qui s'est RÉELLEMENT passé dans la semaine. Mesuré le 28/09 : il
+   signalait sept volcans actifs absents de la carte — dont le Krakatau, en
+   nouvelle activité éruptive, le Merapi et le Semeru.
+   On en tire des faits, en français côté carte : le statut, la hauteur
+   maximale du panache de cendres et le niveau d'alerte national quand le
+   texte les donne. La page HTML du Smithsonian refuse les robots (403) ; ce
+   flux RSS est celui qu'il publie pour être lu par des programmes. */
+/* Hauteur maximale du panache, en MÈTRES au-dessus du sommet. Les rapports
+   écrivent « rose 2.1 km above », « rose as high as 800 m above »,
+   « rose 200-1,100 m above » : on prend la borne haute de chaque mention, et la
+   plus grande de la semaine. */
+function panache(txt) {
+  let max = 0;
+  const re = /rose\s+(?:as\s+high\s+as\s+|up\s+to\s+)?(?:[\d.,]+\s*-\s*)?([\d.,]+)\s*(km|m)\s+above/gi;
+  for (const q of txt.matchAll(re)) {
+    const v = parseFloat(q[1].replace(/,/g, ""));
+    if (isFinite(v)) max = Math.max(max, q[2].toLowerCase() === "km" ? v * 1000 : v);
+  }
+  return max ? Math.round(max) : null;
+}
+/* Niveau d'alerte national, tel que le rapport l'énonce : un chiffre et son
+   échelle (« 3 (on a scale of 1-4) », « 2 (on a 0-5 scale) », « 3 (on a
+   5-level scale) »), ou un mot (« Watch », « Orange ») avec son rang (« the
+   second highest level on a four-level scale »). Rien n'est deviné : ce qui ne
+   se lit pas proprement n'est pas publié. */
+const NOMBRES = { two: 2, three: 3, four: 4, five: 5 };
+const RANGS = { first: 1, second: 2, third: 3, fourth: 4 };
+function niveauAlerte(txt) {
+  const m = txt.match(/(?:Volcano\s+)?Alert Level\s+(remained|was\s+raised|was\s+lowered|was\s+increased|was\s+decreased|increased|decreased|is)\s+(?:at|to)\s+(?:Level\s+)?([A-Za-z]+|\d)\s*(\([^)]*\))?/);
+  if (!m) return null;
+  const chg = /raised|increased/i.test(m[1]) ? "hausse" : /lowered|decreased/i.test(m[1]) ? "baisse" : "stable";
+  const par = m[3] || "";
+  let niv = /^\d$/.test(m[2]) ? +m[2] : null, sur = null, de = 1;
+  const ech = par.match(/scale of\s*(\d)\s*-\s*(\d)/i) || par.match(/on a\s*(\d)\s*-\s*(\d)\s*scale/i);
+  /* L'échelle peut commencer à 0 (Philippines : 0 à 5) : on garde ses bornes. */
+  if (ech) { de = +ech[1]; sur = +ech[2]; }
+  const nl = par.match(/(\d|two|three|four|five)-(?:level|color|colour)\s+scale/i);
+  if (!sur && nl) sur = NOMBRES[nl[1].toLowerCase()] || +nl[1];
+  const rang = par.match(/the\s+(first|second|third|fourth)\s+(highest|lowest)?\s*level/i);
+  if (niv === null && rang && sur) {
+    const r = RANGS[rang[1].toLowerCase()];
+    niv = /highest/i.test(rang[2] || "") ? sur - r + 1 : r;
+  }
+  const mot = /^\d$/.test(m[2]) ? null : m[2];
+  if (niv === null && !mot) return null;
+  return { niv, de, sur, mot, chg };
+}
+async function volcans() {
+  const ctl = new AbortController();
+  const minuterie = setTimeout(() => ctl.abort(), 60000);
+  let xml;
+  try {
+    const r = await fetch("https://volcano.si.edu/news/WeeklyVolcanoRSS.xml",
+      { signal: ctl.signal, headers: { "User-Agent": UA } });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    xml = Buffer.from(await r.arrayBuffer()).toString("latin1");
+  } finally { clearTimeout(minuterie); }
+  const items = xml.split("<item>").slice(1).map(x => x.split("</item>")[0]);
+  let semaine = "";
+  const v = items.map(it => {
+    const titre = xmlTag(it, "title");
+    const m = titre.match(/^(.+?)\s*\(([^)]*)\)\s+-\s+Report for\s+(.+?)\s+-\s+(.+)$/);
+    if (!m) return null;
+    const pt = xmlTag(it, "georss:point").trim().split(/\s+/).map(Number);
+    if (pt.length !== 2 || !pt.every(isFinite)) return null;
+    semaine = semaine || m[3];
+    const st = /new/i.test(m[4]) ? "new" : /continuing/i.test(m[4]) ? "cont" : "autre";
+    const txt = xmlTag(it, "description").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    return { n: m[1].trim(), p: m[2].trim(), st, la: p3(pt[0]), lo: p3(pt[1]),
+      pan: panache(txt), al: niveauAlerte(txt), d: xmlTag(it, "pubDate") };
+  }).filter(Boolean).sort(byKey(x => x.n));
+  if (!v.length) throw new Error("rapport hebdomadaire vide ou illisible");
+  write("volcans.json", { t: now, sem: semaine, v }, v.length + " volcans au rapport de la semaine du " + semaine);
 }
 
 /* ---------- VIGILANCES EUROPÉENNES (MeteoAlarm) ----------
@@ -1356,15 +1444,39 @@ const simpGeo = c => Array.isArray(c[0]) && Array.isArray(c[0][0]) ? c.map(simpG
 async function effis() {
   const zones = [["eu", "-11,35,32,60"], ["med", "-8,29,42,46"]];
   const out = { t: now, type: "FeatureCollection", features: [] };
+  /* Les deux zones se recouvrent : un même périmètre n'est publié qu'une fois. */
+  const vus = new Set();
   let ok = 0;
   for (const [name, bbox] of zones) {
     try {
+      /* LA SAISON ENTIÈRE, puis tri. Mesuré le 28/09 : 4 229 périmètres pour
+         l'Europe et 3 704 pour la Méditerranée, mais `maxFeatures=600` n'en
+         gardait que les 600 PREMIERS de chaque zone — les plus anciens. La
+         carte montrait des feux de janvier et manquait ceux de septembre. Le
+         filtre par date côté serveur rend des résultats incohérents (aucun
+         feu en France, en Espagne ni au Portugal) : on lit tout, une fois par
+         jour, et on trie ici. */
       const u = "https://maps.wild-fire.eu/effis?service=WFS&version=1.0.0&request=GetFeature"
-        + "&typeName=ms:modis.ba.poly.season&outputFormat=geojson&maxFeatures=600"
+        + "&typeName=ms:modis.ba.poly.season&outputFormat=geojson&maxFeatures=20000"
         + "&srsName=EPSG:4326&bbox=" + bbox;
-      const d = await get(u, 120000);
+      const d = await get(u, 180000);
+      let recents = 0;
       (d.features || []).forEach(f => {
         const p = f.properties || {};
+        /* L'ACTUALITÉ, pas l'historique de la saison : un feu commencé il y a
+           moins de 30 jours, ou dont le contour a encore bougé cette semaine,
+           et d'au moins 30 hectares — le seuil de cartographie d'EFFIS. Mesuré
+           le 28/09 : la moitié des surfaces récentes font moins de 14 ha
+           (brûlis agricoles, petits départs), invisibles à l'échelle d'une
+           catastrophe mais lourdes à télécharger. */
+        const date = x => Date.parse(String(x || "").replace(" ", "T") + "Z");
+        const debut = date(p.FIREDATE), maj = date(p.LASTUPDATE);
+        const recent = (isFinite(debut) && now - debut <= 30 * 864e5) || (isFinite(maj) && now - maj <= 7 * 864e5);
+        if (!recent || !(+p.AREA_HA >= 30)) return;
+        const cle = (p.COMMUNE || "") + "|" + (p.FIREDATE || "") + "|" + (p.AREA_HA || "");
+        if (vus.has(cle)) return;
+        vus.add(cle);
+        recents++;
         f.properties = {
           COMMUNE: p.COMMUNE, PROVINCE: p.PROVINCE, COUNTRY: p.COUNTRY,
           AREA_HA: p.AREA_HA, FIREDATE: p.FIREDATE, LASTUPDATE: p.LASTUPDATE
@@ -1375,12 +1487,12 @@ async function effis() {
         out.features.push(f);
       });
       ok++;
-      console.log("     zone " + name + " : " + (d.features || []).length + " périmètres");
+      console.log("     zone " + name + " : " + (d.features || []).length + " périmètres, dont " + recents + " des 30 derniers jours");
     } catch (e) {
       console.log("     zone " + name + " : échec (" + e.message + ") — on garde l'existant");
     }
   }
-  if (ok && out.features.length) {
+  if (ok) {
     out.features.sort(byKey(f => {
       const p = f.properties || {}, c = f.geometry && f.geometry.coordinates;
       let first = "";
@@ -1397,62 +1509,150 @@ async function effis() {
   return false;
 }
 
-/* ---------- DANGER MÉTÉOROLOGIQUE D'INCENDIE (Copernicus EFFIS, indice FWI) ----------
-   POURQUOI LE ROBOT. La carte demandait cet indice au serveur cartographique
-   d'EFFIS, tuile par tuile, depuis le navigateur de chaque visiteur. Mesuré le
-   28/09 : ce serveur coupe au hasard une partie de ses réponses (en-tête « 200,
-   9 088 octets », puis la connexion se ferme sans rien envoyer), ce que Chrome
-   affiche en rafale d'ERR_HTTP2_PROTOCOL_ERROR. Et la carte demandait des tuiles
-   jusque sur le Pacifique, alors que l'indice ne couvre QUE l'Europe (vérifié
-   sur une image du monde entier : Islande, cap Nord, Canaries, 45° est).
-   Le robot fait donc UNE requête par jour pour l'Europe entière, avec plusieurs
-   essais et une vérification que l'image est complète, et la publie. Les
-   visiteurs ne contactent plus EFFIS du tout. En cas d'échec, l'image de la
-   veille reste en place, datée comme telle. */
-const FWI_BOITE = { o: -26, s: 26, e: 46, n: 73 };
-async function risqueFeu() {
-  const jour = new Date(now).toISOString().slice(0, 10);
-  let prec = null;
-  try { prec = JSON.parse(fs.readFileSync(path.join(OUT, "fwi.json"), "utf8")); } catch (e) {}
-  if (prec && prec.jour === jour && prec.img && fs.existsSync(path.join(OUT, prec.img))) {
-    write("fwi.json", prec, "indice du " + jour + " déjà publié");
-    return true;
+/* ---------- NOMS DE LIEUX, DU PAYS AU VILLAGE ----------
+   La carte nommait les lieux en interrogeant Photon à chaque déplacement :
+   jusqu'aux hameaux, lieux-dits et quartiers, avec des trous (Photon rend
+   les lieux les plus PROCHES d'un point, pas tous ceux d'une zone) et des noms
+   qui sautaient d'un déplacement à l'autre. Le service Overpass, essayé en
+   remplacement, a répondu 406 puis 504 le 28/09 : trop fragile.
+   On prépare donc, une fois par mois, une hiérarchie complète à partir de
+   sources officielles ou de référence, publiée en fichiers statiques :
+   - subdivisions (départements, régions, États, provinces) : Natural Earth,
+     nom français, point d'étiquette et zoom conseillé ;
+   - grandes villes : Natural Earth, nom français (Moscou, Pékin, Londres) ;
+   - villes et villages de France : la liste officielle des 34 969 communes
+     (geo.api.gouv.fr), avec leur population ;
+   - villes et villages du reste du monde : GeoNames (lieux de 1 000 habitants
+     et plus), en nom français quand Natural Earth le connaît.
+   Rien en dessous du village : ni hameau, ni lieu-dit, ni quartier.
+   Découpage : les villes (5 000 habitants et plus) en cases de 5°, le reste en
+   cases de 2° ; la carte ne charge que les cases qu'elle affiche. */
+const NE_ADM1 = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_1_states_provinces.geojson";
+const NE_VILLES = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_populated_places.geojson";
+const GEONAMES = "https://download.geonames.org/export/dump/cities1000.zip";
+const COMMUNES = "https://geo.api.gouv.fr/communes?fields=nom,centre,population&format=json&geometry=centre";
+/* Territoires couverts par la liste des communes : GeoNames n'y sert plus. */
+const PAYS_COMMUNES = new Set(["FR", "GP", "MQ", "GF", "RE", "YT"]);
+/* Catalogue GeoNames : ce qui n'est pas un lieu habité à nommer. PPLX = quartier
+   d'une ville, PPLH/PPLQ/PPLW/PPLCH = historique, abandonné ou détruit. */
+const PPL_EXCLUS = new Set(["PPLX", "PPLH", "PPLQ", "PPLW", "PPLCH"]);
+
+async function telecharge(url, ms) {
+  const ctl = new AbortController();
+  const minuterie = setTimeout(() => ctl.abort(), ms || 180000);
+  try {
+    const r = await fetch(url, { signal: ctl.signal, headers: { "User-Agent": UA } });
+    if (!r.ok) throw new Error("HTTP " + r.status + " sur " + url);
+    return Buffer.from(await r.arrayBuffer());
+  } finally { clearTimeout(minuterie); }
+}
+/* Lecture d'une archive ZIP sans dépendance : répertoire central, puis le
+   fichier voulu, décompressé par zlib. */
+function dezip(buf, nom) {
+  const fin = buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  if (fin < 0) throw new Error("archive ZIP illisible");
+  const nb = buf.readUInt16LE(fin + 10);
+  let q = buf.readUInt32LE(fin + 16);
+  for (let i = 0; i < nb; i++) {
+    const meth = buf.readUInt16LE(q + 10), taille = buf.readUInt32LE(q + 20);
+    const ln = buf.readUInt16LE(q + 28), lx = buf.readUInt16LE(q + 30), lc = buf.readUInt16LE(q + 32);
+    const local = buf.readUInt32LE(q + 42);
+    if (buf.toString("utf8", q + 46, q + 46 + ln) === nom) {
+      const deb = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28);
+      const data = buf.subarray(deb, deb + taille);
+      return meth === 8 ? zlib.inflateRawSync(data) : data;
+    }
+    q += 46 + ln + lx + lc;
   }
-  const merc = (lo, la) => [lo * 20037508.342789244 / 180, Math.log(Math.tan(Math.PI / 4 + la * Math.PI / 360)) * 6378137];
-  const [x0, y0] = merc(FWI_BOITE.o, FWI_BOITE.s), [x1, y1] = merc(FWI_BOITE.e, FWI_BOITE.n);
-  /* 1 600 pixels de large : environ deux pixels par maille de l'indice (0,1°). */
-  const L = 1600, H = Math.round(L * (y1 - y0) / (x1 - x0));
-  const url = "https://maps.wild-fire.eu/effis?service=WMS&request=GetMap&layers=mf010.fwi&styles="
-    + "&format=image%2Fpng&transparent=true&version=1.1.1&TIME=" + jour + "&width=" + L + "&height=" + H
-    + "&srs=EPSG%3A3857&bbox=" + [x0, y0, x1, y1].map(v => v.toFixed(2)).join(",");
-  const SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-  let image = null, motif = "";
-  for (let essai = 0; essai < 4 && !image; essai++) {
-    if (essai) await new Promise(r => setTimeout(r, 6000 * essai));
-    const ctl = new AbortController();
-    const minuterie = setTimeout(() => ctl.abort(), 90000);
-    try {
-      const r = await fetch(url, { signal: ctl.signal, headers: { "User-Agent": UA } });
-      const b = Buffer.from(await r.arrayBuffer());
-      const annonce = +(r.headers.get("content-length") || 0);
-      /* Une image COMPLÈTE : signature PNG au début, bloc IEND à la fin, et
-         autant d'octets que l'en-tête en annonçait. */
-      const complete = b.length > 1000 && b.subarray(0, 8).equals(SIGNATURE)
-        && b.subarray(-8, -4).toString("latin1") === "IEND" && (!annonce || annonce === b.length);
-      if (r.ok && complete) image = b;
-      else motif = "HTTP " + r.status + ", " + b.length + (annonce ? "/" + annonce : "") + " octets";
-    } catch (e) { motif = e.message; }
-    finally { clearTimeout(minuterie); }
+  throw new Error(nom + " absent de l'archive");
+}
+async function lieux() {
+  const f = path.join(OUT, "lieux.json");
+  try {
+    const d = JSON.parse(fs.readFileSync(f, "utf8"));
+    if (now - (d.t || 0) < 30 * 864e5 && fs.existsSync(path.join(OUT, "lieux"))) {
+      write("lieux.json", d, "noms de lieux à jour (" + d.v + ")");
+      return true;
+    }
+  } catch (e) {}
+  /* Trois décimales : 110 m, bien assez pour poser un nom. */
+  const p4 = p3;
+
+  /* 1. Subdivisions */
+  const adm = JSON.parse((await telecharge(NE_ADM1)).toString("utf8")).features || [];
+  const zones = [];
+  for (const x of adm) {
+    const q = x.properties || {};
+    const nom = String(q.name_fr || q.name || "").trim();
+    if (!nom || !isFinite(q.latitude) || !isFinite(q.longitude)) continue;
+    zones.push([nom, p4(q.latitude), p4(q.longitude), +q.min_label || 8]);
   }
-  if (!image) throw new Error("EFFIS : image incomplète après 4 essais (" + motif + ")");
-  const img = "fwi-" + jour + ".png";
-  fs.writeFileSync(path.join(OUT, img), image);
-  /* Une seule image publiée à la fois : celles des jours précédents partent. */
-  for (const f of fs.readdirSync(OUT)) {
-    if (/^fwi-\d{4}-\d{2}-\d{2}\.png$/.test(f) && f !== img) fs.unlinkSync(path.join(OUT, f));
+
+  /* 2. Grandes villes, et noms français par identifiant GeoNames */
+  const ne = JSON.parse((await telecharge(NE_VILLES)).toString("utf8")).features || [];
+  const nomFR = new Map(), grandes = [];
+  for (const x of ne) {
+    const q = x.properties || {};
+    const nom = String(q.NAME_FR || q.NAME || "").trim();
+    if (q.GEONAMESID > 0 && q.NAME_FR) nomFR.set(String(q.GEONAMESID), String(q.NAME_FR).trim());
+    const cap = q.ADM0CAP === 1 ? 1 : 0;
+    if (!nom || !(q.POP_MAX >= 300000 || cap)) continue;
+    const [lo, la] = x.geometry.coordinates;
+    grandes.push([nom, p4(la), p4(lo), Math.round(q.POP_MAX || 0), cap]);
   }
-  write("fwi.json", { t: now, jour, img, b: [FWI_BOITE.s, FWI_BOITE.o, FWI_BOITE.n, FWI_BOITE.e] },
-    "indice du " + jour + " — " + Math.round(image.length / 1024) + " ko");
+
+  /* 3. Communes de France */
+  const communes = JSON.parse((await telecharge(COMMUNES, 120000)).toString("utf8"));
+  const lieuxTous = [];
+  for (const c of communes) {
+    if (!c.nom || !c.centre || !Array.isArray(c.centre.coordinates)) continue;
+    const [lo, la] = c.centre.coordinates;
+    lieuxTous.push([c.nom, p4(la), p4(lo), Math.round(c.population || 0)]);
+  }
+  const nbCommunes = lieuxTous.length;
+
+  /* 4. GeoNames pour le reste du monde */
+  const tsv = dezip(await telecharge(GEONAMES), "cities1000.txt").toString("utf8");
+  let nbGeo = 0;
+  for (const ligne of tsv.split("\n")) {
+    const c = ligne.split("\t");
+    if (c.length < 15 || PAYS_COMMUNES.has(c[8]) || PPL_EXCLUS.has(c[7])) continue;
+    const la = +c[4], lo = +c[5];
+    if (!isFinite(la) || !isFinite(lo)) continue;
+    lieuxTous.push([nomFR.get(c[0]) || c[1], p4(la), p4(lo), +c[14] || 0]);
+    nbGeo++;
+  }
+
+  /* 5. Cases */
+  const cases = new Map();
+  for (const l of lieuxTous) {
+    const pas = l[3] >= 5000 ? 5 : 2, lettre = l[3] >= 5000 ? "v" : "p";
+    const cle = lettre + "_" + Math.floor(l[1] / pas) + "_" + Math.floor((l[2] + 180) / pas);
+    if (!cases.has(cle)) cases.set(cle, []);
+    cases.get(cle).push(l);
+  }
+  const dir = path.join(OUT, "lieux");
+  fs.mkdirSync(dir, { recursive: true });
+  const avant = new Set(fs.readdirSync(dir));
+  let ecrits = 0;
+  for (const [cle, liste] of cases) {
+    liste.sort((a, b) => b[3] - a[3] || (a[0] < b[0] ? -1 : 1));
+    const fic = cle + ".json", contenu = JSON.stringify(liste);
+    avant.delete(fic);
+    const chemin = path.join(dir, fic);
+    let ancien = null;
+    try { ancien = fs.readFileSync(chemin, "utf8"); } catch (e) {}
+    if (ancien !== contenu) { fs.writeFileSync(chemin, contenu); ecrits++; }
+  }
+  for (const vieux of avant) fs.unlinkSync(path.join(dir, vieux));
+  zones.sort(byKey(z => z[0] + "|" + z[1]));
+  grandes.sort((a, b) => b[3] - a[3]);
+  const v = new Date(now).toISOString().slice(0, 10);
+  /* `k` : les cases qui existent. La carte ne demande jamais une case vide
+     (océan, désert), qui répondrait 404 dans la console. */
+  write("lieux.json", { t: now, v, k: [...cases.keys()].sort(), z: zones, g: grandes },
+    zones.length + " subdivisions, " + grandes.length + " grandes villes, " + nbCommunes + " communes, "
+    + nbGeo + " lieux GeoNames — " + cases.size + " cases (" + ecrits + " réécrites)");
   return true;
 }
 
@@ -1550,8 +1750,8 @@ async function aeronefs() {
        quinze minutes. Il n'est reconstruit que s'il manque — le comparateur
        d'ecriture s'en charge, la tache ne coute donc rien les autres fois. */
     : [["bornes", bornes], ["pays", pays], ["nuages", nuages], ["quakes", quakes], ["eonet", eonet], ["gdacs", gdacs], ["gdacsgeo", gdacsGeom], ["cyclones", cyclones],
-       ["nws", nws], ["storms", storms], ["sigmet", sigmet], ["meteoalarm", meteoalarm],
-       ["hotspots", hotspots], ["fwi", risqueFeu],
+       ["nws", nws], ["storms", storms], ["meteoalarm", meteoalarm], ["volcans", volcans],
+       ["hotspots", hotspots], ["lieux", lieux],
        /* En DERNIER : ce sont les données qui vieillissent le plus vite, elles
           partent donc au plus près de la publication. */
        ["aeronefs", aeronefs]];
