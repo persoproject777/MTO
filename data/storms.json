@@ -1,1 +1,1 @@
-{"t":1790599616130,"f":[]}
+{"t":1790622924394,"f":[{"ev":"Flash Flood Warning","sev":"Severe","cert":"Likely","urg":"Immediate","zone":"Lincoln, NV","d0":"2026-09-28T12:01:00-07:00","d1":"2026-09-28T15:00:00-07:00","on":true,"act":"NEW","tor":"","grele":"","vent":"","dep":null,"txt":"Flash Flood Warning issued September 28 at 12:01PM PDT until September 28 at 3:00PM PDT by NWS Las Vegas NV","g":{"type":"Polygon","coordinates":[[[-114.88,36.87],[-115.05,36.87],[-115.06,37.08],[-114.61,37.38],[-114.47,37.36],[-114.57,37.25],[-114.88,36.87]]]}}]}
