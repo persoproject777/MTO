@@ -1756,6 +1756,17 @@ async function aeronefs() {
           partent donc au plus près de la publication. */
        ["aeronefs", aeronefs]];
 
+  /* Sources retirées : leurs derniers fichiers sont supprimés ICI, par le robot
+     lui-même. Les supprimer dans un commit manuel pendant qu'un service de
+     collecte tourne encore avec l'ancien code créait un conflit « modifié /
+     supprimé » que sa resynchronisation automatique ne sait pas résoudre. */
+  for (const vieux of fs.readdirSync(OUT)) {
+    if (vieux === "sigmet.json" || vieux === "fwi.json" || /^fwi-\d{4}-\d{2}-\d{2}\.png$/.test(vieux)) {
+      try { fs.unlinkSync(path.join(OUT, vieux)); console.log("  -  " + vieux.padEnd(14) + " source retirée, fichier supprimé"); }
+      catch (e) { console.log("  x  " + vieux + " : suppression impossible (" + e.message + ")"); }
+    }
+  }
+
   let failed = 0;
   for (const [name, fn] of tasks) {
     try { await fn(); }
