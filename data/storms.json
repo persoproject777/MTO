@@ -1,1 +1,1 @@
-{"t":1791207340615,"f":[]}
+{"t":1791218842104,"f":[{"ev":"Flash Flood Warning","sev":"Severe","cert":"Likely","urg":"Immediate","zone":"Calhoun, FL; Jackson, FL","d0":"2026-10-05T12:43:00-04:00","d1":"2026-10-05T15:45:00-04:00","on":true,"act":"NEW","tor":"","grele":"","vent":"","dep":null,"txt":"Flash Flood Warning issued October 5 at 12:43PM EDT until October 5 at 3:45PM EDT by NWS Tallahassee FL","g":{"type":"Polygon","coordinates":[[[-85.39,30.38],[-85.38,30.54],[-85.3,30.59],[-85.09,30.74],[-84.99,30.74],[-84.96,30.64],[-85.07,30.52],[-85.39,30.34],[-85.39,30.38]]]}}]}
