@@ -1,1 +1,1 @@
-{"t":1792159307358,"f":[]}
+{"t":1792165789178,"f":[{"ev":"Dust Storm Warning","sev":"Severe","cert":"Likely","urg":"Expected","zone":"Pinal, AZ","d0":"2026-10-16T08:40:00-07:00","d1":"2026-10-16T10:45:00-07:00","on":true,"act":"NEW","tor":"","grele":"","vent":"","dep":null,"txt":"Dust Storm Warning issued October 16 at 8:40AM MST until October 16 at 10:45AM MST by NWS Phoenix AZ","g":{"type":"Polygon","coordinates":[[[-112.09,33.15],[-112.1,33.18],[-112.04,33.2],[-111.95,33.2],[-111.94,33.17],[-112.01,33.15],[-112.09,33.15]]]}}]}
