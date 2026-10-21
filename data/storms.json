@@ -1,1 +1,1 @@
-{"t":1792586762147,"f":[{"ev":"Tornado Warning","sev":"Extreme","cert":"Observed","urg":"Immediate","zone":"Coconino, AZ","d0":"2026-10-21T05:41:00-07:00","d1":"2026-10-21T06:15:00-07:00","on":true,"act":"NEW","tor":"RADAR INDICATED","grele":"1.00","vent":"","dep":{"brg":220,"kt":30,"c":[35.27,-111.83]},"txt":"Tornado Warning issued October 21 at 5:41AM MST until October 21 at 6:15AM MST by NWS Flagstaff AZ","g":{"type":"Polygon","coordinates":[[[-111.83,35.21],[-111.91,35.27],[-111.73,35.55],[-111.52,35.42],[-111.83,35.21]]]}}]}
+{"t":1792587686887,"f":[]}
