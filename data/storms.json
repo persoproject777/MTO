@@ -1,1 +1,1 @@
-{"t":1792743450243,"f":[]}
+{"t":1792782806133,"f":[{"ev":"Severe Thunderstorm Warning","sev":"Severe","cert":"Observed","urg":"Immediate","zone":"Rio Arriba, NM","d0":"2026-10-23T13:11:00-06:00","d1":"2026-10-23T13:45:00-06:00","on":true,"act":"NEW","tor":"","grele":"1.00","vent":"60 MPH","dep":{"brg":221,"kt":26,"c":[36.82,-106.67]},"txt":"Severe Thunderstorm Warning issued October 23 at 1:11PM MDT until October 23 at 1:45PM MDT by NWS Albuquerque NM","g":{"type":"Polygon","coordinates":[[[-106.64,36.72],[-106.83,36.8],[-106.7,36.99],[-106.24,36.99],[-106.64,36.72]]]}}]}
