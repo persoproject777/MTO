@@ -1,1 +1,1 @@
-{"t":1792858385214,"f":[{"ev":"Severe Thunderstorm Warning","sev":"Severe","cert":"Observed","urg":"Immediate","zone":"San Juan, NM","d0":"2026-10-24T10:09:00-06:00","d1":"2026-10-24T10:30:00-06:00","on":true,"act":"CON","tor":"","grele":"","vent":"60 MPH","dep":{"brg":192,"kt":30,"c":[36.31,-108.38]},"txt":"Severe Thunderstorm Warning issued October 24 at 10:09AM MDT until October 24 at 10:30AM MDT by NWS Albuquerque NM","g":{"type":"Polygon","coordinates":[[[-108.24,36.36],[-108.47,36.39],[-108.49,36.82],[-108.1,36.78],[-108.24,36.36]]]}}]}
+{"t":1792859708879,"f":[]}
