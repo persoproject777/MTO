@@ -1,1 +1,1 @@
-{"t":1792921937068,"f":[]}
+{"t":1792964681309,"f":[{"ev":"Tornado Warning","sev":"Extreme","cert":"Observed","urg":"Immediate","zone":"Quay, NM","d0":"2026-10-25T15:38:00-06:00","d1":"2026-10-25T16:00:00-06:00","on":true,"act":"CON","tor":"RADAR INDICATED","grele":"","vent":"","dep":{"brg":207,"kt":21,"c":[34.7,-103.75]},"txt":"Tornado Warning issued October 25 at 3:38PM MDT until October 25 at 4:00PM MDT by NWS Albuquerque NM","g":{"type":"Polygon","coordinates":[[[-103.7,34.69],[-103.78,34.74],[-103.74,34.86],[-103.54,34.8],[-103.7,34.69]]]}}]}
