@@ -1,1 +1,1 @@
-{"t":1794088597699,"f":[]}
+{"t":1794136499627,"f":[{"ev":"Flash Flood Warning","sev":"Severe","cert":"Likely","urg":"Immediate","zone":"Duval, TX; Webb, TX","d0":"2026-11-08T05:04:00-06:00","d1":"2026-11-08T08:00:00-06:00","on":true,"act":"NEW","tor":"","grele":"","vent":"","dep":null,"txt":"Flash Flood Warning issued November 8 at 5:04AM CST until November 8 at 8:00AM CST by NWS Corpus Christi TX","g":{"type":"Polygon","coordinates":[[[-99.32,27.61],[-98.93,27.76],[-98.75,27.73],[-98.57,27.69],[-98.54,27.46],[-99.16,27.31],[-99.32,27.61]]]}}]}
