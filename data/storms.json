@@ -1,1 +1,1 @@
-{"t":1794773454139,"f":[]}
+{"t":1794861010377,"f":[{"ev":"Tornado Warning","sev":"Extreme","cert":"Observed","urg":"Immediate","zone":"Santa Cruz, CA","d0":"2026-11-16T12:16:00-08:00","d1":"2026-11-16T13:00:00-08:00","on":true,"act":"NEW","tor":"RADAR INDICATED","grele":"0.00","vent":"","dep":{"brg":301,"kt":12,"c":[37.12,-122.24]},"txt":"Tornado Warning issued November 16 at 12:16PM PST until November 16 at 1:00PM PST by NWS San Francisco CA","g":{"type":"Polygon","coordinates":[[[-122.3,37.12],[-122.25,37.16],[-122.12,37.12],[-122.22,37.05],[-122.3,37.12]]]}}]}
