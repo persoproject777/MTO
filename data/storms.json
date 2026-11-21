@@ -1,1 +1,1 @@
-{"t":1795281219032,"f":[{"ev":"Tornado Warning","sev":"Extreme","cert":"Observed","urg":"Immediate","zone":"Broward, FL; Miami-Dade, FL","d0":"2026-11-21T11:57:00-05:00","d1":"2026-11-21T12:30:00-05:00","on":true,"act":"NEW","tor":"RADAR INDICATED","grele":"Up to .75","vent":"","dep":{"brg":239,"kt":14,"c":[25.89,-80.36]},"txt":"Tornado Warning issued November 21 at 11:57AM EST until November 21 at 12:30PM EST by NWS Miami FL","g":{"type":"Polygon","coordinates":[[[-80.38,25.85],[-80.42,25.96],[-80.27,26.03],[-80.18,25.88],[-80.38,25.85]]]}}]}
+{"t":1795282133372,"f":[]}
