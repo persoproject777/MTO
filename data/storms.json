@@ -1,1 +1,1 @@
-{"t":1795318544663,"f":[{"ev":"Tornado Warning","sev":"Extreme","cert":"Observed","urg":"Immediate","zone":"St. Lucie, FL","d0":"2026-11-21T22:28:00-05:00","d1":"2026-11-21T22:45:00-05:00","on":true,"act":"CON","tor":"RADAR INDICATED","grele":"0.00","vent":"","dep":{"brg":222,"kt":18,"c":[27.3,-80.29]},"txt":"Tornado Warning issued November 21 at 10:28PM EST until November 21 at 10:45PM EST by NWS Melbourne FL","g":{"type":"Polygon","coordinates":[[[-80.31,27.34],[-80.23,27.4],[-80.18,27.28],[-80.23,27.26],[-80.28,27.26],[-80.31,27.34]]]}}]}
+{"t":1795319458265,"f":[]}
